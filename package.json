@@ -1,0 +1,17 @@
+{
+  "name": "sincro",
+  "version": "1.0.0",
+  "description": "Suite rítmica de Movimiento Funcional — DDR + Guitar Hero en navegador",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "typecheck": "echo 'sincro es vanilla JS, sin TypeScript — skip'",
+    "lint": "echo 'sin ESLint configurado — skip'"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.0"
+  },
+  "packageManager": "pnpm@10.24.0"
+}

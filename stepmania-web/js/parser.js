@@ -272,3 +272,20 @@ function quantColorFor(row, total) {
   if (idx %  3 === 0) return '#ff8800';   // 64ths
   return '#cccccc';
 }
+
+// ----- Doble export: classic-script (window) + CommonJS (Node/Vitest) -------
+// El navegador ya tiene estas funciones en scope global porque se cargan vía
+// <script>. Para que los tests de Vitest puedan importarlas con require(),
+// las re-exponemos aquí. Cero impacto en runtime de navegador (module está
+// undefined ahí). Si añades una función pública nueva, agrégala a este map.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    parseSscOrSm,
+    parseSscPairs,
+    buildTimingEngine,
+    parseAttacks,
+    lanesFromStepType,
+    parseNotesToEvents,
+    quantColorFor,
+  };
+}

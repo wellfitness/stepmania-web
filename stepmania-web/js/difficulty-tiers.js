@@ -256,7 +256,10 @@
     return [...set].sort((a, b) => a - b);
   }
 
-  window.DifficultyTiers = {
+  // Doble export: classic-script (window) + CommonJS (Node/Vitest).
+  // En navegador `module` es undefined, así que el guard CJS no se ejecuta.
+  // En Node, `window` puede no existir — guardamos también ese caso.
+  const api = {
     TIER_CONFIG,
     PRESET_MULTIPLIER,
     rhythmPriority,
@@ -265,5 +268,7 @@
     filterTicks,
     generateBeatGrid
   };
+  if (typeof window !== 'undefined') window.DifficultyTiers = api;
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
 
 })();

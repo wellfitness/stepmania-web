@@ -9,6 +9,11 @@ stepmania-5_1-new/
 # Husky (hook roto: llama pnpm en proyecto sin package.json)
 .husky/
 
+# Node / Vitest
+node_modules/
+coverage/
+.vitest/
+
 # Variables de entorno y credenciales (NUNCA commitear)
 .env
 .env.*
