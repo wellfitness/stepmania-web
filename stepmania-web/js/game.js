@@ -256,15 +256,30 @@ function getArrowSprite(rotation, color) {
 resizeCanvas();
 
 // ----- Game lifecycle --------------------------------------------------------
+// startGame() puede tardar 1-3s entre awaits (resume, arrayBuffer, decodeAudioData,
+// runCountdown). Si el usuario navega a otra pantalla durante ese intervalo,
+// `goto()` bumpea el navToken — capturamos el token al inicio y verificamos
+// tras cada await; si ya no es el actual, abandonamos sin tocar UI ni crear
+// gameState. Sin esto, una promesa abandonada terminaba creando un loop
+// fantasma sobre la pantalla equivocada.
+//
+// Errores en decodeAudioData (formato corrupto, OGG en iOS Safari…) se
+// capturan en el try/catch externo y se muestran al usuario en la pantalla
+// `diff` con mensaje accionable, no como pantalla negra silenciosa.
 async function startGame() {
   if (!selectedSong || !selectedChart) { goto('songs'); return; }
-  resizeCanvas();
-  ensureAudioCtx();
-  if (audioCtx.state === 'suspended') await audioCtx.resume();
+  const myNavToken = currentNavToken();
+  const aborted = () => !isCurrentNav(myNavToken);
+  try {
+    resizeCanvas();
+    await ensureAudioCtxRunning();
+    if (aborted()) return;
 
-  // Decode audio
-  const arrayBuf = await selectedSong.audioBlob.arrayBuffer();
-  const audioBuffer = await audioCtx.decodeAudioData(arrayBuf.slice(0));
+    // Decode audio
+    const arrayBuf = await selectedSong.audioBlob.arrayBuffer();
+    if (aborted()) return;
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuf.slice(0));
+    if (aborted()) return;
 
   // Parse chart from sscText with timing engine
   const parsed = parseSscOrSm(selectedSong.sscText);
@@ -329,6 +344,7 @@ async function startGame() {
 
   // Countdown 3-2-1-GO before starting audio
   await runCountdown();
+  if (aborted()) { document.getElementById('countdown').classList.add('hidden'); return; }
 
   // Start audio
   const src = audioCtx.createBufferSource();
@@ -382,7 +398,24 @@ async function startGame() {
 
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
+  showTouchControls();
   requestAnimationFrame(gameLoop);
+  } catch (err) {
+    // Cualquier fallo en la cadena async (decodeAudioData con OGG en iOS,
+    // arrayBuffer corrupto, parseSscOrSm con chart inválido…) cae aquí.
+    // En vez de pantalla negra silenciosa, mostramos el motivo y devolvemos
+    // al usuario a la pantalla de dificultad para que pueda elegir otra.
+    if (aborted()) return; // navegó fuera mientras cargaba — silencio OK
+    console.error('startGame failed:', err);
+    const msg = (err && err.name === 'EncodingError')
+      ? 'No se pudo decodificar el audio. Formato no soportado por este navegador (prueba MP3 o WAV).'
+      : (err && err.message) ? err.message : 'Error desconocido al iniciar la canción.';
+    document.getElementById('countdown').classList.add('hidden');
+    // Toast simple: alert() es invasivo pero garantiza visibilidad. Si en
+    // futuro hay sistema de toasts global, reemplazar aquí.
+    alert('No se pudo iniciar la canción.\n\n' + msg);
+    goto('diff');
+  }
 }
 
 function runCountdown() {
@@ -408,12 +441,121 @@ function runCountdown() {
 
 function stopGame() {
   if (!gameState) return;
-  try { gameState.src.stop(); } catch(e) {}
+  // Anular onended ANTES de stop(): src.stop() también dispara onended, y si
+  // no lo limpiamos primero queda agendado un setTimeout(endGame) que se
+  // ejecuta 500ms después con gameState ya nulo. Funcionaba por defensa
+  // interna de endGame, no por diseño — ahora cortamos en origen.
+  if (gameState.src) {
+    gameState.src.onended = null;
+    try { gameState.src.stop(); } catch(e) {}
+  }
   // Restore user mods snapshot so attacks don't bleed into the next play
   if (gameState.baseMods) Object.assign(activeMods, gameState.baseMods);
   window.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('keyup', onKeyUp);
+  hideTouchControls();
   gameState = null;
+}
+
+// ----- Touch overlay para móvil ---------------------------------------------
+// La PWA se instala en Android y se enlaza desde la landing móvil ("Pisa el
+// ritmo, …"), pero el motor solo escuchaba teclado + Gamepad API → en móvil
+// el usuario llegaba a una pantalla muerta. Este overlay añade 4 zonas táctiles
+// (← ↓ ↑ →) en la mitad inferior de la pantalla, mapeadas a los carriles
+// cardinales por nombre vía LANE_CONFIGS[4].keyMap. Solo activo cuando:
+//   - El dispositivo expone touch ('ontouchstart' || maxTouchPoints > 0).
+//   - El chart se juega en modo default 4-lane (no Solo, no Full — los mods
+//     6/8 carriles requieren teclas extra que no tienen mapeo táctil natural).
+// Si el chart pide 6/8, mostramos un mensaje en vez del overlay.
+let _touchOverlayEl = null;
+const _IS_TOUCH = (typeof window !== 'undefined') && (
+  ('ontouchstart' in window) || (navigator.maxTouchPoints > 0)
+);
+
+function _ensureTouchOverlay() {
+  if (_touchOverlayEl) return _touchOverlayEl;
+  const root = document.createElement('div');
+  root.id = 'touchPad';
+  root.style.cssText = [
+    'position:fixed', 'left:0', 'right:0', 'bottom:52px', // 52px = HUD footer
+    'height:38vh', 'display:none', 'z-index:50',
+    'pointer-events:none', // solo los hijos capturan
+    'user-select:none', '-webkit-user-select:none',
+    'touch-action:none', // evitar scroll/zoom en gestos
+  ].join(';');
+  // 4 botones en fila, 25% width cada uno. Orden y rótulos coinciden con
+  // LANE_CONFIGS[4]: lane 0=Left, 1=Down, 2=Up, 3=Right.
+  const labels = ['←', '↓', '↑', '→'];
+  const colors = LANE_CONFIGS[4].tints;
+  for (let i = 0; i < 4; i++) {
+    const b = document.createElement('div');
+    b.dataset.lane = String(i);
+    b.style.cssText = [
+      'position:absolute', 'top:0', 'bottom:0',
+      `left:${i * 25}%`, 'width:25%',
+      'margin:6px',
+      'border-radius:14px',
+      `background:linear-gradient(180deg, ${colors[i]}33, ${colors[i]}10)`,
+      `border:2px solid ${colors[i]}88`,
+      'display:flex', 'align-items:center', 'justify-content:center',
+      'font-size:clamp(48px, 12vh, 96px)', 'font-weight:bold',
+      `color:${colors[i]}`,
+      'pointer-events:auto', 'cursor:pointer',
+      'transition:transform 80ms ease, background 80ms ease',
+      'box-shadow:0 4px 16px rgba(0,0,0,0.4)',
+    ].join(';');
+    b.textContent = labels[i];
+    // touch + pointer events: pointer cubre lápiz/stylus/touch en navegadores
+    // modernos. Mantenemos touchstart como fallback explícito iOS Safari viejo.
+    const press = (e) => {
+      e.preventDefault();
+      if (!gameState || gameState.finished) return;
+      const lane = parseInt(b.dataset.lane);
+      if (gameState.keyHeld[lane]) return;
+      gameState.keyHeld[lane] = true;
+      gameState.pressedLanes[lane] = true;
+      gameState.flashTime[lane] = performance.now();
+      b.style.transform = 'scale(0.95)';
+      b.style.background = `linear-gradient(180deg, ${colors[lane]}aa, ${colors[lane]}44)`;
+      handleLanePress(lane);
+    };
+    const release = (e) => {
+      e.preventDefault();
+      if (!gameState) return;
+      const lane = parseInt(b.dataset.lane);
+      gameState.keyHeld[lane] = false;
+      if (!gamepadButtonState[gameState.laneConfig.padMap[lane]]) {
+        gameState.pressedLanes[lane] = false;
+        handleLaneRelease(lane);
+      }
+      b.style.transform = '';
+      b.style.background = `linear-gradient(180deg, ${colors[lane]}33, ${colors[lane]}10)`;
+    };
+    b.addEventListener('pointerdown', press);
+    b.addEventListener('pointerup', release);
+    b.addEventListener('pointercancel', release);
+    b.addEventListener('pointerleave', release);
+    root.appendChild(b);
+  }
+  document.body.appendChild(root);
+  _touchOverlayEl = root;
+  return root;
+}
+
+function showTouchControls() {
+  if (!_IS_TOUCH) return;
+  if (!gameState || gameState.laneConfig.lanes !== 4) {
+    // Modo Solo/Full no tiene mapeo táctil natural — avisamos.
+    if (gameState && gameState.laneConfig.lanes !== 4) {
+      console.info('Touch overlay omitido: chart de ' + gameState.laneConfig.lanes + ' carriles. Usa teclado o alfombra.');
+    }
+    return;
+  }
+  const el = _ensureTouchOverlay();
+  el.style.display = 'block';
+}
+function hideTouchControls() {
+  if (_touchOverlayEl) _touchOverlayEl.style.display = 'none';
 }
 
 function onKeyDown(e) {

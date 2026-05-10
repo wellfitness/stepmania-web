@@ -18,7 +18,7 @@
 // Aviso: NO interceptamos requests POST ni con header Range (audio range
 // requests del motor son delicados — los dejamos pasar a network).
 
-const CACHE_VERSION = 'sincro-v2';
+const CACHE_VERSION = 'sincro-v3';
 const PRECACHE      = `${CACHE_VERSION}-shell`;
 const RUNTIME       = `${CACHE_VERSION}-runtime`;
 
@@ -111,7 +111,20 @@ function networkFirst(req) {
       }
       return res;
     })
-    .catch(() => caches.match(req).then((m) => m || caches.match('/index.html')));
+    .catch(() => caches.match(req).then((m) => {
+      if (m) return m;
+      // Fallback offline: si la URL solicitada es del shell SPA (app.html y
+      // todas las rutas hash que monta), caemos a app.html para no perder
+      // contexto. Cualquier otra URL navegacional cae a la landing pública.
+      const url = new URL(req.url);
+      const isShellRoute = url.pathname === '/' ||
+                           url.pathname.startsWith('/app') ||
+                           url.pathname.startsWith('/play') ||
+                           url.pathname.startsWith('/gh-') ||
+                           url.pathname.startsWith('/autostepper') ||
+                           url.pathname.startsWith('/test-pad');
+      return caches.match(isShellRoute ? '/app.html' : '/index.html');
+    }));
 }
 
 function cacheFirst(req) {

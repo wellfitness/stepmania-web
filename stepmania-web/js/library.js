@@ -87,7 +87,15 @@ document.getElementById('importPackInput').addEventListener('change', async e =>
     toProcess.push({ ssc, audio, folder });
   }
 
+  // Distinguimos QuotaExceededError del resto: en iOS Safari (~50MB total) y
+  // en Android con almacenamiento bajo es la causa más común y merece mensaje
+  // accionable. Si la cuota truena, parar el bucle (los siguientes también
+  // fallarán) y avisar; el resto de errores se cuentan como "omitidas" con
+  // motivo agrupado.
+  let quotaHit = false;
+  const errorReasons = new Map();
   for (const { ssc, audio, folder } of toProcess) {
+    if (quotaHit) { skipped++; continue; }
     try {
       const sscText = await ssc.text();
       const parsed = parseSscOrSm(sscText);
@@ -126,10 +134,22 @@ document.getElementById('importPackInput').addEventListener('change', async e =>
       status.textContent = `Importando ${imported}/${toProcess.length}...`;
     } catch (err) {
       skipped++;
+      const reason = (err && (err.name || err.constructor && err.constructor.name)) || 'desconocido';
+      errorReasons.set(reason, (errorReasons.get(reason) || 0) + 1);
+      if (err && err.name === 'QuotaExceededError') quotaHit = true;
     }
   }
 
-  status.innerHTML = `<span style="color:var(--color-success)">✓ ${imported} canciones importadas${skipped ? ` · ${skipped} omitidas (sin audio o error de parseo)` : ''}</span>`;
+  if (quotaHit) {
+    const info = await getStorageInfo();
+    const used = info ? `${info.usedMB} MB` : 'la cuota disponible';
+    status.innerHTML = `<span style="color:var(--color-warning)">⚠️ Almacenamiento lleno tras importar ${imported} canciones. Tu navegador limita la librería a ${used}. Elimina canciones antiguas o haz un backup ZIP y libera espacio antes de seguir.</span>`;
+  } else {
+    const reasonsText = errorReasons.size
+      ? ' (' + [...errorReasons.entries()].map(([k,v]) => `${v}× ${k}`).join(', ') + ')'
+      : '';
+    status.innerHTML = `<span style="color:var(--color-success)">✓ ${imported} canciones importadas${skipped ? ` · ${skipped} omitidas${reasonsText}` : ''}</span>`;
+  }
   refreshLibrary();
   e.target.value = '';
 });
@@ -143,45 +163,63 @@ document.getElementById('importInput').addEventListener('change', async e => {
     return;
   }
   // Pair them by name (best effort)
+  let imported = 0;
+  let quotaHit = false;
+  let lastError = null;
   for (const sFile of sscFiles) {
-    const sscText = await sFile.text();
-    const parsed = parseSscOrSm(sscText);
-    const baseName = sFile.name.replace(/\.[^.]+$/, '');
-    let audio = audioFiles.find(a => a.name.replace(/\.[^.]+$/, '') === baseName)
-             || audioFiles.find(a => a.name === parsed.header.MUSIC)
-             || audioFiles[0];
-    const bpm = parseFloat((parsed.header.BPMS || '0=120').split('=')[1]) || 120;
-    const offsetSec = -parseFloat(parsed.header.OFFSET || '0');
-    const sampleStart = parseFloat(parsed.header.SAMPLESTART || '30');
-    // Determine duration from audio
-    const ctx2 = ensureAudioCtx();
-    const arrayBuf = await audio.arrayBuffer();
-    const decoded = await ctx2.decodeAudioData(arrayBuf.slice(0));
-    await dbAdd({
-      title: parsed.header.TITLE || baseName,
-      artist: parsed.header.ARTIST || 'Unknown',
-      audioBlob: audio,
-      audioName: audio.name,
-      sscText,
-      bpm, offsetSec,
-      duration: decoded.duration,
-      sampleStart,
-      charts: parsed.charts.map(c => {
-        const stepType = (c.STEPSTYPE || 'dance-single');
-        const numLanes = (typeof lanesFromStepType === 'function') ? lanesFromStepType(stepType) : 4;
-        const emptyRow = '0'.repeat(numLanes);
-        return {
-          name: c.DIFFICULTY || 'Edit',
-          key: (c.DIFFICULTY || 'edit').toLowerCase(),
-          rating: parseInt(c.METER || '1') || 1,
-          count: (c.NOTES || '').split('\n').filter(r => r.length >= numLanes && r !== emptyRow).length,
-          stepType, numLanes
-        };
-      }),
-      addedAt: Date.now()
-    });
+    if (quotaHit) break;
+    try {
+      const sscText = await sFile.text();
+      const parsed = parseSscOrSm(sscText);
+      const baseName = sFile.name.replace(/\.[^.]+$/, '');
+      let audio = audioFiles.find(a => a.name.replace(/\.[^.]+$/, '') === baseName)
+               || audioFiles.find(a => a.name === parsed.header.MUSIC)
+               || audioFiles[0];
+      const bpm = parseFloat((parsed.header.BPMS || '0=120').split('=')[1]) || 120;
+      const offsetSec = -parseFloat(parsed.header.OFFSET || '0');
+      const sampleStart = parseFloat(parsed.header.SAMPLESTART || '30');
+      // Determine duration from audio
+      const ctx2 = ensureAudioCtx();
+      const arrayBuf = await audio.arrayBuffer();
+      const decoded = await ctx2.decodeAudioData(arrayBuf.slice(0));
+      await dbAdd({
+        title: parsed.header.TITLE || baseName,
+        artist: parsed.header.ARTIST || 'Unknown',
+        audioBlob: audio,
+        audioName: audio.name,
+        sscText,
+        bpm, offsetSec,
+        duration: decoded.duration,
+        sampleStart,
+        charts: parsed.charts.map(c => {
+          const stepType = (c.STEPSTYPE || 'dance-single');
+          const numLanes = (typeof lanesFromStepType === 'function') ? lanesFromStepType(stepType) : 4;
+          const emptyRow = '0'.repeat(numLanes);
+          return {
+            name: c.DIFFICULTY || 'Edit',
+            key: (c.DIFFICULTY || 'edit').toLowerCase(),
+            rating: parseInt(c.METER || '1') || 1,
+            count: (c.NOTES || '').split('\n').filter(r => r.length >= numLanes && r !== emptyRow).length,
+            stepType, numLanes
+          };
+        }),
+        addedAt: Date.now()
+      });
+      imported++;
+    } catch (err) {
+      lastError = err;
+      if (err && err.name === 'QuotaExceededError') quotaHit = true;
+    }
   }
-  alert(sscFiles.length + ' canción(es) importada(s).');
+  if (quotaHit) {
+    const info = await getStorageInfo();
+    const used = info ? `${info.usedMB} MB` : 'la cuota disponible';
+    alert(`Almacenamiento lleno tras importar ${imported} canciones.\n\nTu navegador limita la librería a ${used}. Elimina canciones antiguas o haz un backup ZIP antes de seguir.`);
+  } else if (lastError) {
+    alert(`${imported} canción(es) importada(s).\nAlgunas fallaron: ${lastError.name || 'error'}.`);
+  } else {
+    alert(imported + ' canción(es) importada(s).');
+  }
   refreshLibrary();
   e.target.value = '';
 });

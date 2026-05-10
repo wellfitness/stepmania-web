@@ -13,6 +13,11 @@ const CRUMBS = {
 let currentScreen = 'menu';
 
 function goto(name) {
+  // Bump del token de navegación: cualquier promesa async en vuelo capturada
+  // antes de este punto verá `isCurrentNav(token) === false` y se abortará
+  // en su próximo await. Imprescindible para evitar que startGame() siga
+  // creando estado tras un ESC durante decodeAudioData (~3s en charts grandes).
+  bumpNavToken();
   if (currentScreen === 'play' && name !== 'play') stopGame();
   if (currentScreen === 'songs' && name !== 'songs') {
     if (typeof cancelSongPreview === 'function') cancelSongPreview();
