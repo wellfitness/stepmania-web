@@ -5,7 +5,7 @@
 
 const SCREENS = ['menu', 'pad', 'create', 'library', 'songs', 'diff', 'play', 'results', 'calib', 'tutorial'];
 const CRUMBS = {
-  menu: '', pad: 'Test de alfombra', create: 'Crear charts',
+  menu: '', pad: 'Test de alfombra', create: 'Crear coreografías',
   library: 'Librería', songs: 'Jugar', diff: 'Dificultad',
   play: 'Jugando', results: 'Resultados', calib: 'Calibración',
   tutorial: 'Tutorial'
@@ -14,14 +14,23 @@ let currentScreen = 'menu';
 
 function goto(name) {
   if (currentScreen === 'play' && name !== 'play') stopGame();
-  if (currentScreen === 'songs' && name !== 'songs' && typeof cancelSongPreview === 'function') cancelSongPreview();
+  if (currentScreen === 'songs' && name !== 'songs') {
+    if (typeof cancelSongPreview === 'function') cancelSongPreview();
+    // Cancelar el preview-loop al salir de songs-screen para no quemar GPU
+    if (typeof _stopPreviewLoop === 'function') _stopPreviewLoop();
+  }
   for (const s of SCREENS) {
     document.getElementById(s + '-screen').classList.toggle('hidden', s !== name);
   }
   currentScreen = name;
   document.getElementById('crumb').textContent = CRUMBS[name] ? '· ' + CRUMBS[name] : '';
   if (name === 'library') refreshLibrary();
-  if (name === 'songs')   refreshSongs();
+  if (name === 'songs')   {
+    refreshSongs();
+    if (typeof bindSongsScreenConfig === 'function') bindSongsScreenConfig();
+    // Arrancar el preview-loop al entrar a songs-screen
+    if (typeof _startPreviewLoop === 'function') _startPreviewLoop();
+  }
   if (name === 'diff')    renderDiffScreen();
   if (name === 'play')    startGame();
 }

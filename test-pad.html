@@ -65,30 +65,51 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    font-size: 2.2em;
-    margin-bottom: 4px;
+    font-size: 2.4em;
+    margin-bottom: 6px;
     letter-spacing: 0.02em;
   }
 
-  .subtitle { color: var(--gris-400); text-align: center; margin-bottom: 18px; font-size: 0.9em; }
+  .subtitle {
+    color: var(--gris-300);
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 0.95em;
+    line-height: 1.5;
+    max-width: 720px;
+    margin-left: auto; margin-right: auto;
+  }
 
-  /* MODE SELECTOR (alfombra / guitarra) */
+  /* MODE SELECTOR (alfombra / guitarra) — Toggle tipo segmented control prominente.
+     Texto grande y peso alto porque define qué se prueba en TODA la pantalla. */
   .mode-selector {
     display: flex; gap: 6px; max-width: 600px;
-    margin: 0 auto 16px; padding: 6px;
-    background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.08);
+    margin: 0 auto 18px; padding: 6px;
+    background: rgba(0,0,0,0.55); border: 1px solid rgba(255,255,255,0.10);
     border-radius: 14px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.35);
   }
   .mode-btn {
     flex: 1; padding: 14px 18px; border: none; cursor: pointer;
-    background: transparent; color: var(--gris-400);
+    background: transparent; color: var(--gris-300);
     font-family: var(--font-display); font-size: 1.05em; letter-spacing: 0.04em;
     border-radius: 10px; transition: all 0.2s;
   }
-  .mode-btn:hover { color: #fff; background: rgba(255,255,255,0.04); }
+  .mode-btn:hover {
+    color: #fff; background: rgba(255,255,255,0.05);
+  }
+  .mode-btn:focus-visible {
+    outline: 2px solid var(--turquesa-400); outline-offset: 2px;
+  }
   .mode-btn.active {
     background: linear-gradient(135deg, var(--turquesa-600), var(--turquesa-700));
-    color: #fff; box-shadow: 0 0 20px rgba(0,190,200,0.35);
+    color: #fff; box-shadow: 0 4px 18px rgba(0,190,200,0.4), inset 0 1px 0 rgba(255,255,255,0.18);
+    transform: translateY(-1px);
+  }
+  /* Modo guitarra: el toggle activo tira a naranja para emparejar el resto del modo */
+  .mode-btn[data-mode="guitar"].active {
+    background: linear-gradient(135deg, var(--fret-orange), var(--fret-red));
+    box-shadow: 0 4px 18px rgba(249,115,22,0.4), inset 0 1px 0 rgba(255,255,255,0.18);
   }
   .mode-btn .mode-icon { font-size: 1.4em; margin-right: 8px; }
 
@@ -318,79 +339,204 @@
     box-shadow: 0 0 12px var(--color-success);
   }
 
-  /* INFO PANEL */
+  /* INFO PANEL — Sidebar de estado del dispositivo (conectado, polling, etc).
+     Antes: padding tight, jerarquía pobre entre secciones.
+     Ahora: secciones h2 separadas con espaciado, valores tabulares alineados. */
   .info-panel {
-    background: rgba(0,0,0,0.4);
-    padding: 16px 20px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.4));
+    padding: 18px 22px;
     border-radius: 14px;
     min-width: 300px;
-    border: 1px solid rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.10);
     flex: 1;
     max-width: 400px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.3);
   }
   .info-panel h2 {
-    color: var(--turquesa-400); margin-bottom: 10px; font-size: 1em;
+    color: var(--turquesa-400); margin-bottom: 12px; font-size: 1em;
     font-family: var(--font-display); letter-spacing: 0.02em;
-    border-bottom: 1px solid rgba(0,190,200,0.35); padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0,190,200,0.35); padding-bottom: 8px;
   }
   .info-row {
-    display: flex; justify-content: space-between;
-    padding: 4px 0; font-size: 0.85em; font-family: var(--font-mono);
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; font-size: 0.88em; font-family: var(--font-mono);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
   }
+  .info-row:last-of-type { border-bottom: none; }
   .info-row .key { color: var(--gris-400); }
-  .info-row .value { color: var(--turquesa-400); font-weight: 600; }
+  .info-row .value {
+    color: var(--turquesa-400); font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
 
-  /* TABS */
+  /* TABS — Navegación interna entre las 9-11 secciones del diagnóstico.
+     Antes eran muy discretos (peso 600, padding pequeño). Ahora son
+     pildoras claras con la activa elevada visualmente. */
   .tabs {
-    display: flex; flex-wrap: wrap; gap: 4px;
+    display: flex; flex-wrap: wrap; gap: 6px;
     max-width: 1200px; margin: 0 auto 0;
-    border-bottom: 2px solid rgba(0,190,200,0.4);
-    padding-bottom: 0;
+    border-bottom: 2px solid rgba(0,190,200,0.35);
+    padding: 0 4px;
   }
   .tab-btn {
-    background: rgba(0,0,0,0.3); border: 1px solid rgba(0,190,200,0.3);
-    color: var(--gris-400); padding: 10px 18px; cursor: pointer;
-    border-radius: 8px 8px 0 0; font-size: 0.9em; font-weight: 600;
-    font-family: var(--font-sans);
-    transition: all 0.2s;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.08);
+    color: var(--gris-300); padding: 11px 18px; cursor: pointer;
+    border-radius: 10px 10px 0 0; font-size: 0.92em; font-weight: 700;
+    font-family: var(--font-sans); letter-spacing: 0.01em;
+    transition: all 0.18s; position: relative; bottom: -2px;
   }
-  .tab-btn:hover { color: #fff; background: rgba(0,190,200,0.18); }
+  .tab-btn:hover {
+    color: #fff;
+    background: rgba(0,190,200,0.14);
+    border-color: rgba(0,190,200,0.4);
+  }
+  .tab-btn:focus-visible {
+    outline: 2px solid var(--turquesa-400); outline-offset: 2px;
+  }
   .tab-btn.active {
     background: linear-gradient(135deg, var(--turquesa-600), var(--turquesa-700));
     color: #fff; border-color: transparent;
+    box-shadow: 0 -2px 12px rgba(0,190,200,0.35), inset 0 1px 0 rgba(255,255,255,0.18);
+    transform: translateY(-1px);
   }
   .tabs[data-mode-tabs="guitar"] .tab-btn.active {
     background: linear-gradient(135deg, var(--fret-orange), var(--fret-red));
+    box-shadow: 0 -2px 12px rgba(249,115,22,0.35), inset 0 1px 0 rgba(255,255,255,0.18);
+  }
+  /* Pestaña "Calibrar" — destacada como punto de entrada (paso 1).
+     Aro dorado discreto cuando NO está activa, así la usuaria que llega
+     y no sabe por dónde empezar la ve como la opción obvia primera. */
+  .tab-btn[data-tab="calibrate"]:not(.active) {
+    border-left: 3px solid var(--tulip-tree-500);
+    background: linear-gradient(180deg, rgba(250,204,21,0.08), rgba(0,0,0,0.4));
+  }
+  .tab-btn[data-tab="calibrate"]:not(.active)::before {
+    content: '①';
+    color: var(--tulip-tree-500);
+    margin-right: 6px;
+    font-size: 1.05em;
+  }
+  .tab-btn[data-tab="calibrate"].active::before {
+    content: '①';
+    margin-right: 6px;
+    opacity: 0.9;
+  }
+
+  /* Aviso de "calibra primero" mostrado dentro de tabs que dependen del
+     mapping (latency, jumps, frets, strum, chords). HTML+CSS only — la
+     usuaria lo ve antes de iniciar el test y sabe a dónde tiene que ir
+     si los inputs no responden. No es bloqueante; quien ya esté
+     calibrado simplemente lo lee y pasa. */
+  .calib-note {
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 0 16px;
+    padding: 10px 14px;
+    background: linear-gradient(90deg, rgba(250,204,21,0.10), rgba(250,204,21,0.04));
+    border: 1px solid rgba(250,204,21,0.25);
+    border-left: 4px solid var(--tulip-tree-500);
+    border-radius: 8px;
+    font-size: 0.86em; color: var(--gris-100);
+    line-height: 1.45;
+  }
+  .calib-note .calib-note-icon {
+    font-size: 1.25em; flex-shrink: 0;
+  }
+  .calib-note button {
+    margin-left: auto;
+    background: transparent;
+    border: 1px solid rgba(250,204,21,0.5);
+    color: var(--tulip-tree-400);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-family: var(--font-sans);
+    font-size: 0.92em; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .calib-note button:hover {
+    background: rgba(250,204,21,0.18);
+    border-color: var(--tulip-tree-500);
+    color: #fff;
+  }
+  .calib-note button:focus-visible {
+    outline: 2px solid var(--tulip-tree-500); outline-offset: 2px;
   }
 
   .tab-content {
     display: none;
     max-width: 1200px;
     margin: 0 auto;
-    padding: 24px;
-    background: rgba(0,0,0,0.35);
+    padding: 26px 28px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-top: none;
     border-radius: 0 0 14px 14px;
     min-height: 300px;
   }
   .tab-content.active { display: block; }
-
-  /* COMMON */
-  button.action-btn {
-    padding: 10px 20px;
-    background: linear-gradient(90deg, var(--turquesa-600), var(--turquesa-700));
-    border: none; color: white; border-radius: 8px;
-    cursor: pointer; font-weight: 600; margin: 4px;
-    font-family: var(--font-sans);
-    transition: opacity 0.2s;
+  /* Encabezado coherente dentro de cada tab — “sección” explícita */
+  .tab-content > h3.section-heading {
+    font-family: var(--font-display);
+    color: var(--turquesa-400);
+    font-size: 1.1em;
+    margin-bottom: 10px;
+    letter-spacing: 0.02em;
   }
-  button.action-btn:hover { opacity: 0.85; }
-  button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* COMMON — Botones de acción */
+  button.action-btn {
+    padding: 11px 22px;
+    background: linear-gradient(135deg, var(--turquesa-600), var(--turquesa-700));
+    border: none; color: white; border-radius: 9px;
+    cursor: pointer; font-weight: 700; margin: 4px;
+    font-family: var(--font-sans); font-size: 0.95em;
+    transition: transform 0.12s, box-shadow 0.18s, opacity 0.18s;
+    box-shadow: 0 2px 10px rgba(0,190,200,0.25);
+  }
+  button.action-btn:hover {
+    box-shadow: 0 4px 18px rgba(0,190,200,0.45);
+    transform: translateY(-1px);
+  }
+  button.action-btn:active { transform: translateY(0); }
+  button.action-btn:focus-visible {
+    outline: 2px solid var(--turquesa-400); outline-offset: 2px;
+  }
+  button.action-btn:disabled {
+    opacity: 0.4; cursor: not-allowed; transform: none;
+    box-shadow: none;
+  }
   button.action-btn.secondary {
     background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.18);
+    box-shadow: none;
+  }
+  button.action-btn.secondary:hover {
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(0,190,200,0.5);
+    box-shadow: 0 2px 10px rgba(255,255,255,0.05);
   }
   button.action-btn.danger {
-    background: linear-gradient(90deg, var(--rosa-600), var(--rosa-700));
+    background: linear-gradient(135deg, var(--rosa-600), var(--rosa-700));
+    box-shadow: 0 2px 10px rgba(225,29,72,0.3);
+  }
+  button.action-btn.danger:hover {
+    box-shadow: 0 4px 18px rgba(225,29,72,0.5);
+  }
+  /* CTA primario destacado (acciones tipo "Iniciar test") — usado donde hay
+     una acción claramente prominente que arranca un flujo. */
+  button.action-btn.primary-cta {
+    padding: 14px 32px;
+    font-family: var(--font-display);
+    font-size: 1.05em;
+    letter-spacing: 0.04em;
+    background: linear-gradient(135deg, var(--turquesa-600) 0%, var(--turquesa-700) 50%, var(--tulip-tree-500) 130%);
+    box-shadow: 0 4px 16px rgba(0,190,200,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+    text-transform: uppercase;
+  }
+  button.action-btn.primary-cta:hover {
+    box-shadow: 0 6px 24px rgba(0,190,200,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+    transform: translateY(-2px);
   }
 
   .button-grid {
@@ -410,21 +556,51 @@
     box-shadow: 0 0 12px var(--color-success); border-color: var(--color-success);
   }
 
+  /* STAT CARDS — Cards de métrica numérica.
+     Antes: pequeñas, color tenue, jerarquía pobre.
+     Ahora: número claramente protagonista, label secundario en mayúsculas,
+     subrayado superior con el color del estado (ok / warn / bad). */
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
-    margin-top: 12px;
+    gap: 14px;
+    margin-top: 14px;
   }
   .stat-card {
-    background: rgba(0,0,0,0.4); padding: 12px;
-    border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.4));
+    padding: 16px 14px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-top: 3px solid var(--turquesa-600);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    transition: border-color 0.18s, box-shadow 0.18s, transform 0.18s;
   }
-  .stat-card h3 { font-size: 0.8em; color: var(--gris-400); margin-bottom: 6px; font-weight: 500; }
-  .stat-card .big { font-size: 1.5em; font-weight: 700; color: var(--turquesa-400); font-family: var(--font-display); }
-  .stat-card .small { font-size: 0.75em; color: var(--gris-500); margin-top: 4px; }
+  .stat-card:hover {
+    border-top-color: var(--turquesa-400);
+    box-shadow: 0 4px 16px rgba(0,190,200,0.18);
+    transform: translateY(-2px);
+  }
+  .stat-card h3 {
+    font-size: 0.72em; color: var(--gris-400); margin-bottom: 8px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .stat-card .big {
+    font-size: 1.85em; font-weight: 700;
+    color: var(--turquesa-400);
+    font-family: var(--font-display);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-card .small {
+    font-size: 0.78em; color: var(--gris-400);
+    margin-top: 6px; line-height: 1.4;
+  }
+  .stat-card.warn { border-top-color: var(--color-warning); }
   .stat-card.warn .big { color: var(--color-warning); }
+  .stat-card.bad { border-top-color: var(--rosa-500); }
   .stat-card.bad .big { color: var(--rosa-500); }
+  .stat-card.ok { border-top-color: var(--color-success); }
+  .stat-card.ok .big { color: var(--color-success); }
 
   .axes-bar {
     height: 6px; background: rgba(255,255,255,0.08);
@@ -476,17 +652,25 @@
   }
   @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
+  /* Fila de controles (sliders, inputs numéricos) — estética unificada con cards */
   .control-row {
-    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
-    margin: 12px 0; padding: 12px; background: rgba(255,255,255,0.04);
-    border-radius: 8px;
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    margin: 14px 0; padding: 14px 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
   }
-  .control-row label { color: var(--gris-400); font-size: 0.85em; }
+  .control-row label {
+    color: var(--gris-300); font-size: 0.88em; font-weight: 600;
+  }
   .control-row input[type="number"], .control-row input[type="range"] {
     background: rgba(0,0,0,0.5); border: 1px solid rgba(0,190,200,0.4);
-    color: #fff; padding: 4px 8px; border-radius: 6px; font-family: var(--font-mono);
+    color: #fff; padding: 6px 10px; border-radius: 7px; font-family: var(--font-mono);
   }
-  .control-row input[type="range"] { width: 200px; }
+  .control-row input[type="range"] { width: 200px; accent-color: var(--turquesa-400); }
+  .control-row input:focus-visible {
+    outline: 2px solid var(--turquesa-400); outline-offset: 2px;
+  }
 
   .switch {
     position: relative; display: inline-block; width: 44px; height: 22px;
@@ -504,60 +688,123 @@
   .switch input:checked + .slider { background: linear-gradient(90deg, var(--turquesa-600), var(--turquesa-700)); }
   .switch input:checked + .slider::before { transform: translateX(22px); }
 
+  /* Texto de ayuda: bloque informativo al inicio de cada tab.
+     Más legible — line-height generoso, padding mayor, ícono opcional. */
   .help-text {
-    color: var(--gris-300); font-size: 0.85em; line-height: 1.5;
-    background: rgba(0,190,200,0.08); padding: 10px 14px;
-    border-left: 3px solid var(--turquesa-600); border-radius: 0 8px 8px 0;
-    margin: 12px 0;
+    color: var(--gris-200); font-size: 0.92em; line-height: 1.6;
+    background: linear-gradient(90deg, rgba(0,190,200,0.10), rgba(0,190,200,0.04));
+    padding: 14px 18px;
+    border-left: 4px solid var(--turquesa-600);
+    border-radius: 0 10px 10px 0;
+    margin: 0 0 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   }
-  .help-text strong { color: #fff; }
+  .help-text strong { color: #fff; font-weight: 700; }
+  .help-text code {
+    background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 4px;
+    font-family: var(--font-mono); font-size: 0.92em;
+    color: var(--tulip-tree-400);
+  }
 
+  /* CALIB-STEP — Card central de calibración guiada paso-a-paso */
   .calib-step {
     text-align: center;
-    padding: 20px;
-    background: rgba(0,0,0,0.45);
-    border-radius: 14px;
-    margin: 12px 0;
-    border: 2px dashed rgba(255,255,255,0.15);
+    padding: 24px 20px;
+    background:
+      radial-gradient(ellipse at top, rgba(0,190,200,0.10), transparent 70%),
+      rgba(0,0,0,0.5);
+    border-radius: 16px;
+    margin: 14px 0 18px;
+    border: 2px dashed rgba(255,255,255,0.18);
+    transition: border-color 0.2s;
   }
+  .calib-step:has(+ #calibStart:not([style*="display:none"])) { /* placeholder selector OK */ }
   .calib-step .calib-target {
     font-size: 2.4em;
     font-family: var(--font-display);
-    margin: 14px 0;
+    margin: 16px 0 12px;
+    line-height: 1.1;
     background: linear-gradient(90deg, var(--fret-green), var(--fret-yellow), var(--fret-orange));
     -webkit-background-clip: text; background-clip: text; color: transparent;
+    letter-spacing: 0.02em;
   }
+  /* CALIB-MAPPING — Lista de roles físicos.
+     CLAVE de UX: cada fila es CLICKABLE para reasignar ese rol concreto.
+     Antes el usuario no sabía que eran clickables. Ahora:
+       • cursor:pointer obvio + ícono ✎ a la derecha (aparece en hover)
+       • aria-role="button" en el HTML
+       • borde-izquierdo de color al hover indica "acción posible"
+       • estado pending pulsa con borde amarillo (paso activo). */
   .calib-mapping {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 8px;
     margin-top: 16px;
   }
   .calib-mapping .row {
     background: rgba(255,255,255,0.04);
-    padding: 10px 12px; border-radius: 8px;
+    padding: 12px 14px; border-radius: 10px;
     display: flex; justify-content: space-between; align-items: center;
-    font-size: 0.9em;
+    font-size: 0.92em;
     cursor: pointer;
-    border: 1px solid transparent;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-left: 3px solid rgba(255,255,255,0.10);
     transition: all 0.15s;
+    position: relative;
+  }
+  /* Sufijo "✎" — aparece al hacer hover, indica "click para reasignar" */
+  .calib-mapping .row::after {
+    content: '✎ Reasignar';
+    position: absolute;
+    right: 14px; top: 50%; transform: translateY(-50%);
+    background: rgba(0,190,200,0.85); color: #001416;
+    font-size: 0.7em; font-weight: 700; letter-spacing: 0.04em;
+    padding: 4px 10px; border-radius: 12px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.15s;
+    font-family: var(--font-sans);
+    box-shadow: 0 2px 8px rgba(0,190,200,0.4);
   }
   .calib-mapping .row:hover {
-    background: rgba(0,190,200,0.10);
-    border-color: rgba(0,190,200,0.4);
+    background: rgba(0,190,200,0.14);
+    border-color: rgba(0,190,200,0.5);
+    border-left-color: var(--turquesa-400);
+    transform: translateX(2px);
+  }
+  .calib-mapping .row:hover::after { opacity: 1; }
+  .calib-mapping .row:hover .val { opacity: 0.4; }
+  .calib-mapping .row:focus-visible {
+    outline: 2px solid var(--turquesa-400);
+    outline-offset: 2px;
   }
   .calib-mapping .row.pending {
-    background: linear-gradient(135deg, rgba(250,204,21,0.15), rgba(249,115,22,0.15)) !important;
+    background: linear-gradient(135deg, rgba(250,204,21,0.18), rgba(249,115,22,0.15)) !important;
     border-color: var(--tulip-tree-500) !important;
-    box-shadow: 0 0 16px rgba(250,204,21,0.5);
+    border-left-color: var(--tulip-tree-500) !important;
+    box-shadow: 0 0 18px rgba(250,204,21,0.45);
     animation: pulse 0.8s infinite alternate;
   }
-  .calib-mapping .row .name { color: var(--gris-300); }
-  .calib-mapping .row .val { font-family: var(--font-mono); color: var(--turquesa-400); font-weight: 700; }
-  .calib-mapping .row .val.unset { color: var(--gris-500); }
+  .calib-mapping .row.pending::after { display: none; }
+  .calib-mapping .row .name {
+    color: #fff; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .calib-mapping .row .val {
+    font-family: var(--font-mono);
+    color: var(--turquesa-400); font-weight: 700;
+    background: rgba(0,190,200,0.12);
+    padding: 3px 10px; border-radius: 6px;
+    font-size: 0.92em;
+    transition: opacity 0.15s;
+  }
+  .calib-mapping .row .val.unset {
+    color: var(--gris-500);
+    background: rgba(255,255,255,0.04);
+    font-style: italic;
+  }
   .calib-mapping .row .hint {
-    font-size: 0.7em; color: var(--gris-500);
-    font-style: italic; margin-left: 8px;
+    font-size: 0.72em; color: var(--gris-500);
+    font-style: italic; margin-left: 4px;
   }
   .calib-toast {
     position: fixed; top: 24px; right: 24px;
@@ -608,6 +855,20 @@
     #sat-topbar .topbar-link { padding: 6px 8px; font-size: 0; }
     #sat-topbar .topbar-link::first-letter { font-size: 16px; }
     #sat-topbar .crumb { display: none; }
+  }
+
+  /* Reduce motion — respeta la preferencia del sistema (animaciones agresivas
+     como pulse/slideIn). El layout y los colores no cambian. */
+  @media (prefers-reduced-motion: reduce) {
+    .calib-mapping .row.pending,
+    .panel.target,
+    .fret.target { animation: none !important; }
+    .history-item { animation: none !important; }
+    .calib-toast { animation: none !important; }
+    .stat-card,
+    .calib-mapping .row,
+    .mode-btn.active,
+    .tab-btn.active { transform: none !important; }
   }
 </style>
 </head>
@@ -774,8 +1035,8 @@
   <div class="help-text">
     Pulsa lo más rápido que puedas durante 10 segundos. Si el dispositivo <strong>pierde inputs bajo presión</strong>, te lo va a decir. Mide el tiempo entre pulsos: si hay un mínimo &lt; 30ms, podría ser bouncing (rebote del sensor).
   </div>
-  <div style="text-align:center">
-    <button class="action-btn" id="stressStart" onclick="startStress()">Iniciar (10s)</button>
+  <div style="text-align:center;margin:18px 0">
+    <button class="action-btn primary-cta" id="stressStart" onclick="startStress()">▶ Iniciar (10s)</button>
   </div>
   <div class="big-number" id="stressCount">0</div>
   <div class="progress-bar"><div class="fill" id="stressProgress"></div></div>
@@ -792,8 +1053,8 @@
   <div class="help-text">
     <strong>NO TOQUES el dispositivo durante este test</strong>. Detecta inputs fantasma — si algún botón se activa solo, hay un sensor con problema (un panel "pegado" o un cable haciendo falso contacto). Eso te metería arrows fallidas en StepMania sin que las pises.
   </div>
-  <div style="text-align:center">
-    <button class="action-btn" id="ghostStart" onclick="startGhost()">Iniciar monitoreo (60s)</button>
+  <div style="text-align:center;margin:18px 0">
+    <button class="action-btn primary-cta" id="ghostStart" onclick="startGhost()">▶ Iniciar monitoreo (60s)</button>
   </div>
   <div class="big-number" id="ghostCount">0</div>
   <div style="text-align:center;color:#aaa" id="ghostStatus">Eventos fantasma detectados</div>
@@ -818,27 +1079,37 @@
 <!-- ============ TABS ALFOMBRA ============ -->
 
 <div class="tab-content" id="tab-latency">
+  <div class="calib-note">
+    <span class="calib-note-icon" aria-hidden="true">⚙️</span>
+    <span><strong>Requiere calibración previa.</strong> Este test usa el mapping de la pestaña <em>Calibrar</em>. Si algún panel no responde, calíbralo antes.</span>
+    <button type="button" onclick="goToCalibrate()">Ir a calibrar →</button>
+  </div>
   <div class="help-text">
     Mide tu tiempo de reacción para cada panel. <strong>El delay puro del pad USB es ~1-8ms</strong>. La diferencia hasta tu tiempo medido = reflejo humano (~200-300ms es normal). Comparar entre paneles: si uno tarda mucho más, ese sensor podría estar lento.
   </div>
-  <div style="text-align:center">
-    <button class="action-btn" id="latencyStart" onclick="startLatency()">Iniciar test (8 rondas)</button>
+  <div style="text-align:center;margin:18px 0">
+    <button class="action-btn primary-cta" id="latencyStart" onclick="startLatency()">▶ Iniciar test (8 rondas)</button>
     <button class="action-btn secondary" onclick="resetLatency()">Resetear</button>
   </div>
   <div class="big-number" id="latencyDisplay">--</div>
-  <div style="text-align:center;color:#aaa" id="latencyStatus">Pulsa "Iniciar" — se iluminará un panel aleatorio, písalo lo más rápido que puedas.</div>
+  <div style="text-align:center;color:var(--gris-300);font-size:0.95em" id="latencyStatus">Pulsa <strong>"Iniciar"</strong> — se iluminará un panel aleatorio, písalo lo más rápido que puedas.</div>
   <div class="test-output" id="latencyLog"></div>
 </div>
 
 <div class="tab-content" id="tab-jumps">
+  <div class="calib-note">
+    <span class="calib-note-icon" aria-hidden="true">⚙️</span>
+    <span><strong>Requiere calibración previa.</strong> Los combos usan los roles asignados; cualquier rol sin asignar se auto-skippea.</span>
+    <button type="button" onclick="goToCalibrate()">Ir a calibrar →</button>
+  </div>
   <div class="help-text">
     Verifica que la alfombra detecta <strong>pisadas simultáneas</strong> (saltos en StepMania). Si no las detecta, los saltos te van a fallar siempre. Pisa los dos paneles indicados a la vez. Si tu pad tiene diagonales, también las prueba.
   </div>
-  <div style="text-align:center">
-    <button class="action-btn" onclick="startJumps()">Iniciar test de saltos</button>
+  <div style="text-align:center;margin:18px 0">
+    <button class="action-btn primary-cta" onclick="startJumps()">▶ Iniciar test de saltos</button>
   </div>
-  <div id="jumpsDisplay" style="text-align:center;font-size:1.5em;margin:20px 0;color:#aaa">
-    Pulsa "Iniciar" para empezar
+  <div id="jumpsDisplay" style="text-align:center;font-size:1.5em;margin:20px 0;color:var(--gris-300)">
+    Pulsa <strong>"Iniciar"</strong> para empezar
   </div>
   <div class="test-output" id="jumpsLog"></div>
 </div>
@@ -847,7 +1118,7 @@
 
 <div class="tab-content active" id="tab-calibrate">
   <div class="help-text">
-    Cada dispositivo mapea sus botones distinto (RedOctane, ImpactDX, mats genéricos, GH3, GH:WT, receptores PS2→USB chinos…). Calibra el mapping completo o <strong>haz clic en una fila del mapping</strong> para reasignar solo ese rol. El mapping se guarda en <code>localStorage</code> con keys separadas para alfombra y guitarra.
+    <strong>Empieza por aquí.</strong> Cada dispositivo mapea sus botones distinto (RedOctane, ImpactDX, mats genéricos, GH3, GH:WT, receptores PS2→USB chinos…). Calibra el mapping completo o <strong>haz clic en una fila del mapping</strong> para reasignar solo ese rol. El mapping se guarda en <code>localStorage</code> con keys separadas para alfombra y guitarra; los demás tests lo reutilizan.
     <br><br>
     <span id="calibHelpExtra"></span>
   </div>
@@ -856,35 +1127,50 @@
     <div class="calib-target" id="calibTarget">Pulsa "Iniciar" o haz clic en una fila ↓ para reasignar individualmente</div>
     <div style="color:var(--gris-300)" id="calibHint">El primer botón nuevo que pulses se asigna al rol del paso actual.</div>
   </div>
-  <div style="text-align:center">
-    <button class="action-btn" id="calibStart" onclick="startCalibration()">Iniciar calibración completa</button>
+  <div style="text-align:center;margin:18px 0">
+    <button class="action-btn primary-cta" id="calibStart" onclick="startCalibration()">▶ Iniciar calibración completa</button>
     <button class="action-btn secondary" onclick="skipCalibStep()">Saltar paso</button>
     <button class="action-btn secondary" id="cancelReassignBtn" onclick="cancelReassign()" style="display:none">Cancelar reasignación</button>
     <button class="action-btn danger" onclick="clearCalibration()">Borrar mapping</button>
   </div>
-  <h3 style="margin-top:20px;color:var(--turquesa-400);font-family:var(--font-display)">Mapping actual <small style="font-size:0.55em;color:var(--gris-400);font-weight:400">(haz clic en una fila para reasignar solo ese rol)</small></h3>
-  <div class="calib-mapping" id="calibMapping"></div>
+  <h3 class="section-heading" style="margin-top:24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <span>Mapping actual</span>
+    <span style="font-size:0.62em;color:var(--gris-300);font-weight:400;font-family:var(--font-sans);background:rgba(0,190,200,0.14);padding:4px 10px;border-radius:8px;border:1px solid rgba(0,190,200,0.3)">
+      💡 Haz clic en cualquier fila para reasignar solo ese rol
+    </span>
+  </h3>
+  <div class="calib-mapping" id="calibMapping" role="list"></div>
 </div>
 
 <div class="tab-content" id="tab-frets">
+  <div class="calib-note">
+    <span class="calib-note-icon" aria-hidden="true">⚙️</span>
+    <span><strong>Requiere calibración previa.</strong> Si un traste no responde o se confunde con otro, asígnalo desde la pestaña <em>Calibrar</em>.</span>
+    <button type="button" onclick="goToCalibrate()">Ir a calibrar →</button>
+  </div>
   <div class="help-text">
     Mide tu reflejo por traste. Se ilumina un traste aleatorio — pulsa <strong>solo ese traste</strong> sin tocar los otros. Útil para detectar trastes que respondan más lento (sensor desgastado, cable suelto).
   </div>
-  <div style="text-align:center">
-    <button class="action-btn" id="fretsStart" onclick="startFrets()">Iniciar (10 rondas)</button>
+  <div style="text-align:center;margin:18px 0">
+    <button class="action-btn primary-cta" id="fretsStart" onclick="startFrets()">▶ Iniciar (10 rondas)</button>
     <button class="action-btn secondary" onclick="resetFrets()">Resetear</button>
   </div>
   <div class="big-number" id="fretsDisplay">--</div>
-  <div style="text-align:center;color:#aaa" id="fretsStatus">Pulsa "Iniciar".</div>
+  <div style="text-align:center;color:var(--gris-300);font-size:0.95em" id="fretsStatus">Pulsa <strong>"Iniciar"</strong>.</div>
   <div class="test-output" id="fretsLog"></div>
 </div>
 
 <div class="tab-content" id="tab-strum">
+  <div class="calib-note">
+    <span class="calib-note-icon" aria-hidden="true">⚙️</span>
+    <span><strong>Requiere calibración previa.</strong> Si tu strum vive en un eje (común en receptores PS2→USB), la pestaña <em>Calibrar</em> lo detecta automáticamente.</span>
+    <button type="button" onclick="goToCalibrate()">Ir a calibrar →</button>
+  </div>
   <div class="help-text">
     El strum bar es el control que más se desgasta en una guitarra. Este test te pide alternar arriba/abajo durante 15s y mide: <strong>(1)</strong> que detecta los dos sentidos correctamente, <strong>(2)</strong> que el ratio entre arriba/abajo sea ~1:1 (si no, hay un sentido que falla), <strong>(3)</strong> el intervalo mínimo (bouncing).
   </div>
-  <div style="text-align:center">
-    <button class="action-btn" id="strumStart" onclick="startStrum()">Iniciar (15s)</button>
+  <div style="text-align:center;margin:18px 0">
+    <button class="action-btn primary-cta" id="strumStart" onclick="startStrum()">▶ Iniciar (15s)</button>
   </div>
   <div class="big-number" id="strumCount">0</div>
   <div class="progress-bar"><div class="fill" id="strumProgress"></div></div>
@@ -901,8 +1187,8 @@
   <div class="help-text">
     Mueve la palanca de Whammy de un extremo al otro. Mide rango efectivo del eje analógico, deadzone y resolución. Si el rango es estrecho (&lt; 0.5) o el centro no se queda fijo, la palanca está desgastada.
   </div>
-  <div style="text-align:center">
-    <button class="action-btn" id="whammyStart" onclick="startWhammy()">Iniciar (15s)</button>
+  <div style="text-align:center;margin:18px 0">
+    <button class="action-btn primary-cta" id="whammyStart" onclick="startWhammy()">▶ Iniciar (15s)</button>
   </div>
   <div class="stats-grid">
     <div class="stat-card"><h3>Eje detectado</h3><div class="big" id="whammyAxis">--</div></div>
@@ -916,14 +1202,19 @@
 </div>
 
 <div class="tab-content" id="tab-chords">
+  <div class="calib-note">
+    <span class="calib-note-icon" aria-hidden="true">⚙️</span>
+    <span><strong>Requiere calibración previa.</strong> Los acordes usan los 5 trastes calibrados. Sin calibrar, el test te dirá que no responde.</span>
+    <button type="button" onclick="goToCalibrate()">Ir a calibrar →</button>
+  </div>
   <div class="help-text">
     En Clone Hero los <strong>chords</strong> son varios trastes pulsados a la vez + strum. Verifica que tu guitarra detecta combinaciones simultáneas de trastes. Si una combinación no se detecta (ghosting de matriz), te van a fallar los chords del juego.
   </div>
-  <div style="text-align:center">
-    <button class="action-btn" onclick="startChords()">Iniciar test de chords</button>
+  <div style="text-align:center;margin:18px 0">
+    <button class="action-btn primary-cta" onclick="startChords()">▶ Iniciar test de chords</button>
   </div>
-  <div id="chordsDisplay" style="text-align:center;font-size:1.4em;margin:20px 0;color:#aaa">
-    Pulsa "Iniciar" para empezar
+  <div id="chordsDisplay" style="text-align:center;font-size:1.4em;margin:20px 0;color:var(--gris-300)">
+    Pulsa <strong>"Iniciar"</strong> para empezar
   </div>
   <div class="test-output" id="chordsLog"></div>
 </div>
@@ -2005,12 +2296,23 @@ function renderCalibMappingObj(map) {
     if (pendingReassignRole === role) row.classList.add('pending');
     const hint = (role === 'whammyAxis')
       ? '<span class="hint">se auto-detecta en el test Whammy</span>'
-      : '<span class="hint">clic para reasignar</span>';
+      : '';
     row.innerHTML = `<span class="name">${label} ${hint}</span><span class="val ${isUnset?'unset':''}">${display}</span>`;
     if (role !== 'whammyAxis') {
+      // Affordance accesible: cada fila es un botón. Click + Enter/Space funcionan.
+      row.setAttribute('role', 'button');
+      row.setAttribute('tabindex', '0');
+      row.setAttribute('aria-label', `Reasignar ${label} (actual: ${display})`);
       row.addEventListener('click', () => startReassign(role));
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          startReassign(role);
+        }
+      });
     } else {
       row.style.cursor = 'default';
+      row.setAttribute('aria-label', `${label}: ${display} — auto-detectado`);
     }
     target.appendChild(row);
   });

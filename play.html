@@ -40,11 +40,11 @@
     </div>
     <div class="param">
       <div class="param-header">
-        <span class="param-label">⚡ Velocidad de scroll</span>
+        <span class="param-label">⏱ Anticipación de las flechas</span>
         <span class="param-value" id="scrollSpeedVal">1.0x</span>
       </div>
       <input type="range" id="scrollSpeed" min="0.5" max="3.0" step="0.1" value="1.0">
-      <div class="param-help">Multiplicador. 1.0 = 600 px/s. Más alto = flechas más separadas y rápidas (más fácil de leer).</div>
+      <div class="param-help">Cuánto antes aparecen las flechas en pantalla. Más anticipación = más tiempo para leer el patrón. <strong>No cambia la dificultad ni el ritmo de la canción.</strong></div>
     </div>
     <div class="param">
       <div class="param-header">
@@ -154,17 +154,17 @@
         <div class="menu-card" onclick="window.location.href='gh-play.html'">
           <div class="icon">▶</div>
           <div class="title">Tocar</div>
-          <div class="desc">Charts estilo Guitar Hero: 5 trastes + strum + sustains + HOPOs. Lee tu calibración del test de hardware.</div>
+          <div class="desc">Partituras estilo Guitar Hero: 5 trastes + strum + sustains + HOPOs. Lee tu calibración del test de hardware.</div>
         </div>
         <div class="menu-card" onclick="window.location.href='gh-autostepper.html'">
           <div class="icon">🎼</div>
-          <div class="title">Crear charts</div>
-          <div class="desc">Genera notes.chart desde MP3/WAV — listo para Clone Hero o el simulador de Sincro.</div>
+          <div class="title">Crear partituras</div>
+          <div class="desc">Genera partituras (notes.chart) desde MP3/WAV — listas para Clone Hero o el simulador de Sincro.</div>
         </div>
         <div class="menu-card" onclick="window.location.href='gh-play.html#library'">
           <div class="icon">📚</div>
-          <div class="title">Mis charts</div>
-          <div class="desc">Biblioteca de charts de guitarra guardados. Tócalos sin tener que importar archivos cada vez.</div>
+          <div class="title">Mis canciones</div>
+          <div class="desc">Biblioteca de partituras de guitarra guardadas. Tócalas sin tener que importar archivos cada vez.</div>
         </div>
       </div>
     </section>
@@ -421,8 +421,80 @@
 <!-- SONGS (selector to play) -->
 <div class="screen hidden" id="songs-screen">
   <div class="container">
-    <h1>Selecciona una canción</h1>
+    <h1>Crear partida</h1>
     <p class="subtitle" id="songsSubtitle">Cargando...</p>
+
+    <!-- ============== CONFIGURACIÓN DE PARTIDA ==============
+         Patrón arcade: PRIMERO eliges nivel y modificadores (atributos
+         globales de la próxima partida), DESPUÉS la canción/canciones.
+         Esto unifica el flow single y playlist — la config aplica igual a
+         1 o N canciones. -->
+    <div class="card config-card">
+      <h2 style="font-family:var(--font-display);color:var(--turquesa-400);font-size:1em;margin-bottom:14px;letter-spacing:0.02em">
+        ⚙ Configuración de la partida
+      </h2>
+
+      <!-- Layout: preview izquierda · variantes + dificultad/anticipación
+           DENTRO de la columna derecha. El preview queda "limpio" sin nada
+           debajo — los controles textuales viven todos pegados a las
+           variantes, que es donde el ojo ya está leyendo. -->
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+        <!-- Columna izquierda: solo preview canvas, sin nada debajo -->
+        <div style="flex-shrink:0">
+          <div style="color:var(--gris-400);font-size:0.78em;margin-bottom:4px;letter-spacing:0.04em;text-transform:uppercase">Vista previa</div>
+          <canvas id="previewCanvas" width="420" height="320" style="background:linear-gradient(180deg,#000,#0a0a14);border-radius:8px;border:1px solid rgba(0,190,200,0.25);display:block"></canvas>
+          <div style="color:var(--gris-500);font-size:0.74em;margin-top:4px;text-align:center">Patrón sintético · 120 BPM · ajusta speed y mods</div>
+        </div>
+        <!-- Columna derecha: variantes 3×3, dificultad + anticipación, y tip -->
+        <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:14px">
+          <div>
+            <div style="color:var(--gris-400);font-size:0.85em;margin-bottom:8px">Variantes (modificadores)</div>
+            <div class="mods-grid" id="globalModsContainer">
+              <div class="mod-toggle" data-mod="mirror"><div class="mod-name">🪞 Mirror</div><div class="mod-help">Invierte izquierda↔derecha</div></div>
+              <div class="mod-toggle" data-mod="left"><div class="mod-name">↺ Left</div><div class="mod-help">Rota carriles 90° antihorario</div></div>
+              <div class="mod-toggle" data-mod="right"><div class="mod-name">↻ Right</div><div class="mod-help">Rota carriles 90° horario</div></div>
+              <div class="mod-toggle" data-mod="shuffle"><div class="mod-name">🔀 Shuffle</div><div class="mod-help">Cambia carriles al azar</div></div>
+              <div class="mod-toggle" data-mod="hidden"><div class="mod-name">👁 Hidden</div><div class="mod-help">Flechas se ocultan antes de llegar</div></div>
+              <div class="mod-toggle" data-mod="sudden"><div class="mod-name">💨 Sudden</div><div class="mod-help">Aparecen tarde, ya cerca</div></div>
+              <div class="mod-toggle" data-mod="solo"><div class="mod-name">🎯 Solo (6)</div><div class="mod-help">↖ ↗ + 4 cardinales</div></div>
+              <div class="mod-toggle" data-mod="full"><div class="mod-name">🌟 Full (8)</div><div class="mod-help">8 carriles con diagonales</div></div>
+              <div class="mod-toggle" data-mod="randomFixed"><div class="mod-name">🎲 Aleatorio fijo</div><div class="mod-help">Mismo reparto cada vez</div></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding-top:10px;border-top:1px solid rgba(0,190,200,0.12)">
+            <div style="display:flex;flex-direction:column;gap:4px;min-width:160px">
+              <label for="globalDiff" style="color:var(--gris-400);font-size:0.82em">Dificultad</label>
+              <select id="globalDiff" onchange="onGlobalDiffChange()" style="background:rgba(0,0,0,0.5);border:1px solid rgba(0,190,200,0.3);color:#fff;padding:8px 10px;border-radius:6px;font-size:0.95em">
+                <option value="Beginner">Beginner</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="Hard">Hard</option>
+                <option value="Challenge">Challenge</option>
+              </select>
+            </div>
+            <div style="flex:1;min-width:240px">
+              <div class="param-header"><span class="param-label">⏱ Anticipación de las flechas</span><span class="param-value" id="globalChartSpeedVal">1.0x</span></div>
+              <input type="range" id="globalChartSpeed" min="0.5" max="4.0" step="0.1" value="1.0">
+            </div>
+          </div>
+          <p style="color:var(--gris-300);font-size:0.85em;line-height:1.5;margin:0">
+            <strong style="color:var(--turquesa-400)">Tip:</strong> el preview muestra la velocidad y el tiempo de lead exactos del juego — calibra la anticipación viéndolo en directo. Más anticipación = ves las flechas antes y tienes más tiempo para reaccionar (a costa de que ocupen más pantalla). El ritmo de la canción no cambia. Si una canción no tiene la dificultad elegida, se usa la más cercana disponible.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barra de acción: "Crear partida" se activa con ≥1 canción marcada.
+         Para partidas single (click directo en una canción), el flow no
+         necesita esta barra. -->
+    <div class="playlist-bar" id="playlistBar">
+      <div class="count">
+        <span id="playlistCount">Marca varias canciones para crear una sesión continua</span>
+        <small>O haz click en una sola para jugarla individualmente</small>
+      </div>
+      <button class="action-btn secondary" id="playlistClearBtn" onclick="clearPlaylistSelection()" disabled>Limpiar</button>
+      <button class="action-btn" id="playlistStartBtn" onclick="startPlaylistSession()" disabled>🎮 Crear partida</button>
+    </div>
     <div class="card">
       <div class="toolbar">
         <input type="text" id="songSearch" placeholder="🔍 Buscar por título o artista..." autocomplete="off">
@@ -460,11 +532,24 @@
   </div>
 </div>
 
-<!-- DIFFICULTY SELECT -->
+<!-- DIFFICULTY SELECT — ahora "Ajustes de canción" (Tags + BPM/offset edit).
+     La selección de dificultad y mods vive en songs-screen → ya no se elige
+     aquí. Esta pantalla queda como acceso avanzado per-canción. -->
 <div class="screen hidden" id="diff-screen">
   <div class="container">
     <h1 id="diffTitle">--</h1>
     <p class="subtitle" id="diffSubtitle">--</p>
+    <div class="play-cta-bar">
+      <button class="action-btn secondary" onclick="goto('songs')">← Volver</button>
+      <div class="play-cta-center">
+        <div class="play-cta-hint">Ajustes de esta canción</div>
+        <button class="play-cta-btn ready" onclick="playCurrentSongWithGlobalConfig()" aria-label="Empezar a bailar">
+          <span class="play-cta-icon">▶</span>
+          <span class="play-cta-label">Jugar</span>
+        </button>
+      </div>
+      <span style="width:90px"></span>
+    </div>
     <div style="text-align:center;margin-bottom:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       <button class="action-btn secondary" onclick="openBpmEdit()" style="font-size:0.85em">✏ Ajustar BPM/offset</button>
     </div>
@@ -476,67 +561,11 @@
       </div>
     </div>
     <div class="card">
-      <h2>Dificultad</h2>
+      <h2>Coreografías disponibles en esta canción</h2>
+      <p style="color:var(--gris-400);font-size:0.85em;margin-bottom:10px">
+        La dificultad y modificadores los eliges en la pantalla anterior. Aquí solo se muestra qué coreografías tiene esta canción para tu referencia.
+      </p>
       <div id="diffsContainer"></div>
-    </div>
-    <div class="card">
-      <h2>Variantes (modificadores)</h2>
-      <div class="mods-grid" id="modsContainer">
-        <div class="mod-toggle" data-mod="mirror">
-          <div class="mod-name">🪞 Mirror (espejo)</div>
-          <div class="mod-help">Invierte izquierda con derecha</div>
-        </div>
-        <div class="mod-toggle" data-mod="left">
-          <div class="mod-name">↺ Left (a la izquierda)</div>
-          <div class="mod-help">Rota los carriles 90° en sentido contrario al reloj</div>
-        </div>
-        <div class="mod-toggle" data-mod="right">
-          <div class="mod-name">↻ Right (a la derecha)</div>
-          <div class="mod-help">Rota los carriles 90° en sentido del reloj</div>
-        </div>
-        <div class="mod-toggle" data-mod="shuffle">
-          <div class="mod-name">🔀 Shuffle (mezclar)</div>
-          <div class="mod-help">Cambia los carriles de sitio al azar</div>
-        </div>
-        <div class="mod-toggle" data-mod="hidden">
-          <div class="mod-name">👁 Hidden (ocultas)</div>
-          <div class="mod-help">Las flechas desaparecen justo antes de llegar</div>
-        </div>
-        <div class="mod-toggle" data-mod="sudden">
-          <div class="mod-name">💨 Sudden (de golpe)</div>
-          <div class="mod-help">Las flechas aparecen tarde, ya cerca del receptor</div>
-        </div>
-        <div class="mod-toggle" data-mod="solo">
-          <div class="mod-name">🎯 Solo (6)</div>
-          <div class="mod-help">Añade ↖ ↗ y reparte las notas en seis carriles</div>
-        </div>
-        <div class="mod-toggle" data-mod="full">
-          <div class="mod-name">🌟 Full (8)</div>
-          <div class="mod-help">Añade las cuatro diagonales y reparte las notas en ocho carriles</div>
-        </div>
-        <div class="mod-toggle" data-mod="randomFixed">
-          <div class="mod-name">🎲 Aleatorio fijo</div>
-          <div class="mod-help">Con Solo o Full: mantiene el mismo reparto en cada partida</div>
-        </div>
-      </div>
-      <div class="param" style="margin-top:14px">
-        <div class="param-header"><span class="param-label">⚡ Velocidad de esta coreografía</span><span class="param-value" id="chartSpeedVal">1.0x</span></div>
-        <input type="range" id="chartSpeed" min="0.5" max="4.0" step="0.1" value="1.0">
-        <div class="param-help">Velocidad aplicada solo a esta canción. Se combina con la velocidad global de Ajustes.</div>
-      </div>
-    </div>
-    <!-- BIG PLAY CTA — patrón arcade clásico: el usuario elige dificultad
-         y luego pulsa este botón gigante para arrancar la canción. -->
-    <div class="play-cta-bar">
-      <button class="action-btn secondary" onclick="goto('songs')">← Volver</button>
-      <div class="play-cta-center">
-        <div class="play-cta-hint" id="playCtaHint">Elige una dificultad para empezar</div>
-        <button class="play-cta-btn" id="playCtaBtn" onclick="confirmChartAndPlay()" disabled aria-label="Empezar a bailar">
-          <span class="play-cta-icon">▶</span>
-          <span class="play-cta-label">Jugar</span>
-        </button>
-      </div>
-      <span style="width:90px"></span><!-- spacer para centrar el CTA -->
     </div>
   </div>
 </div>
@@ -686,7 +715,7 @@
           <li>🎯 <strong>Solo (6)</strong>: añade ↖ ↗ y reparte las notas en seis carriles. Útil para entrenar todo el cuerpo aunque la canción se haya creado para cuatro carriles.</li>
           <li>🌟 <strong>Full (8)</strong>: añade las cuatro diagonales y reparte las notas en ocho carriles para máxima actividad.</li>
           <li>🎲 <strong>Aleatorio fijo</strong>: si usas Solo o Full, mantiene el mismo reparto cada vez que juegas esa canción (más fácil de memorizar). Sin esta opción, el reparto cambia en cada partida.</li>
-          <li>⚡ <strong>Velocidad de la coreografía</strong>: cambia la velocidad solo para esta canción (se suma a la velocidad global de Ajustes).</li>
+          <li>⏱ <strong>Anticipación de las flechas</strong>: ajusta cuánto antes aparecen las flechas en pantalla solo para esta canción (se suma a la anticipación global de Ajustes). No cambia el ritmo de la música ni la dificultad — solo cuánto tiempo tienes para leer cada flecha antes de pisarla.</li>
         </ul>
 
         <h3 style="margin-top:18px;color:var(--tulip-tree-500);font-size:1em">Teclas según el modo</h3>
@@ -856,13 +885,13 @@
         <h2 style="font-family:var(--font-display);color:var(--turquesa-400);margin-bottom:10px">Ajustes</h2>
         <p style="line-height:1.6;color:var(--gris-300)">Accede al panel con el botón <strong>⚙</strong> de la esquina superior derecha. Todos los ajustes se guardan automáticamente dentro de tu navegador (no en el disco): lo que cambias queda registrado al momento, sin necesidad de un botón "Guardar".</p>
 
-        <p style="margin-top:8px;padding:10px 14px;background:rgba(0,190,200,0.08);border-left:3px solid var(--turquesa-600);border-radius:6px;color:var(--gris-300);font-size:0.9em">💡 La aplicación usa cuatro entradas internas: una para los ajustes (desfase, velocidad y precisión), otra para la apariencia de las flechas (si has cargado una imagen), otra para el fondo y una más para limpieza de versiones anteriores. La <strong>copia de seguridad</strong> de la biblioteca incluye también todos estos ajustes, así que con un solo ZIP migras todo de una.</p>
+        <p style="margin-top:8px;padding:10px 14px;background:rgba(0,190,200,0.08);border-left:3px solid var(--turquesa-600);border-radius:6px;color:var(--gris-300);font-size:0.9em">💡 La aplicación usa cuatro entradas internas: una para los ajustes (desfase, anticipación y precisión), otra para la apariencia de las flechas (si has cargado una imagen), otra para el fondo y una más para limpieza de versiones anteriores. La <strong>copia de seguridad</strong> de la biblioteca incluye también todos estos ajustes, así que con un solo ZIP migras todo de una.</p>
 
         <h3 style="margin-top:18px;color:var(--tulip-tree-500);font-size:1em">🎵 Desfase global (entre −200 y +200 milisegundos)</h3>
         <p style="line-height:1.6;color:var(--gris-300)">Compensa el retardo entre el sonido que oyes y la pisada que da el juego. <strong>Positivo</strong> = pisas tarde (las flechas se "adelantan" al valorarse). <strong>Negativo</strong> = pisas pronto. El botón <strong>🎧 Auto-detectar</strong> aplica un primer valor según el retardo que reporta tu navegador. Para un ajuste fino, usa la pantalla de Calibración.</p>
 
-        <h3 style="margin-top:18px;color:var(--tulip-tree-500);font-size:1em">⚡ Velocidad de las flechas (de 0,5x a 3,0x)</h3>
-        <p style="line-height:1.6;color:var(--gris-300)">Velocidad general a la que suben las flechas. 1.0x equivale a 600 píxeles por segundo. Cuanto mayor sea, más separadas y rápidas se ven (y más fáciles de leer). Se combina con la velocidad específica de cada coreografía que aparece en la pantalla de dificultad.</p>
+        <h3 style="margin-top:18px;color:var(--tulip-tree-500);font-size:1em">⏱ Anticipación de las flechas (de 0,5x a 3,0x)</h3>
+        <p style="line-height:1.6;color:var(--gris-300)"><strong>Importante: este ajuste NO cambia el ritmo de la canción ni la dificultad.</strong> Solo cambia cuánto antes aparecen las flechas en pantalla antes de llegar al receptor. Cada flecha siempre se pisa en el mismo instante exacto del beat — la anticipación solo decide si la ves venir desde lejos (anticipación alta) o si aparece más tarde y cruza la pantalla más rápido (anticipación baja). 1.0x equivale a 600 píxeles por segundo de scroll. Una anticipación más alta te da más tiempo para leer el patrón pero ocupa más pantalla. Se combina con la anticipación específica de cada coreografía que aparece en la pantalla de dificultad.</p>
 
         <h3 style="margin-top:18px;color:var(--tulip-tree-500);font-size:1em">🎯 Nivel de precisión (J4 a J7)</h3>
         <ul style="line-height:1.8;color:var(--gris-300);margin-left:20px">
@@ -930,7 +959,7 @@
     <div class="results">
       <h2 id="resultsTitle">Resultados</h2>
       <div id="resultsContent"></div>
-      <div style="margin-top:18px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <div style="margin-top:18px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap" id="resultsActions">
         <button class="action-btn" onclick="goto('diff')">↻ Reintentar</button>
         <button class="action-btn secondary" onclick="goto('songs')">← Otra canción</button>
         <button class="action-btn secondary" onclick="goto('menu')">⌂ Menú</button>

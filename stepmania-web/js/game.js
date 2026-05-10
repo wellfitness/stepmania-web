@@ -949,4 +949,9 @@ async function endGame() {
   document.getElementById('resultsContent').innerHTML = html;
   stopGame();
   goto('results');
+  // Hook de modo playlist: si hay sesión activa, inyecta banner de siguiente
+  // canción + countdown, o resumen agregado en la última canción.
+  if (typeof updateResultsForSession === 'function') {
+    updateResultsForSession({ grade, accuracy: +accuracy.toFixed(2), score: gameState.score });
+  }
 }

@@ -38,12 +38,23 @@
   body {
     font-family: var(--font-sans);
     background: linear-gradient(135deg, var(--gris-900) 0%, #000 100%);
-    color: #fff; min-height: 100vh; overflow: hidden;
+    color: #fff; min-height: 100vh;
+    /* En setup-screen permitimos scroll vertical normal del body. Durante
+       game-screen body.playing aplica overflow:hidden (el highway gestiona
+       su propia presentación fixed-position). Antes era overflow:hidden
+       siempre, lo que bloqueaba el scroll del setup en contenido alto. */
+    overflow-x: hidden;
+    overflow-y: auto;
   }
+  body.playing { overflow: hidden; }
 
-  /* ===== SETUP SCREEN ===== */
+  /* ===== SETUP SCREEN =====
+     max-width 1600px: en 1920×1080 deja ~160px de margen a cada lado (8%)
+     en lugar de 320px (16%). Padding lateral fluido con clamp para que no
+     se pegue a los bordes en monitores más estrechos. */
   #setup-screen {
-    padding: 20px; max-width: 900px; margin: 0 auto;
+    padding: 20px clamp(16px, 3vw, 40px);
+    max-width: 1600px; margin: 0 auto;
     min-height: 100vh; display: flex; flex-direction: column; gap: 20px;
   }
   #setup-screen h1 {
@@ -118,11 +129,20 @@
      apagado; cuando hay chart cargado se enciende, hace un pulse y queda
      latiendo suavemente para anunciarse desde 1.5–2 m de distancia. */
   .play-cta-bar {
-    margin: 22px 0 28px;
-    padding: 22px 18px;
-    background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.7));
-    border: 1px solid rgba(249,115,22,0.18);
+    margin: 6px 0 18px;
+    padding: 18px;
+    background: linear-gradient(180deg, rgba(15,15,20,0.92), rgba(15,15,20,0.85));
+    border: 1px solid rgba(249,115,22,0.32);
     border-radius: 16px;
+    /* Sticky-top: el botón sigue al usuario por el scroll. Cuando elige
+       dificultad en la card de abajo, el CTA se enciende sin tener que
+       volver a hacer scroll up. */
+    position: sticky;
+    top: 58px; /* 50px del #sat-topbar fijo + 8px de aire */
+    z-index: 20;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.4);
   }
   .play-cta-center {
     display: flex;
@@ -233,6 +253,160 @@
     .play-cta-btn.ready,
     .play-cta-btn.just-enabled { animation: none; }
   }
+
+  /* ===== PLAYLIST MODE — selección múltiple desde la biblioteca + sesión
+     continua con dificultad común. Patrón idéntico al de play.html (SM). ===== */
+  .playlist-checkbox {
+    width: 22px; height: 22px;
+    cursor: pointer;
+    accent-color: var(--gh-accent);
+    flex-shrink: 0;
+  }
+  .lib-row {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px; padding: 12px 14px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border-left: 3px solid transparent;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .lib-row.in-playlist {
+    background: rgba(249,115,22,0.10);
+    border-left-color: var(--gh-accent);
+  }
+  /* Sticky-top: siempre visible. En idle (sin selección) borde tenue,
+     botones disabled. Con selección añadimos has-selection para borde
+     brillante y glow. max-width: 100% para que ocupe todo el ancho del
+     setup-screen (consistente con las cards). */
+  .playlist-bar {
+    position: sticky;
+    top: 58px; /* 50px del #sat-topbar fijo + 8px de aire */
+    margin: 6px 0 18px;
+    width: 100%;
+    padding: 14px 22px;
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(180deg, rgba(15,15,20,0.92), rgba(15,15,20,0.85));
+    border: 2px solid rgba(249,115,22,0.30);
+    border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 30;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .playlist-bar.has-selection {
+    border-color: var(--gh-accent);
+    box-shadow: 0 8px 28px rgba(249,115,22,0.35), 0 0 0 4px rgba(249,115,22,0.12);
+  }
+  .playlist-bar.hidden { display: none; }
+  .playlist-bar .count {
+    font-family: var(--font-display);
+    color: #fff; font-size: 1.1em; flex: 1;
+  }
+  .playlist-bar .count small {
+    color: var(--gris-400);
+    font-family: var(--font-sans);
+    font-size: 0.78em;
+    display: block;
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+  }
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.hidden { display: none; }
+  .modal-content {
+    background: linear-gradient(180deg, var(--gris-900), #000);
+    border: 1px solid rgba(249,115,22,0.4);
+    border-radius: 16px;
+    padding: 28px;
+    max-width: 460px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal-content h3 {
+    font-family: var(--font-display);
+    color: var(--gh-accent);
+    font-size: 1.3em; margin-bottom: 12px;
+  }
+  .modal-content .modal-help {
+    color: var(--gris-400);
+    font-size: 0.88em;
+    margin: 8px 0 18px;
+    line-height: 1.5;
+  }
+  .modal-content label {
+    display: block;
+    color: var(--gris-300);
+    font-size: 0.88em;
+    margin-bottom: 6px;
+    letter-spacing: 0.02em;
+  }
+  .modal-content select {
+    width: 100%;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(249,115,22,0.3);
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-family: var(--font-sans);
+    font-size: 1em;
+    margin-bottom: 14px;
+  }
+  .modal-actions {
+    display: flex; gap: 10px; justify-content: flex-end;
+    margin-top: 18px;
+  }
+  .session-next-banner {
+    margin: 18px auto;
+    max-width: 520px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(249,115,22,0.18), rgba(234,179,8,0.10));
+    border: 2px solid var(--gh-accent);
+    border-radius: 12px;
+    text-align: center;
+  }
+  .session-next-banner .label {
+    color: var(--gris-300); font-size: 0.78em;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+  .session-next-banner .next-title {
+    font-family: var(--font-display);
+    color: #fff; font-size: 1.25em; margin-bottom: 8px;
+  }
+  .session-next-banner .countdown {
+    font-family: var(--font-display);
+    font-size: 2.4em;
+    color: var(--fret-yellow);
+    text-shadow: 0 0 14px rgba(250,204,21,0.6);
+    line-height: 1;
+  }
+  .session-next-banner .progress-text {
+    color: var(--gris-400);
+    font-size: 0.85em; margin-top: 6px;
+  }
+  .session-summary {
+    margin: 14px auto;
+    max-width: 520px;
+    padding: 14px 18px;
+    background: rgba(249,115,22,0.06);
+    border-left: 3px solid var(--gh-accent);
+    border-radius: 8px;
+    text-align: left;
+  }
+  .session-summary .row {
+    display: flex; justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dashed rgba(255,255,255,0.08);
+    font-size: 0.92em;
+  }
+  .session-summary .row:last-child { border-bottom: none; }
 
   /* ===== Cards & info refinement ===== */
   .card { transition: border-color 0.2s; }
@@ -403,6 +577,81 @@
   /* En modo juego, el topbar se oculta para no distraer */
   body.playing #sat-topbar { display: none; }
   body.playing { padding-top: 0; }
+
+  /* ===== PANTALLAS DE SETUP MULTI-SCREEN =====
+     Tres pantallas hermanas (menú, tocar, mis charts) con la misma jaula
+     visual. La regla `.hidden { display:none }` ya existe arriba para
+     #setup-screen — se reaplica aquí a la clase compartida. */
+  .gh-screen {
+    padding: 20px clamp(16px, 3vw, 40px);
+    padding-top: 70px;
+    max-width: 1600px; margin: 0 auto;
+    min-height: 100vh; display: flex; flex-direction: column; gap: 20px;
+  }
+  .gh-screen.hidden { display: none; }
+  .gh-screen h1 {
+    text-align: center; font-family: var(--font-display); font-size: 2.4em;
+    background: linear-gradient(90deg, var(--fret-green), var(--fret-yellow), var(--gh-accent), var(--fret-red));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-top: 30px;
+  }
+
+  /* Menu cards (estilo análogo a play.html — paleta GH naranja/rojo) */
+  .menu-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 18px; margin: 20px auto; max-width: 900px; width: 100%;
+  }
+  .menu-card {
+    padding: 28px 22px; background: rgba(0,0,0,0.5);
+    border: 2px solid rgba(249,115,22,0.30);
+    border-radius: 16px; cursor: pointer; transition: all 0.2s;
+    text-align: center;
+  }
+  .menu-card:hover {
+    border-color: var(--gh-accent);
+    background: linear-gradient(135deg, rgba(249,115,22,0.15), rgba(234,179,8,0.12));
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px rgba(249,115,22,0.25);
+  }
+  .menu-card .icon { font-size: 3em; margin-bottom: 10px; }
+  .menu-card .title {
+    font-family: var(--font-display); font-size: 1.2em; font-weight: 700;
+    margin-bottom: 6px; color: #fff;
+  }
+  .menu-card .desc  { color: var(--gris-400); font-size: 0.88em; line-height: 1.45; }
+
+  /* Botón ⚙ en topbar */
+  #sat-topbar .icon-btn {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    color: #fff; padding: 6px 12px; border-radius: 7px; cursor: pointer;
+    font-size: 1em; margin-left: 6px; font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  #sat-topbar .icon-btn:hover {
+    background: rgba(249,115,22,0.20); border-color: rgba(249,115,22,0.5);
+  }
+
+  /* Modal de configuración GH — reusa .modal-backdrop / .modal-content de
+     arriba pero amplía max-width para que quepa el preview vivo. */
+  #ghConfigModal .modal-content { max-width: 540px; }
+  #ghConfigModal .config-preview-wrap {
+    text-align: center; margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(249,115,22,0.18);
+  }
+  #ghConfigModal .config-preview-wrap canvas {
+    background: linear-gradient(180deg,#000,#0a0a14);
+    border-radius: 8px;
+    border: 1px solid rgba(249,115,22,0.25);
+    display: block; margin: 0 auto;
+  }
+  #ghConfigModal .config-preview-wrap .preview-hint {
+    color: var(--gris-500); font-size: 0.74em;
+    margin-top: 6px; letter-spacing: 0.02em;
+  }
+
+  /* Banner pequeño de calibración para el menú GH (más compacto que en Tocar) */
+  #gh-menu-screen .calib-banner { font-size: 0.85em; padding: 10px 14px; }
 </style>
 </head>
 <body>
@@ -410,7 +659,7 @@
 <!-- Topbar persistente — consistente con play.html y los demás satellites -->
 <nav id="sat-topbar">
   <a href="play.html" class="logo">⚡ Sincro</a>
-  <span class="crumb">· 🎸 GH Play</span>
+  <span class="crumb" id="ghCrumb">· 🎸 GH Play</span>
   <span class="spacer"></span>
   <div class="topbar-nav">
     <a href="play.html?screen=songs" class="topbar-link">🦶 Bailar</a>
@@ -418,34 +667,75 @@
     <a href="test-pad.html" class="topbar-link">🛠️ Equipo</a>
     <a href="play.html?screen=tutorial" class="topbar-link">📖 Tutorial</a>
   </div>
-  <a href="play.html" class="home-btn" title="Menú principal">⌂</a>
+  <button class="icon-btn" onclick="openGHConfig()" title="Ajustes de partida">⚙</button>
+  <a href="play.html" class="home-btn" title="Volver al menú Sincro" style="margin-left:6px">⌂</a>
 </nav>
 
-<!-- ============== SETUP SCREEN ============== -->
-<div id="setup-screen">
-  <h1>🎸 GH Play</h1>
-  <p class="subtitle">Simulador Guitar Hero · Cargá un chart y a tocar</p>
+<!-- ============== TOCAR (pantalla por defecto al entrar) ============== -->
+<div id="gh-songs-screen" class="gh-screen">
+  <h1>🎸 Tocar</h1>
+  <p class="subtitle">Pulsa <strong>▶ Tocar</strong> en una partitura para arrancar, o marca varias con la casilla para crear una sesión continua. Ajusta speed/offset desde <strong>⚙</strong> en la barra superior.</p>
 
+  <!-- Estado de la guitarra (banner de calibración) -->
   <div class="card">
-    <h2>1 · Estado de la guitarra</h2>
+    <h2>Estado de la guitarra</h2>
     <div id="calibStatus"></div>
   </div>
 
+  <!-- Selector de dificultad común — el ajuste más "por canción" queda visible
+       aquí; todo lo demás (speed, offset, HOPO) vive en el modal ⚙. -->
+  <div class="card">
+    <div class="form-row" style="margin-bottom:0">
+      <label>Dificultad común:</label>
+      <select id="difficulty" onchange="onGHDiffChange()" style="flex:0 0 auto;min-width:160px">
+        <option value="EasySingle">Easy</option>
+        <option value="MediumSingle" selected>Medium</option>
+        <option value="HardSingle">Hard</option>
+        <option value="ExpertSingle">Expert</option>
+      </select>
+      <span style="font-size:0.82em;color:var(--gris-500);flex:1;min-width:200px">
+        Si la canción no tiene esta dificultad, se usa la más cercana.
+      </span>
+      <button class="action-btn secondary" onclick="openGHConfig()" style="font-size:0.85em;padding:8px 14px">⚙ Ajustes</button>
+    </div>
+  </div>
+
+  <!-- Barra "Crear partida" sticky-top. Activa al marcar ≥1 partitura. -->
+  <div class="playlist-bar" id="playlistBar">
+    <div class="count">
+      <span id="playlistCount">Marca varias partituras para crear una sesión continua</span>
+      <small>O haz click en uno solo para tocarlo individualmente</small>
+    </div>
+    <button class="action-btn secondary" id="playlistClearBtn" onclick="clearPlaylistSelection()" disabled>Limpiar</button>
+    <button class="action-btn" id="playlistStartBtn" onclick="startPlaylistSession()" disabled>🎮 Crear partida</button>
+  </div>
+
   <div class="card" id="libraryCard">
-    <h2>2 · Tu biblioteca <span id="libraryCount" style="font-size:0.55em;color:var(--gris-500);font-weight:400;font-family:var(--font-sans)"></span></h2>
-    <p style="margin-bottom:10px">Charts guardados en este navegador. Cárgalos sin tener que volver a importar archivos.</p>
+    <h2>Tu biblioteca <span id="libraryCount" style="font-size:0.55em;color:var(--gris-500);font-weight:400;font-family:var(--font-sans)"></span></h2>
+    <p style="margin-bottom:10px">Partituras guardadas en este navegador. ¿Vacío? Importa un ZIP desde <a href="#" onclick="goto('library');return false" style="color:var(--gh-accent)">📚 Mis canciones</a> o genera nuevas en <a href="gh-autostepper.html" style="color:var(--gh-accent)">Crear partituras</a>.</p>
     <div id="libraryList"></div>
   </div>
 
+  <div style="text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    <button class="action-btn secondary" onclick="goto('library')">📚 Gestionar mis canciones</button>
+    <a href="play.html" class="action-btn secondary" style="text-decoration:none;display:inline-block">⌂ Volver a Sincro</a>
+  </div>
+</div>
+
+<!-- ============== MIS CANCIONES (gestión + importación) ============== -->
+<div id="gh-library-screen" class="gh-screen hidden">
+  <h1>Mis canciones</h1>
+  <p class="subtitle">Importa nuevas partituras y gestiona las guardadas en este navegador</p>
+
   <div class="card">
-    <h2>3 · Cargar nueva canción</h2>
-    <p>O sube el ZIP que generó <a href="gh-autostepper.html" style="color:var(--gh-accent)">gh-autostepper</a>, o un <code>.chart</code> + audio por separado.</p>
+    <h2>📥 Importar nueva canción</h2>
+    <p>Sube el ZIP que generó <a href="gh-autostepper.html" style="color:var(--gh-accent)">Crear partituras</a>, o un <code>.chart</code> + audio por separado. Tras cargar, arranca directo el juego.</p>
 
     <div class="files-grid" style="margin-top:14px">
       <label class="drop-zone" id="zipDrop">
         <div class="icon">📦</div>
         <p><strong>ZIP del autostepper</strong></p>
-        <p style="font-size:0.8em;color:var(--gris-500)">Contiene chart + ini + audio</p>
+        <p style="font-size:0.8em;color:var(--gris-500)">Contiene partitura + ini + audio</p>
         <div class="filename" id="zipName"></div>
         <input type="file" id="zipInput" accept=".zip">
       </label>
@@ -469,52 +759,68 @@
     <div id="songInfo" class="info-grid" style="display:none"></div>
   </div>
 
-  <div class="card">
-    <h2>4 · Ajustes</h2>
-    <div class="form-row">
-      <label>Dificultad:</label>
-      <select id="difficulty">
-        <option value="ExpertSingle">Expert</option>
-        <option value="HardSingle">Hard</option>
-        <option value="MediumSingle" selected>Medium</option>
-        <option value="EasySingle">Easy</option>
-      </select>
+  <!-- Barra "Eliminar seleccionados" sticky-top. Se activa al marcar ≥1 partitura.
+       Patrón análogo al de la playlist en "Tocar", pero aquí la acción es
+       borrar en bulk en lugar de crear sesión. -->
+  <div class="playlist-bar" id="manageBar">
+    <div class="count">
+      <span id="manageSelCount">Marca partituras con la casilla para eliminar varias a la vez</span>
+      <small>O usa el 🗑 individual de cada fila si solo quieres borrar uno</small>
     </div>
+    <button class="action-btn secondary" id="manageClearBtn" onclick="clearManageSelection()" disabled>Limpiar</button>
+    <button class="action-btn" id="manageDeleteBtn" onclick="bulkDeleteFromManage()" disabled style="background:linear-gradient(90deg,var(--color-error),#9f1239)">🗑 Eliminar seleccionados</button>
+  </div>
+
+  <div class="card">
+    <h2>Partituras en biblioteca <span id="manageCount" style="font-size:0.55em;color:var(--gris-500);font-weight:400;font-family:var(--font-sans)"></span></h2>
+    <p style="margin-bottom:10px">Aquí puedes <strong>borrar</strong> partituras guardadas o tocarlas directamente. Para crear sesiones con varias, usa <a href="#" onclick="goto('songs');return false" style="color:var(--gh-accent)">▶ Tocar</a>.</p>
+    <div id="manageList"></div>
+  </div>
+
+  <div style="text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+    <button class="action-btn secondary" onclick="goto('songs')">▶ Ir a Tocar</button>
+    <button class="action-btn secondary" onclick="window.location.href='test-pad.html'">🎸 Calibrar guitarra</button>
+  </div>
+</div>
+
+<!-- ============== MODAL CONFIGURACIÓN DE PARTIDA ============== -->
+<div class="modal-backdrop hidden" id="ghConfigModal" onclick="if(event.target===this)closeGHConfig()">
+  <div class="modal-content">
+    <h3>⚙ Ajustes de la partida</h3>
+    <p class="modal-help">Visualización y timing. Aplican a todas las canciones — calibra el speed mirando el preview vivo.</p>
+
+    <div class="config-preview-wrap">
+      <canvas id="ghPreviewCanvas" width="220" height="220"></canvas>
+      <div class="preview-hint">Patrón sintético · 120 BPM · 5 trastes</div>
+    </div>
+
     <div class="form-row">
-      <label>Velocidad de scroll:</label>
+      <label title="Cuánto antes aparecen las notas en pantalla. No cambia el ritmo de la canción ni la dificultad — solo cuánto tiempo ves cada nota antes de tocarla.">Anticipación (px/s):</label>
       <input type="range" id="speedSlider" min="200" max="900" step="50" value="500">
       <span class="display" id="speedVal">500</span>
     </div>
     <div class="form-row">
       <label>Offset global (ms):</label>
       <input type="number" id="globalOffset" value="0" step="10">
-      <span style="font-size:0.8em;color:var(--gris-500)">+ = retraso (notas más tarde) · - = adelanto</span>
+      <span style="font-size:0.78em;color:var(--gris-500)">+ retraso · − adelanto</span>
     </div>
     <div class="form-row">
-      <label>HOPO threshold (ticks):</label>
+      <label>HOPO threshold:</label>
       <input type="number" id="hopoThreshold" value="65" step="5">
-      <span style="font-size:0.8em;color:var(--gris-500)">CH .chart oficial: floor((65/192)·resolution) = 65 a res 192 (≈1/3 beat)</span>
+      <span style="font-size:0.78em;color:var(--gris-500)">CH oficial: 65 (≈1/3 beat)</span>
     </div>
-  </div>
 
-  <!-- BIG PLAY CTA — patrón arcade: el botón gigante es lo único que arranca
-       el juego. Se queda gris/disabled hasta que hay chart cargado, luego
-       hace un pulse de bienvenida para anunciarse. -->
-  <div class="play-cta-bar">
-    <div class="play-cta-center">
-      <div class="play-cta-hint" id="playHint">Carga un chart o elige uno de tu biblioteca</div>
-      <button class="play-cta-btn" id="playBtn" onclick="startGame()" disabled aria-label="Empezar a tocar">
-        <span class="play-cta-icon">▶</span>
-        <span class="play-cta-label">Tocar canción</span>
-      </button>
-      <button class="action-btn secondary" style="margin-top:10px;font-size:0.9em;padding:8px 18px" onclick="window.location.href='test-pad.html'">🎸 Calibrar guitarra →</button>
+    <div class="modal-actions">
+      <button class="action-btn secondary" onclick="window.location.href='test-pad.html'" style="font-size:0.9em">🎸 Calibrar</button>
+      <button class="action-btn" onclick="closeGHConfig()">Cerrar</button>
     </div>
-  </div>
-
-  <div class="footer-link">
-    Suite Sincro · <a href="gh-autostepper.html">Generar charts</a> · <a href="test-pad.html">Probar hardware</a> · <a href="autostepper.html">AutoStepper StepMania</a>
   </div>
 </div>
+
+<!-- Wrapper compatible con código antiguo: setup-screen sigue existiendo
+     vacío, así las llamadas residuales `setup-screen.classList.add('hidden')`
+     no rompen, y body padding/scroll heredan del topbar como antes. -->
+<div id="setup-screen" style="display:none"></div>
 
 <!-- ============== GAME SCREEN ============== -->
 <div id="game-screen">
@@ -633,15 +939,25 @@ async function refreshLibraryList() {
   const entries = await window.GHLibrary.all();
   countEl.textContent = entries.length ? `(${entries.length})` : '';
   if (!entries.length) {
-    el.innerHTML = '<p style="color:var(--gris-500)">Tu biblioteca está vacía. Genera charts en <a href="gh-autostepper.html" style="color:var(--gh-accent)">gh-autostepper</a> y guárdalos aquí, o usa el cargador de abajo para importar un ZIP/chart suelto.</p>';
+    el.innerHTML = '<p style="color:var(--gris-500)">Tu biblioteca está vacía. Genera partituras en <a href="gh-autostepper.html" style="color:var(--gh-accent)">Crear partituras</a> y guárdalas aquí, o usa el cargador de abajo para importar un ZIP/.chart suelto.</p>';
     return;
   }
   // Sort: más recientes primero
   entries.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
-  let html = '<div class="info-grid" style="grid-template-columns:1fr">';
+  // Guardar IDs visibles para el "select all" (en GH no hay filtros aún,
+  // visible == todas; queda preparado para cuando se añadan).
+  _visibleGHIds = entries.map(e => e.id);
+  let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:8px">
+      <input type="checkbox" class="playlist-checkbox" id="selectAllVisibleGH" onchange="toggleAllVisible()" aria-label="Seleccionar todas las partituras visibles">
+      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca varias partituras para tocarlas en cadena (modo lista)</span>
+    </div>`;
   for (const e of entries) {
     const dur = e.duration ? `${Math.floor(e.duration/60)}:${('0'+Math.floor(e.duration%60)).slice(-2)}` : '?';
-    html += `<div class="info-item" style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+    const isMarked = selectedGHIds.has(e.id);
+    html += `<div class="lib-row${isMarked ? ' in-playlist' : ''}">
+      <input type="checkbox" class="playlist-checkbox" ${isMarked ? 'checked' : ''}
+        onchange="togglePlaylistSelection(${e.id})" title="Marcar para sesión continua"
+        aria-label="Marcar ${escHtml(e.title || 'partitura')}">
       <div style="flex:1;min-width:0">
         <div style="color:#fff;font-weight:600">${escHtml(e.title || 'Sin título')}</div>
         <div style="color:var(--gris-400);font-size:0.85em">${escHtml(e.artist || 'Unknown')} · ${e.bpm ? e.bpm.toFixed(1) + ' BPM' : ''} · ${dur} · ${e.totalNotes || 0} notas</div>
@@ -652,36 +968,268 @@ async function refreshLibraryList() {
       </div>
     </div>`;
   }
-  html += '</div>';
   el.innerHTML = html;
+  updatePlaylistBar();
 }
 async function loadFromLibrary(id) {
   if (!window.GHLibrary) return;
   const entry = await window.GHLibrary.get(id);
-  if (!entry) { alert('Chart no encontrado en biblioteca'); return; }
+  if (!entry) { alert('Partitura no encontrada en biblioteca'); return; }
   try {
     const audioBytes = new Uint8Array(await entry.audioBlob.arrayBuffer());
+    // loadSong arranca el juego automáticamente (vía applyGlobalConfigAndPlay).
+    // No hay paso intermedio; el chart se parsea y el highway aparece directo.
     await loadSong(entry.chartText, audioBytes, entry.audioName || 'song.mp3');
-    // Reset drop zone visual feedback
+    // Reset drop zone visual feedback (por si el usuario vuelve a setup)
     document.getElementById('zipDrop').classList.remove('loaded');
     document.getElementById('chartDrop').classList.remove('loaded');
     document.getElementById('audioDrop').classList.remove('loaded');
     document.getElementById('zipName').textContent = '';
     document.getElementById('chartName').textContent = '';
     document.getElementById('audioName').textContent = '';
-    // Scroll a settings
-    document.querySelector('#setup-screen .card:nth-of-type(4)').scrollIntoView({ behavior: 'smooth' });
   } catch (err) {
     alert('Error cargando de biblioteca: ' + err.message);
   }
 }
 async function deleteFromLibrary(id) {
-  if (!confirm('¿Eliminar este chart de la biblioteca? El ZIP descargado no se ve afectado.')) return;
+  if (!confirm('¿Eliminar esta partitura de la biblioteca? El ZIP descargado no se ve afectado.')) return;
   await window.GHLibrary.delete(id);
+  selectedGHIds.delete(id);
   refreshLibraryList();
 }
 // Carga inicial
 refreshLibraryList();
+
+// ============================================================================
+//                         PLAYLIST MODE — sesión continua
+// ============================================================================
+// Estado: `selectedGHIds` Set de chart-ids marcados; `playSession` con queue
+// activa. Decisión idéntica a play.html (SM): selección/sesión efímeras, no
+// se persisten — modo ad-hoc puro.
+const selectedGHIds = new Set();
+let playSession = null;
+let _sessionCountdownTimer = null;
+let _visibleGHIds = [];
+const _GH_DIFF_ORDER = ['EasySingle', 'MediumSingle', 'HardSingle', 'ExpertSingle'];
+
+function togglePlaylistSelection(id) {
+  if (selectedGHIds.has(id)) selectedGHIds.delete(id);
+  else selectedGHIds.add(id);
+  refreshLibraryList();
+}
+
+function clearPlaylistSelection() {
+  selectedGHIds.clear();
+  refreshLibraryList();
+}
+
+function updatePlaylistBar() {
+  const bar = document.getElementById('playlistBar');
+  const count = document.getElementById('playlistCount');
+  const clearBtn = document.getElementById('playlistClearBtn');
+  const startBtn = document.getElementById('playlistStartBtn');
+  if (bar && count) {
+    const n = selectedGHIds.size;
+    if (n === 0) {
+      bar.classList.remove('has-selection');
+      count.textContent = 'Marca varias partituras para crear una sesión continua';
+      if (clearBtn) clearBtn.disabled = true;
+      if (startBtn) startBtn.disabled = true;
+    } else {
+      bar.classList.add('has-selection');
+      count.textContent = `${n} ${n === 1 ? 'partitura seleccionada' : 'partituras seleccionadas'}`;
+      if (clearBtn) clearBtn.disabled = false;
+      if (startBtn) startBtn.disabled = false;
+    }
+  }
+  updateMasterCheckbox();
+}
+
+// Tri-state del checkbox maestro: vacío / indeterminate / marcado.
+// Indeterminate es propiedad JS pura (no atributo HTML) y se aplica tras
+// cada renderizado porque innerHTML descarta ese estado.
+function updateMasterCheckbox() {
+  const cb = document.getElementById('selectAllVisibleGH');
+  if (!cb) return;
+  const total = _visibleGHIds.length;
+  if (total === 0) {
+    cb.checked = false; cb.indeterminate = false; cb.disabled = true;
+    return;
+  }
+  cb.disabled = false;
+  const markedVisible = _visibleGHIds.filter(id => selectedGHIds.has(id)).length;
+  if (markedVisible === 0) { cb.checked = false; cb.indeterminate = false; }
+  else if (markedVisible === total) { cb.checked = true; cb.indeterminate = false; }
+  else { cb.checked = false; cb.indeterminate = true; }
+}
+
+function toggleAllVisible() {
+  if (_visibleGHIds.length === 0) return;
+  const allMarked = _visibleGHIds.every(id => selectedGHIds.has(id));
+  if (allMarked) for (const id of _visibleGHIds) selectedGHIds.delete(id);
+  else for (const id of _visibleGHIds) selectedGHIds.add(id);
+  refreshLibraryList();
+}
+
+// openPlaylistModal/closePlaylistModal quedaron obsoletas tras sacar la
+// configuración de partida al config-card. El botón "Crear partida" llama
+// directamente a startPlaylistSession.
+
+// Tras parsear el chart de la biblioteca, busca el chart-key más cercano al
+// target (Easy→Medium→Hard→Expert). En GH la "name" coincide con la "key" en
+// nuestro parser (EasySingle, MediumSingle, etc.).
+function pickClosestGHDiff(parsedCharts, targetKey) {
+  if (parsedCharts[targetKey]) return targetKey;
+  const targetIdx = _GH_DIFF_ORDER.indexOf(targetKey);
+  if (targetIdx < 0) {
+    // Fallback: cualquier diff disponible
+    return Object.keys(parsedCharts)[0] || null;
+  }
+  // Buscar la más cercana en la lista canónica
+  let best = null, bestDist = 99;
+  for (const k of _GH_DIFF_ORDER) {
+    if (!parsedCharts[k]) continue;
+    const d = Math.abs(_GH_DIFF_ORDER.indexOf(k) - targetIdx);
+    if (d < bestDist) { bestDist = d; best = k; }
+  }
+  return best;
+}
+
+async function startPlaylistSession() {
+  if (selectedGHIds.size === 0) return;
+  // La dificultad común viene del select global del config-card.
+  // Ya no abrimos modal — flow directo, idéntico al de SM.
+  const diffKey = document.getElementById('difficulty').value;
+  const queue = [];
+  for (const id of selectedGHIds) {
+    const entry = await window.GHLibrary.get(id);
+    if (!entry) continue;
+    queue.push({ id, entry, requestedDiff: diffKey });
+  }
+  if (!queue.length) {
+    alert('Ninguna canción seleccionada disponible.');
+    return;
+  }
+  playSession = {
+    queue, difficultyKey: diffKey,
+    index: 0, scores: [],
+    startedAt: Date.now()
+  };
+  selectedGHIds.clear();
+  refreshLibraryList(); // sincroniza visual de checkboxes con el clear
+  loadSessionSong(0);
+}
+
+async function loadSessionSong(idx) {
+  if (!playSession || idx < 0 || idx >= playSession.queue.length) return;
+  playSession.index = idx;
+  const item = playSession.queue[idx];
+  try {
+    const audioBytes = new Uint8Array(await item.entry.audioBlob.arrayBuffer());
+    // loadSong en modo sesión NO arranca solo (chequea playSession internally);
+    // arranca aquí con la diff resuelta para esta canción.
+    await loadSong(item.entry.chartText, audioBytes, item.entry.audioName || 'song.mp3');
+    const effectiveDiff = pickClosestGHDiff(song.charts, playSession.difficultyKey);
+    if (!effectiveDiff) {
+      console.warn('Sin diff compatible para', item.entry.title);
+      return loadSessionSong(idx + 1);
+    }
+    startGame(effectiveDiff);
+  } catch (err) {
+    console.error('Error cargando canción de sesión:', err);
+    alert('Error cargando "' + (item.entry.title || 'canción') + '": ' + err.message);
+    endPlaylistSession();
+  }
+}
+
+function endPlaylistSession() {
+  if (_sessionCountdownTimer) {
+    clearInterval(_sessionCountdownTimer);
+    _sessionCountdownTimer = null;
+  }
+  playSession = null;
+  // Quitar banner si quedó renderizado
+  const banner = document.querySelector('#results-screen .session-next-banner');
+  if (banner) banner.remove();
+}
+
+function continueSessionNow() {
+  if (!playSession) return;
+  if (_sessionCountdownTimer) {
+    clearInterval(_sessionCountdownTimer);
+    _sessionCountdownTimer = null;
+  }
+  // Volver a setup-screen brevemente para usar el flow normal de carga
+  document.getElementById('results-screen').classList.remove('active');
+  loadSessionSong(playSession.index + 1);
+}
+
+// Inyecta banner de "siguiente" o resumen final en results-screen.
+function updateResultsForSession(lastResult) {
+  if (!playSession) return;
+  if (lastResult) playSession.scores.push({
+    title: song?.meta?.Name || '?',
+    diff: (game?.diff || '').replace('Single', ''),
+    ...lastResult
+  });
+  const isLast = playSession.index >= playSession.queue.length - 1;
+  const resultsScreen = document.getElementById('results-screen');
+  // Limpiar banner previo si existe
+  const oldBanner = resultsScreen.querySelector('.session-next-banner, .session-summary');
+  if (oldBanner) oldBanner.remove();
+
+  if (isLast) {
+    const totalScore = playSession.scores.reduce((s, r) => s + (r.score || 0), 0);
+    const avgAcc = playSession.scores.reduce((s, r) => s + (r.accuracy || 0), 0) / playSession.scores.length;
+    const summary = playSession.scores.map(r =>
+      `<div class="row"><span>${escHtml(r.title)} <small style="color:var(--gris-500)">· ${r.diff}</small></span>` +
+      `<span style="color:var(--fret-yellow)"><strong>${r.grade}</strong> ${(r.accuracy||0).toFixed(0)}%</span></div>`
+    ).join('');
+    const summaryEl = document.createElement('div');
+    summaryEl.className = 'session-summary';
+    summaryEl.innerHTML = `
+      <div style="font-family:var(--font-display);color:var(--gh-accent);font-size:1.1em;margin-bottom:8px">
+        🏁 Sesión completa · ${playSession.queue.length} canciones
+      </div>
+      ${summary}
+      <div class="row" style="margin-top:8px;padding-top:10px;border-top:1px solid rgba(249,115,22,0.3)">
+        <strong>Score total</strong>
+        <strong style="color:var(--fret-yellow)">${Math.round(totalScore).toLocaleString()} · acc media ${avgAcc.toFixed(1)}%</strong>
+      </div>`;
+    resultsScreen.querySelector('.center').insertAdjacentElement('beforebegin', summaryEl);
+    endPlaylistSession();
+    return;
+  }
+
+  // Hay siguiente: banner con countdown
+  const nextIdx = playSession.index + 1;
+  const next = playSession.queue[nextIdx];
+  const banner = document.createElement('div');
+  banner.className = 'session-next-banner';
+  banner.innerHTML = `
+    <div class="label">Siguiente canción</div>
+    <div class="next-title">${escHtml(next.entry.title || '?')}</div>
+    <div class="countdown" id="sessionCountdown">5</div>
+    <div class="progress-text">Canción ${nextIdx + 1} de ${playSession.queue.length}</div>
+    <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="action-btn" onclick="continueSessionNow()">▶ Continuar ahora</button>
+      <button class="action-btn secondary" onclick="endPlaylistSession();returnToSetup()">⊘ Salir de la sesión</button>
+    </div>`;
+  resultsScreen.querySelector('.center').insertAdjacentElement('beforebegin', banner);
+
+  let secs = 5;
+  if (_sessionCountdownTimer) clearInterval(_sessionCountdownTimer);
+  _sessionCountdownTimer = setInterval(() => {
+    secs--;
+    const el = document.getElementById('sessionCountdown');
+    if (el) el.textContent = secs;
+    if (secs <= 0) {
+      clearInterval(_sessionCountdownTimer);
+      _sessionCountdownTimer = null;
+      continueSessionNow();
+    }
+  }, 1000);
+}
 
 // ============================================================================
 //                          .CHART PARSER
@@ -864,7 +1412,7 @@ async function handleAudioFile(file) {
 async function loadSong(chartText, audioBytes, audioFilename) {
   try {
     const parsed = parseChart(chartText);
-    if (Object.keys(parsed.charts).length === 0) throw new Error('El chart no tiene secciones de notas (Easy/Medium/Hard/Expert Single)');
+    if (Object.keys(parsed.charts).length === 0) throw new Error('La partitura no tiene secciones de notas (Easy/Medium/Hard/Expert Single)');
 
     // Decode audio
     const ctx = window.AudioPipeline.ensureAudioContext();
@@ -880,36 +1428,35 @@ async function loadSong(chartText, audioBytes, audioFilename) {
       audioFilename
     };
     renderSongInfo();
-    const btn = document.getElementById('playBtn');
-    const wasDisabled = btn.disabled;
-    btn.disabled = false;
-    btn.classList.add('ready');
-    // Pulse de bienvenida solo al pasar de "no listo" a "listo" — comunica
-    // a la usuaria que ese es el botón siguiente. Al re-cargar otra canción
-    // ya no necesita reanunciarse.
-    if (wasDisabled) {
-      btn.classList.add('just-enabled');
-      setTimeout(() => btn.classList.remove('just-enabled'), 2400);
-    }
-    updatePlayHint();
+    // Si NO estamos en una sesión multi (esa tiene su propio flow controlado),
+    // arrancar directo con la configuración global. Click en chart de
+    // biblioteca o drop ZIP/chart+audio → toca al instante.
+    if (!playSession) applyGlobalConfigAndPlay();
   } catch (err) {
     alert('Error cargando: ' + err.message);
     console.error(err);
   }
 }
 
-// Texto contextual debajo del botón: comunica el estado actual.
-function updatePlayHint() {
-  const hint = document.getElementById('playHint');
-  if (!hint) return;
-  if (!song) {
-    hint.textContent = 'Carga un chart o elige uno de tu biblioteca';
-    return;
-  }
-  const sel = document.getElementById('difficulty');
-  const diffLabel = sel.options[sel.selectedIndex]?.textContent || '';
-  hint.textContent = `Listo: ${song.meta.Name || 'canción'} · ${diffLabel}`;
+// Resuelve la dificultad efectiva (la global o la más cercana disponible) y
+// arranca el juego inmediatamente. Es el "puente" entre loadSong y startGame
+// en el flow nuevo: ya no hay un botón intermedio "Tocar canción".
+function applyGlobalConfigAndPlay() {
+  if (!song) return;
+  const target = document.getElementById('difficulty').value;
+  const effective = pickClosestGHDiff(song.charts, target);
+  if (!effective) { alert('Esta canción no tiene una partitura compatible.'); return; }
+  startGame(effective);
 }
+
+// Stub para handler del select global. Como la diff global se aplica solo al
+// arrancar la siguiente partida, no hace falta más que reflejar el cambio.
+function onGHDiffChange() { /* no-op por ahora */ }
+
+// updatePlayState quedó obsoleta: el big CTA "Tocar canción" ya no existe.
+// Se conserva como no-op para no romper llamadas residuales (returnToSetup,
+// etc.) hasta limpiar todas las referencias en una pasada futura.
+function updatePlayState() { /* no-op — flow nuevo arranca directo */ }
 
 function renderSongInfo() {
   const el = document.getElementById('songInfo');
@@ -924,21 +1471,9 @@ function renderSongInfo() {
     <div class="info-item"><div class="key">Dificultades</div><div class="val">${Object.keys(song.charts).map(k => k.replace('Single','')).join(' · ')}</div></div>
     <div class="info-item"><div class="key">Notas totales</div><div class="val">${totalNotes}</div></div>
   `;
-
-  // Auto-poblar el dropdown de dificultad con las que existen en el chart
-  const sel = document.getElementById('difficulty');
-  const want = sel.value;
-  const order = ['ExpertSingle','HardSingle','MediumSingle','EasySingle'];
-  sel.innerHTML = '';
-  for (const k of order) {
-    if (song.charts[k]) {
-      const opt = document.createElement('option');
-      opt.value = k; opt.textContent = k.replace('Single','') + ` (${song.charts[k].length} notas)`;
-      sel.appendChild(opt);
-    }
-  }
-  // Mantener selección si existe, si no la mejor disponible
-  if ([...sel.options].some(o => o.value === want)) sel.value = want;
+  // El dropdown del config-card NO se repuebla con las dificultades de la
+  // canción — siempre muestra Easy/Medium/Hard/Expert (config global). Si
+  // la canción no tiene la dificultad pedida, pickClosestGHDiff resuelve.
 }
 function escHtml(s) { return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
@@ -969,7 +1504,8 @@ function handleFile(type, file) {
 document.getElementById('speedSlider').addEventListener('input', e => {
   document.getElementById('speedVal').textContent = e.target.value;
 });
-document.getElementById('difficulty').addEventListener('change', updatePlayHint);
+// (El listener change del select global ahora invoca onGHDiffChange, que de
+// momento es no-op — la diff global se aplica al arrancar la siguiente partida.)
 
 // ============================================================================
 //                          ZIP STORE PARSER (for autostepper output)
@@ -1136,9 +1672,19 @@ function applyKeyboardFallback() {
 // ============================================================================
 //                          GAME LOOP
 // ============================================================================
-function startGame() {
+function startGame(diffOverride) {
   if (!song) return;
-  const diff = document.getElementById('difficulty').value;
+  // Parar el preview-loop al arrancar partida real para no tener dos rAF
+  // queues activos simultáneamente.
+  if (typeof stopGHPreviewLoop === 'function') stopGHPreviewLoop();
+  // diffOverride viene de applyGlobalConfigAndPlay (resuelto a la diff más
+  // cercana disponible). Si no hay override, leer del select directamente
+  // para retro-compat con flows que llamen a startGame() sin parámetro.
+  let diff = diffOverride || document.getElementById('difficulty').value;
+  if (!diff) { alert('Elige una dificultad antes de empezar.'); return; }
+  // Si la diff pedida no existe en este chart, resolver al más cercano.
+  if (!song.charts[diff]) diff = pickClosestGHDiff(song.charts, diff);
+  if (!diff) { alert('Esta canción no tiene una partitura compatible.'); return; }
   const notes = song.charts[diff];
   if (!notes || notes.length === 0) { alert('No hay notas en esa dificultad'); return; }
 
@@ -1182,8 +1728,12 @@ function startGame() {
     activeSustains: []   // notas con sustain activo (frets correctos siendo mantenidos)
   };
 
-  // Cambiar pantalla
-  document.getElementById('setup-screen').classList.add('hidden');
+  // Cambiar pantalla — ocultar todas las gh-screens (menú/tocar/library) y
+  // mostrar el highway. La pantalla activa antes del juego se recuerda en
+  // _lastSetupScreen para que `quitGame`/`returnToSetup` te devuelva al
+  // mismo sitio (Tocar es lo más típico).
+  _lastSetupScreen = _findActiveSetupScreen() || 'songs';
+  for (const id of GH_SETUP_SCREENS) document.getElementById(id).classList.add('hidden');
   document.getElementById('game-screen').classList.add('active');
   document.body.classList.add('playing');
   document.getElementById('hudTotal').textContent = runtimeNotes.length;
@@ -1269,8 +1819,8 @@ function quitGame() {
   if (rafId) cancelAnimationFrame(rafId);
   game = null;
   document.getElementById('game-screen').classList.remove('active');
-  document.getElementById('setup-screen').classList.remove('hidden');
   document.body.classList.remove('playing');
+  goto(_lastSetupScreen || 'songs');
 }
 
 // ============================================================================
@@ -1583,12 +2133,380 @@ function finishGame() {
     <div class="results-stat"><div class="label">Max combo</div><div class="value">${game.maxCombo}</div></div>
     <div class="results-stat"><div class="label">Dificultad</div><div class="value" style="font-size:1em">${game.diff.replace('Single','')}</div></div>
   `;
+  // Hook playlist mode: si hay sesión activa, inyecta banner de siguiente o
+  // resumen final. Capturamos los datos antes de game = null.
+  const sessionResult = playSession ? {
+    grade,
+    accuracy: +accuracy.toFixed(2),
+    score: Math.round(game.score)
+  } : null;
   game = null;
+  if (sessionResult) updateResultsForSession(sessionResult);
 }
 function returnToSetup() {
+  // Si volvemos al menú con una sesión activa, cancelar el countdown para
+  // que no cargue la siguiente canción detrás de las pantallas.
+  if (playSession) endPlaylistSession();
   document.getElementById('results-screen').classList.remove('active');
-  document.getElementById('setup-screen').classList.remove('hidden');
+  // Volver a la pantalla setup desde donde se arrancó (típicamente Tocar).
+  // El preview vivo ya no se reanuda automáticamente — solo cuando el
+  // usuario abre el modal ⚙, así no consumimos rAF cuando no se necesita.
+  goto(_lastSetupScreen || 'songs');
 }
+
+// ============================================================================
+//                    PREVIEW VIVO en config-card (5 trastes GH)
+// ============================================================================
+// Calibración honesta: el lead time (cuánto antes ves la nota que cuando hay
+// que pulsarla) es IDÉNTICO al del juego real con el viewport actual y el
+// speed seleccionado. Replica las constantes del highway real:
+//   topY = max(70, innerHeight * 0.08)
+//   hitY = innerHeight * 0.88
+//   pps  = speedSlider value
+// → lead_time_juego = (hitY - topY) / pps. El preview usa la misma fórmula
+// para escalar la velocidad de sus notas a su canvas.
+
+const _GH_PREVIEW_BPM = 120;
+
+let _ghPreviewState = {
+  notes: [],
+  lastBeat: -1,
+  startedAt: 0,
+  rafId: 0,
+  running: false
+};
+
+function startGHPreviewLoop() {
+  if (_ghPreviewState.running) return;
+  const canvas = document.getElementById('ghPreviewCanvas');
+  if (!canvas) return;
+  _ghPreviewState.running = true;
+  _ghPreviewState.startedAt = performance.now();
+  _ghPreviewState.notes = [];
+  _ghPreviewState.lastBeat = -1;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  // Paleta GH oficial: Verde, Rojo, Amarillo, Azul, Naranja
+  const FRET_COLORS = ['#10b981', '#ef4444', '#facc15', '#3b82f6', '#f97316'];
+
+  const PREVIEW_RECEPTOR_Y = H - 28;
+  const PREVIEW_TOP_Y = 0;
+  const PREVIEW_LEAD_DIST = PREVIEW_RECEPTOR_Y - PREVIEW_TOP_Y;
+
+  const tick = () => {
+    if (!_ghPreviewState.running) return;
+    const now = performance.now();
+    const t = (now - _ghPreviewState.startedAt) / 1000;
+    const beatPeriod = 60 / _GH_PREVIEW_BPM;
+    const beat = Math.floor(t / beatPeriod);
+
+    // Generar una nota cada beat. HOPO sintético cada 4 beats (cambio rápido).
+    if (beat > _ghPreviewState.lastBeat) {
+      _ghPreviewState.lastBeat = beat;
+      const fret = Math.floor(Math.random() * 5);
+      const isHopo = beat % 4 === 2;
+      _ghPreviewState.notes.push({ fret, time: t, isHopo });
+    }
+
+    // Lead time real con la config actual del juego — replica las constantes
+    // del highway de gh-play (topY/hitY) y del speed slider.
+    const speedSlider = document.getElementById('speedSlider');
+    const gamePPS = speedSlider ? parseInt(speedSlider.value) : 500;
+    const gameTopY = Math.max(70, window.innerHeight * 0.08);
+    const gameHitY = window.innerHeight * 0.88;
+    const gameLeadDist = Math.max(100, gameHitY - gameTopY);
+    const leadTime = gameLeadDist / gamePPS;
+    const pixelsPerSec = PREVIEW_LEAD_DIST / leadTime;
+
+    // Limpiar notas que ya cruzaron el receptor (con margen)
+    _ghPreviewState.notes = _ghPreviewState.notes.filter(n => (t - n.time) <= leadTime * 1.1);
+
+    // Render
+    ctx.clearRect(0, 0, W, H);
+    const fretW = W / 5;
+
+    // Highway lanes (líneas verticales tenues)
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < 5; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * fretW, 0);
+      ctx.lineTo(i * fretW, H);
+      ctx.stroke();
+    }
+
+    // Línea de receptor
+    ctx.strokeStyle = 'rgba(249,115,22,0.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, PREVIEW_RECEPTOR_Y);
+    ctx.lineTo(W, PREVIEW_RECEPTOR_Y);
+    ctx.stroke();
+
+    // Receptors (5 círculos en la línea de hit)
+    for (let i = 0; i < 5; i++) {
+      const x = i * fretW + fretW / 2;
+      ctx.strokeStyle = FRET_COLORS[i] + '88';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, PREVIEW_RECEPTOR_Y, 11, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Notas cayendo. Misma fórmula que gh-play.html:1940 —
+    //   y = hitY - (note.time - t) * speed
+    // Donde "note.time" en juego es el momento del hit. Aquí n.time es cuándo
+    // se generó la nota; el momento del hit equivale a n.time + leadTime.
+    for (const n of _ghPreviewState.notes) {
+      const hitTime = n.time + leadTime;
+      const y = PREVIEW_RECEPTOR_Y - (hitTime - t) * pixelsPerSec;
+      if (y < -20 || y > PREVIEW_RECEPTOR_Y + 20) continue;
+      const x = n.fret * fretW + fretW / 2;
+      ctx.fillStyle = FRET_COLORS[n.fret];
+      ctx.beginPath();
+      ctx.arc(x, y, 12, 0, Math.PI * 2);
+      ctx.fill();
+      // HOPO: borde blanco grueso para distinguirlo
+      if (n.isHopo) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+    }
+
+    _ghPreviewState.rafId = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function stopGHPreviewLoop() {
+  _ghPreviewState.running = false;
+  if (_ghPreviewState.rafId) cancelAnimationFrame(_ghPreviewState.rafId);
+  _ghPreviewState.rafId = 0;
+}
+
+// ============================================================================
+//                    MULTI-SCREEN NAVIGATION (menú / tocar / mis charts)
+// ============================================================================
+// Patrón análogo a play.html (StepMania): tres pantallas hermanas con la
+// misma clase `.gh-screen`. La función `goto(name)` oculta todas y muestra
+// la elegida. El `crumb` del topbar refleja la ubicación. Hash routing para
+// deep-links externos (ej. `gh-play.html#library`).
+
+// Solo dos pantallas reales: Tocar (default) y Mis charts. La selección
+// "menú" inicial vive en play.html (dashboard), no aquí — entrar a
+// gh-play.html ya implica que el usuario eligió "🎸 Tocar" en el dashboard.
+const GH_SETUP_SCREENS = ['gh-songs-screen', 'gh-library-screen'];
+const _GH_SCREEN_BY_NAME = { songs: 'gh-songs-screen', library: 'gh-library-screen' };
+let _lastSetupScreen = 'songs';
+
+function _findActiveSetupScreen() {
+  for (const [name, id] of Object.entries(_GH_SCREEN_BY_NAME)) {
+    if (!document.getElementById(id).classList.contains('hidden')) return name;
+  }
+  return null;
+}
+
+function goto(name) {
+  const targetId = _GH_SCREEN_BY_NAME[name] || _GH_SCREEN_BY_NAME.songs;
+  for (const id of GH_SETUP_SCREENS) {
+    document.getElementById(id).classList.toggle('hidden', id !== targetId);
+  }
+  _lastSetupScreen = name in _GH_SCREEN_BY_NAME ? name : 'songs';
+
+  const crumb = document.getElementById('ghCrumb');
+  if (crumb) {
+    crumb.textContent = name === 'library' ? '· 🎸 GH · Mis canciones'
+                                           : '· 🎸 GH · Tocar';
+  }
+
+  // Refrescar lo que dependa de la pantalla activa.
+  if (name === 'songs')   { refreshCalibStatus(); refreshLibraryList(); }
+  if (name === 'library') refreshManageList();
+}
+
+// ============================================================================
+//                    MODAL DE CONFIGURACIÓN ⚙ (speed / offset / HOPO)
+// ============================================================================
+// El preview vivo se inicia/para junto con el modal: ahorra RAF cuando no
+// estás calibrando. La fórmula del lead-time del preview replica la del
+// highway real (ver comentario en startGHPreviewLoop), así calibrar speed
+// aquí refleja exactamente cómo se verán las notas durante la canción.
+
+function openGHConfig() {
+  document.getElementById('ghConfigModal').classList.remove('hidden');
+  // Arrancar el preview solo si NO estamos en partida (durante el juego no
+  // queremos dos rAF queues activas — el modal queda inaccesible de todos
+  // modos porque el topbar está oculto en body.playing).
+  if (!document.body.classList.contains('playing')) startGHPreviewLoop();
+}
+
+function closeGHConfig() {
+  document.getElementById('ghConfigModal').classList.add('hidden');
+  stopGHPreviewLoop();
+}
+
+// ESC cierra el modal cuando está abierto y NO hay partida en curso.
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !document.body.classList.contains('playing')) {
+    const modal = document.getElementById('ghConfigModal');
+    if (modal && !modal.classList.contains('hidden')) closeGHConfig();
+  }
+});
+
+// ============================================================================
+//                    REFRESH MANAGE LIST (pantalla "Mis charts")
+// ============================================================================
+// Lista en modo gestión: cada fila tiene checkbox para selección múltiple +
+// botón individual de borrado. La barra superior `#manageBar` permite
+// borrar en bulk todos los marcados a la vez. Estado independiente del
+// playlist mode (`selectedGHIds`) — son selecciones distintas para distintos
+// propósitos (sesión vs eliminación).
+
+const selectedManageIds = new Set();
+let _visibleManageIds = [];
+
+async function refreshManageList() {
+  const el = document.getElementById('manageList');
+  const countEl = document.getElementById('manageCount');
+  if (!el || !window.GHLibrary) return;
+  const entries = await window.GHLibrary.all();
+  if (countEl) countEl.textContent = entries.length ? `(${entries.length})` : '';
+  if (!entries.length) {
+    el.innerHTML = '<p style="color:var(--gris-500)">Tu biblioteca está vacía. Importa un ZIP arriba o genera partituras en <a href="gh-autostepper.html" style="color:var(--gh-accent)">Crear partituras</a>.</p>';
+    _visibleManageIds = [];
+    selectedManageIds.clear();
+    updateManageBar();
+    return;
+  }
+  entries.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  _visibleManageIds = entries.map(e => e.id);
+  // Limpiar de la selección IDs que ya no existen (charts borrados externamente).
+  for (const id of [...selectedManageIds]) {
+    if (!_visibleManageIds.includes(id)) selectedManageIds.delete(id);
+  }
+  // Cabecera con "Seleccionar todos" (tri-state).
+  let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:8px">
+      <input type="checkbox" class="playlist-checkbox" id="selectAllManage" onchange="toggleAllVisibleManage()" aria-label="Seleccionar todos los charts">
+      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca charts y usa la barra de arriba para eliminar varios a la vez</span>
+    </div>`;
+  for (const e of entries) {
+    const dur = e.duration ? `${Math.floor(e.duration/60)}:${('0'+Math.floor(e.duration%60)).slice(-2)}` : '?';
+    const isMarked = selectedManageIds.has(e.id);
+    html += `<div class="lib-row${isMarked ? ' in-playlist' : ''}">
+      <input type="checkbox" class="playlist-checkbox" ${isMarked ? 'checked' : ''}
+        onchange="toggleManageSelection(${e.id})" title="Marcar para eliminar"
+        aria-label="Marcar ${escHtml(e.title || 'chart')} para eliminar">
+      <div style="flex:1;min-width:0">
+        <div style="color:#fff;font-weight:600">${escHtml(e.title || 'Sin título')}</div>
+        <div style="color:var(--gris-400);font-size:0.85em">${escHtml(e.artist || 'Unknown')} · ${e.bpm ? e.bpm.toFixed(1) + ' BPM' : ''} · ${dur} · ${e.totalNotes || 0} notas</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="action-btn" style="padding:8px 16px;font-size:0.95em" onclick="loadFromLibrary(${e.id})">▶ Tocar</button>
+        <button class="action-btn secondary" style="padding:8px 12px;font-size:0.95em" onclick="deleteFromManage(${e.id})" title="Eliminar este chart">🗑</button>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+  updateManageBar();
+}
+
+function toggleManageSelection(id) {
+  if (selectedManageIds.has(id)) selectedManageIds.delete(id);
+  else selectedManageIds.add(id);
+  refreshManageList();
+}
+
+function clearManageSelection() {
+  selectedManageIds.clear();
+  refreshManageList();
+}
+
+function toggleAllVisibleManage() {
+  if (_visibleManageIds.length === 0) return;
+  const allMarked = _visibleManageIds.every(id => selectedManageIds.has(id));
+  if (allMarked) for (const id of _visibleManageIds) selectedManageIds.delete(id);
+  else for (const id of _visibleManageIds) selectedManageIds.add(id);
+  refreshManageList();
+}
+
+function updateManageBar() {
+  const bar = document.getElementById('manageBar');
+  const count = document.getElementById('manageSelCount');
+  const clearBtn = document.getElementById('manageClearBtn');
+  const delBtn = document.getElementById('manageDeleteBtn');
+  if (!bar || !count) return;
+  const n = selectedManageIds.size;
+  if (n === 0) {
+    bar.classList.remove('has-selection');
+    count.textContent = 'Marca charts con la casilla para eliminar varios a la vez';
+    if (clearBtn) clearBtn.disabled = true;
+    if (delBtn)   { delBtn.disabled = true; delBtn.textContent = '🗑 Eliminar seleccionados'; }
+  } else {
+    bar.classList.add('has-selection');
+    count.textContent = `${n} ${n === 1 ? 'chart marcado' : 'charts marcados'} para eliminar`;
+    if (clearBtn) clearBtn.disabled = false;
+    if (delBtn)   { delBtn.disabled = false; delBtn.textContent = `🗑 Eliminar ${n}`; }
+  }
+  // Tri-state del checkbox maestro (se reaplica tras innerHTML).
+  const cb = document.getElementById('selectAllManage');
+  if (cb) {
+    const total = _visibleManageIds.length;
+    if (total === 0) { cb.checked = false; cb.indeterminate = false; cb.disabled = true; }
+    else {
+      cb.disabled = false;
+      const markedVisible = _visibleManageIds.filter(id => selectedManageIds.has(id)).length;
+      if (markedVisible === 0) { cb.checked = false; cb.indeterminate = false; }
+      else if (markedVisible === total) { cb.checked = true; cb.indeterminate = false; }
+      else { cb.checked = false; cb.indeterminate = true; }
+    }
+  }
+}
+
+async function bulkDeleteFromManage() {
+  const ids = [...selectedManageIds];
+  if (ids.length === 0) return;
+  const msg = ids.length === 1
+    ? '¿Eliminar 1 chart de la biblioteca?'
+    : `¿Eliminar ${ids.length} charts de la biblioteca? Esta acción no se puede deshacer.`;
+  if (!confirm(msg)) return;
+  for (const id of ids) {
+    await window.GHLibrary.delete(id);
+    selectedGHIds.delete(id); // sincroniza con la lista de Tocar
+  }
+  selectedManageIds.clear();
+  refreshManageList();
+  refreshLibraryList();
+}
+
+// Borrado individual (botón 🗑 de cada fila).
+async function deleteFromManage(id) {
+  if (!confirm('¿Eliminar esta partitura de la biblioteca?')) return;
+  await window.GHLibrary.delete(id);
+  selectedGHIds.delete(id);
+  selectedManageIds.delete(id);
+  refreshManageList();
+  refreshLibraryList();
+}
+
+// ============================================================================
+//                    HASH ROUTING (deep-links #library, #songs)
+// ============================================================================
+// play.html linka a `gh-play.html#library` desde la card "Mis charts" del
+// dashboard principal — el hash determina la pantalla inicial. Sin hash,
+// abre el menú GH.
+
+function applyHash() {
+  const h = (location.hash || '').replace('#', '').toLowerCase();
+  // Default = Tocar. Solo `#library` lleva a gestión de charts.
+  if (h === 'library') goto('library');
+  else goto('songs');
+}
+window.addEventListener('hashchange', applyHash);
+
+// Bootstrap inicial — leer hash y mostrar la pantalla correcta. El preview
+// vivo NO se arranca aquí: solo cuando el usuario abre el modal ⚙.
+applyHash();
 </script>
 </body>
 </html>

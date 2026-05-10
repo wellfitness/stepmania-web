@@ -52,84 +52,187 @@
     font-family: var(--font-display);
     background: linear-gradient(90deg, var(--turquesa-600), var(--turquesa-400), var(--tulip-tree-500));
     -webkit-background-clip: text; background-clip: text;
-    color: transparent; font-size: 2.2em; margin-bottom: 4px;
+    color: transparent; font-size: 2.4em; margin-bottom: 6px;
     letter-spacing: 0.02em;
   }
-  .subtitle { color: var(--gris-400); text-align: center; margin-bottom: 24px; font-size: 0.9em; }
+  .subtitle {
+    color: var(--gris-300); text-align: center;
+    margin: 0 auto 26px; font-size: 0.95em; line-height: 1.5;
+    max-width: 780px;
+  }
 
   .container {
     max-width: 1100px; margin: 0 auto;
     display: flex; flex-direction: column; gap: 20px;
   }
 
+  /* CARDS — Cada paso del flujo (1.Cargar, 2.Estilo, 3.Preview, 4.Exportar)
+     vive en su propia card con jerarquía clara. */
   .card {
-    background: rgba(0,0,0,0.4); border-radius: 14px;
-    padding: 20px 24px; border: 1px solid rgba(0,190,200,0.25);
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.4));
+    border-radius: 14px;
+    padding: 22px 26px;
+    border: 1px solid rgba(0,190,200,0.25);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.25);
   }
   .card h2 {
     font-family: var(--font-display);
-    color: var(--turquesa-400); font-size: 1.05em; margin-bottom: 14px;
-    border-bottom: 1px solid rgba(0,190,200,0.3); padding-bottom: 8px;
+    color: var(--turquesa-400); font-size: 1.15em; margin-bottom: 16px;
+    border-bottom: 1px solid rgba(0,190,200,0.3); padding-bottom: 10px;
     letter-spacing: 0.02em;
+    display: flex; align-items: center; gap: 10px;
   }
 
+  /* DROP-ZONE — Ahora con título prominente + sub-texto explicativo,
+     y feedback fuerte en hover/dragover. */
   .drop-zone {
-    border: 2px dashed rgba(0,190,200,0.5); border-radius: 12px;
-    padding: 30px; text-align: center; cursor: pointer;
-    transition: all 0.2s; background: rgba(0,190,200,0.05);
+    border: 2px dashed rgba(0,190,200,0.5);
+    border-radius: 14px;
+    padding: 38px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background:
+      radial-gradient(ellipse at center, rgba(0,190,200,0.08), rgba(0,190,200,0.02));
     display: block;
   }
   .drop-zone:hover, .drop-zone.dragover {
-    border-color: var(--turquesa-600); background: rgba(0,190,200,0.12);
-    box-shadow: 0 0 24px rgba(0,190,200,0.25);
+    border-color: var(--turquesa-400);
+    background:
+      radial-gradient(ellipse at center, rgba(0,190,200,0.18), rgba(0,190,200,0.05));
+    box-shadow: 0 0 28px rgba(0,190,200,0.3);
+    transform: translateY(-1px);
   }
-  .drop-zone .big-icon { font-size: 3em; margin-bottom: 8px; }
+  .drop-zone:focus-visible {
+    outline: 3px solid var(--turquesa-400); outline-offset: 3px;
+  }
+  .drop-zone .big-icon {
+    font-size: 3em; margin-bottom: 10px;
+    filter: drop-shadow(0 2px 8px rgba(0,190,200,0.4));
+  }
+  .drop-zone .dz-title {
+    color: #fff; font-size: 1.05em; font-weight: 700;
+    font-family: var(--font-display); letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+  .drop-zone .dz-sub {
+    color: var(--gris-400); font-size: 0.88em;
+  }
   .drop-zone p { color: var(--gris-400); }
   input[type="file"] { display: none; }
 
-  /* Queue table */
+  /* QUEUE — Tabla de canciones en cola.
+     Antes: filas planas, badges sosos.
+     Ahora: filas con borde lateral, badges con punto + texto, hover claro,
+     fila seleccionada con borde turquesa marcado. */
   .queue {
-    margin-top: 14px;
-    border-radius: 10px;
+    margin-top: 16px;
+    border-radius: 12px;
     overflow: hidden;
-    background: rgba(0,0,0,0.3);
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.06);
   }
   .queue-row {
     display: grid;
-    grid-template-columns: 1fr 80px 90px 110px 120px 120px;
-    gap: 8px;
+    grid-template-columns: 1fr 90px 120px 110px 90px 130px;
+    gap: 10px;
     align-items: center;
-    padding: 10px 14px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    font-size: 0.88em;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 0.9em;
+    transition: background 0.15s, transform 0.15s;
+    border-left: 3px solid transparent;
+  }
+  .queue-row:last-child { border-bottom: none; }
+  .queue-row:not(.header):hover {
+    background: rgba(0,190,200,0.06);
+    border-left-color: rgba(0,190,200,0.4);
   }
   .queue-row.header {
-    background: rgba(0,190,200,0.15); color: var(--gris-400);
-    font-weight: 600; font-size: 0.78em; text-transform: uppercase;
+    background: rgba(0,190,200,0.18);
+    color: var(--gris-200);
+    font-weight: 700; font-size: 0.74em;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    border-left-color: transparent;
   }
-  .queue-row .name { color: #fff; word-break: break-word; }
+  .queue-row .name { color: #fff; word-break: break-word; line-height: 1.3; }
   .queue-row .status .badge {
-    display: inline-block; padding: 3px 8px; border-radius: 6px;
-    font-size: 0.78em; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 12px;
+    font-size: 0.78em; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
   }
-  .badge.pending  { background: var(--gris-200); color: var(--gris-700); }
-  .badge.working  { background: var(--color-warning-light); color: var(--color-warning-dark); }
-  .badge.done     { background: rgba(16,185,129,0.2); color: var(--color-success); }
+  /* Punto de estado a la izquierda del badge — refuerza el código de color */
+  .queue-row .status .badge::before {
+    content: ''; display: inline-block;
+    width: 7px; height: 7px; border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .badge.pending  { background: rgba(255,255,255,0.10); color: var(--gris-300); }
+  .badge.working  {
+    background: var(--color-warning-light); color: var(--color-warning-dark);
+    animation: badge-working-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes badge-working-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.5); }
+    50%      { box-shadow: 0 0 0 6px rgba(245,158,11,0); }
+  }
+  .badge.done     { background: rgba(16,185,129,0.22); color: var(--color-success); }
   .badge.error    { background: var(--color-error-light); color: var(--color-error-dark); }
+
+  .queue-row .bpm {
+    display: flex; align-items: center; gap: 6px;
+  }
   .queue-row .bpm input {
-    width: 70px; background: rgba(0,0,0,0.5);
+    width: 68px; background: rgba(0,0,0,0.5);
     border: 1px solid rgba(0,190,200,0.4); color: #fff;
-    padding: 4px 6px; border-radius: 6px; font-family: var(--font-mono);
+    padding: 5px 7px; border-radius: 6px;
+    font-family: var(--font-mono); font-size: 0.88em;
+    font-variant-numeric: tabular-nums;
   }
-  .queue-row .actions { display: flex; gap: 4px; }
+  .queue-row .bpm input:focus-visible {
+    outline: 2px solid var(--turquesa-400); outline-offset: 1px;
+    border-color: var(--turquesa-400);
+  }
+  .queue-row .actions { display: flex; gap: 4px; flex-wrap: wrap; }
   .queue-row .icon-btn {
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
-    color: #fff; padding: 4px 10px; border-radius: 6px; cursor: pointer;
-    font-size: 0.8em; transition: all 0.15s;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+    color: #fff; padding: 5px 10px; border-radius: 6px;
+    cursor: pointer; font-size: 0.8em; font-weight: 600;
+    transition: all 0.15s;
   }
-  .queue-row .icon-btn:hover { background: rgba(0,190,200,0.3); }
-  .queue-row .icon-btn.danger:hover { background: rgba(225,29,72,0.4); }
-  .queue-row.selected { background: rgba(0,190,200,0.12); }
+  .queue-row .icon-btn:hover {
+    background: rgba(0,190,200,0.28);
+    border-color: rgba(0,190,200,0.6);
+  }
+  .queue-row .icon-btn.danger:hover {
+    background: rgba(225,29,72,0.35);
+    border-color: rgba(225,29,72,0.6);
+  }
+  .queue-row .icon-btn:focus-visible {
+    outline: 2px solid var(--turquesa-400); outline-offset: 1px;
+  }
+  .queue-row.selected {
+    background: linear-gradient(90deg, rgba(0,190,200,0.18), rgba(0,190,200,0.05));
+    border-left-color: var(--turquesa-400);
+  }
+
+  /* Empty-state cuando no hay canciones aún en la cola */
+  .queue-empty {
+    text-align: center;
+    padding: 26px 20px;
+    color: var(--gris-400);
+    font-size: 0.92em;
+    background: rgba(255,255,255,0.02);
+    border-radius: 10px;
+    margin-top: 10px;
+    border: 1px dashed rgba(255,255,255,0.10);
+  }
+  .queue-empty .empty-icon {
+    font-size: 1.8em; opacity: 0.45;
+    display: block; margin-bottom: 6px;
+  }
 
   .form-row {
     display: flex; gap: 12px; align-items: center;
@@ -144,20 +247,55 @@
   .form-row input[type="range"] { flex: 1; min-width: 180px; }
 
   button.action-btn {
-    padding: 10px 22px;
-    background: linear-gradient(90deg, var(--turquesa-600), var(--turquesa-700));
-    border: none; color: white; border-radius: 8px;
-    cursor: pointer; font-weight: 600; font-size: 0.95em;
-    transition: opacity 0.2s, box-shadow 0.2s;
+    padding: 11px 24px;
+    background: linear-gradient(135deg, var(--turquesa-600), var(--turquesa-700));
+    border: none; color: white; border-radius: 9px;
+    cursor: pointer; font-weight: 700; font-size: 0.95em;
+    transition: transform 0.12s, box-shadow 0.18s, opacity 0.18s;
+    box-shadow: 0 2px 10px rgba(0,190,200,0.25);
   }
-  button.action-btn:hover { opacity: 0.92; box-shadow: 0 0 16px rgba(0,190,200,0.4); }
-  button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+  button.action-btn:hover {
+    box-shadow: 0 4px 18px rgba(0,190,200,0.45);
+    transform: translateY(-1px);
+  }
+  button.action-btn:active { transform: translateY(0); }
+  button.action-btn:focus-visible {
+    outline: 2px solid var(--turquesa-400); outline-offset: 2px;
+  }
+  button.action-btn:disabled {
+    opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none;
+  }
   button.action-btn.secondary {
     background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.18);
+    box-shadow: none;
+  }
+  button.action-btn.secondary:hover {
+    background: rgba(255,255,255,0.14);
+    border-color: rgba(0,190,200,0.5);
   }
   button.action-btn.danger {
-    background: linear-gradient(90deg, var(--rosa-600), var(--rosa-700));
+    background: linear-gradient(135deg, var(--rosa-600), var(--rosa-700));
+    box-shadow: 0 2px 10px rgba(225,29,72,0.3);
+  }
+  /* CTA prominente — el botón "Analizar todo" arranca el flujo principal,
+     debe destacar muchísimo del resto. */
+  button.action-btn.primary-cta {
+    padding: 14px 32px;
+    font-family: var(--font-display);
+    font-size: 1.05em;
+    letter-spacing: 0.04em;
+    background: linear-gradient(135deg, var(--turquesa-600) 0%, var(--turquesa-700) 50%, var(--tulip-tree-500) 130%);
+    box-shadow: 0 4px 16px rgba(0,190,200,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+    text-transform: uppercase;
+  }
+  button.action-btn.primary-cta:hover {
+    box-shadow: 0 6px 24px rgba(0,190,200,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+    transform: translateY(-2px);
+  }
+  button.action-btn.primary-cta:disabled {
+    background: linear-gradient(135deg, var(--gris-700), var(--gris-800));
+    color: var(--gris-500);
   }
 
   .progress-bar {
@@ -169,17 +307,39 @@
     transition: width 0.15s; width: 0%;
   }
 
+  /* STATS — Cards de métricas tras analizar (BPM, offset, duración, onsets).
+     Más espacio, número protagonista, label en mayúsculas. */
   .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 10px; margin-top: 10px;
+    gap: 12px; margin-top: 14px;
   }
   .stat {
-    background: rgba(0,0,0,0.4); padding: 12px; border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.08); text-align: center;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.4));
+    padding: 14px 12px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-top: 3px solid var(--turquesa-600);
+    text-align: center;
+    transition: transform 0.18s, box-shadow 0.18s;
   }
-  .stat .label { color: var(--gris-400); font-size: 0.78em; }
-  .stat .value { color: var(--turquesa-400); font-size: 1.4em; font-weight: 700; margin-top: 4px; }
+  .stat:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 14px rgba(0,190,200,0.18);
+    border-top-color: var(--turquesa-400);
+  }
+  .stat .label {
+    color: var(--gris-400);
+    font-size: 0.74em; text-transform: uppercase;
+    letter-spacing: 0.06em; font-weight: 600;
+  }
+  .stat .value {
+    color: var(--turquesa-400);
+    font-size: 1.6em; font-weight: 700; margin-top: 6px;
+    font-family: var(--font-display);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
 
   canvas#waveform {
     width: 100%; height: 130px;
@@ -187,16 +347,41 @@
     margin-top: 10px; display: block;
   }
 
-  .help { color: var(--gris-500); font-size: 0.85em; line-height: 1.5; margin-top: 6px; }
+  /* Texto de ayuda inline (debajo de un control o card) — más legible */
+  .help {
+    color: var(--gris-300); font-size: 0.88em;
+    line-height: 1.6; margin-top: 8px;
+  }
+  .help strong { color: #fff; }
+  .help code {
+    background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 4px;
+    font-family: var(--font-mono); font-size: 0.92em;
+    color: var(--tulip-tree-400);
+  }
 
+  /* Card de dificultad generada (Easy/Medium/Hard/Challenge) */
   .difficulty-card {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 10px 14px; background: rgba(255,255,255,0.04);
-    border-radius: 8px; margin-bottom: 8px;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-left: 3px solid var(--turquesa-600);
+    border-radius: 10px; margin-bottom: 8px;
+    transition: background 0.15s, border-left-color 0.15s;
+  }
+  .difficulty-card:hover {
+    background: rgba(0,190,200,0.06);
+    border-left-color: var(--turquesa-400);
   }
   .difficulty-card .info { display: flex; flex-direction: column; }
-  .difficulty-card .name { color: #fff; font-weight: 600; }
-  .difficulty-card .meta { color: var(--gris-400); font-size: 0.8em; margin-top: 2px; }
+  .difficulty-card .name {
+    color: #fff; font-weight: 700;
+    font-family: var(--font-display); letter-spacing: 0.02em;
+  }
+  .difficulty-card .meta {
+    color: var(--gris-400); font-size: 0.85em; margin-top: 3px;
+    font-family: var(--font-mono);
+  }
 
   .log {
     background: #000; border: 1px solid rgba(0,190,200,0.4);
@@ -231,26 +416,52 @@
   details summary { cursor: pointer; color: var(--gris-400); padding: 6px 0; }
   details summary:hover { color: #fff; }
 
-  /* PRESETS */
+  /* PRESETS — 4 cards de selección de estilo (Suave/Normal/Intenso/Personalizado).
+     Cards más prominentes, con marca clara de selección (check overlay). */
   .preset-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 10px;
+    gap: 12px;
   }
   .preset {
-    padding: 14px 16px; border-radius: 12px;
+    padding: 16px 18px;
+    border-radius: 12px;
     background: rgba(255,255,255,0.03);
-    border: 2px solid rgba(255,255,255,0.08);
-    cursor: pointer; transition: all 0.15s;
+    border: 2px solid rgba(255,255,255,0.10);
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    user-select: none;
   }
-  .preset:hover { border-color: rgba(0,190,200,0.5); background: rgba(0,190,200,0.08); }
+  .preset:hover {
+    border-color: rgba(0,190,200,0.5);
+    background: rgba(0,190,200,0.08);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,190,200,0.2);
+  }
+  .preset:focus-visible {
+    outline: 2px solid var(--turquesa-400); outline-offset: 2px;
+  }
   .preset.selected {
-    border-color: var(--turquesa-600);
-    background: linear-gradient(135deg, rgba(0,190,200,0.15), rgba(234,179,8,0.10));
-    box-shadow: 0 0 16px rgba(0,190,200,0.3);
+    border-color: var(--turquesa-400);
+    background: linear-gradient(135deg, rgba(0,190,200,0.18), rgba(234,179,8,0.10));
+    box-shadow: 0 0 0 4px rgba(0,190,200,0.15), 0 6px 18px rgba(0,190,200,0.3);
   }
-  .preset-name { font-size: 1em; font-weight: 700; color: #fff; margin-bottom: 4px; }
-  .preset-desc { color: var(--gris-400); font-size: 0.82em; line-height: 1.4; }
+  /* Check visual de "seleccionado" en la esquina superior derecha */
+  .preset.selected::after {
+    content: '✓';
+    position: absolute; top: 10px; right: 12px;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--turquesa-400); color: #001416;
+    font-size: 0.85em; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 10px rgba(0,190,200,0.6);
+  }
+  .preset-name {
+    font-size: 1.05em; font-weight: 700; color: #fff;
+    margin-bottom: 6px; letter-spacing: 0.01em;
+  }
+  .preset-desc { color: var(--gris-300); font-size: 0.85em; line-height: 1.5; }
 
   /* PARAMS (custom) */
   .param {
@@ -321,14 +532,82 @@
 
   @media (max-width: 720px) {
     .queue-row {
-      grid-template-columns: 1fr 70px;
+      grid-template-columns: 1fr 80px;
       gap: 4px;
     }
     .queue-row .bpm, .queue-row .duration, .queue-row .charts { display: none; }
   }
+
+  /* Reduce motion — respeta la preferencia del sistema */
+  @media (prefers-reduced-motion: reduce) {
+    .preset:hover,
+    .stat:hover,
+    button.action-btn:hover,
+    .drop-zone:hover {
+      transform: none !important;
+    }
+    .badge.working { animation: none !important; }
+  }
+
+  /* Topbar persistente — consistente con play.html, test-pad.html y
+     gh-autostepper.html. La usuaria sabe en todo momento dónde está
+     dentro de la suite Sincro y puede volver al menú principal o saltar
+     a otras herramientas sin perder contexto. */
+  #sat-topbar {
+    position: fixed; top: 0; left: 0; right: 0; height: 50px;
+    background: rgba(0,0,0,0.85); border-bottom: 1px solid rgba(0,190,200,0.4);
+    display: flex; align-items: center; padding: 0 20px;
+    z-index: 100; backdrop-filter: blur(8px);
+  }
+  #sat-topbar .logo {
+    font-family: var(--font-display); font-weight: 800; font-size: 1.1em;
+    background: linear-gradient(90deg, var(--turquesa-600), var(--turquesa-400), var(--tulip-tree-500));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-decoration: none; cursor: pointer;
+  }
+  #sat-topbar .crumb { color: var(--gris-400); margin-left: 14px; font-size: 0.9em; }
+  #sat-topbar .spacer { flex: 1; }
+  #sat-topbar .topbar-nav { display: flex; gap: 4px; margin-right: 10px; }
+  #sat-topbar .topbar-link {
+    background: transparent; border: 1px solid rgba(255,255,255,0.08);
+    color: var(--gris-300); padding: 6px 12px; border-radius: 7px;
+    font-family: inherit; font-size: 0.85em; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap; text-decoration: none;
+  }
+  #sat-topbar .topbar-link:hover {
+    background: rgba(0,190,200,0.18); border-color: rgba(0,190,200,0.5); color: #fff;
+  }
+  #sat-topbar .topbar-link.active {
+    background: rgba(0,190,200,0.25); border-color: var(--turquesa-600); color: #fff;
+  }
+  #sat-topbar .home-btn {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    color: #fff; padding: 6px 14px; border-radius: 7px; cursor: pointer;
+    font-size: 0.9em; margin-left: 8px; text-decoration: none;
+  }
+  #sat-topbar .home-btn:hover { background: rgba(0,190,200,0.25); }
+  body { padding-top: 70px; }
+  @media (max-width: 900px) {
+    #sat-topbar .topbar-link { padding: 6px 8px; font-size: 0; }
+    #sat-topbar .topbar-link::first-letter { font-size: 16px; }
+    #sat-topbar .crumb { display: none; }
+  }
 </style>
 </head>
 <body>
+
+<nav id="sat-topbar">
+  <a href="play.html" class="logo">⚡ Sincro</a>
+  <span class="crumb">· 🎵 AutoStepper</span>
+  <span class="spacer"></span>
+  <div class="topbar-nav">
+    <a href="play.html?screen=songs" class="topbar-link">🦶 Bailar</a>
+    <a href="gh-play.html" class="topbar-link">🎸 Tocar</a>
+    <a href="test-pad.html" class="topbar-link">🛠️ Equipo</a>
+    <a href="play.html?screen=tutorial" class="topbar-link">📖 Tutorial</a>
+  </div>
+  <a href="play.html" class="home-btn" title="Menú principal">⌂</a>
+</nav>
 
 <h1>AutoStepper Web</h1>
 <p class="subtitle">Convierte tus canciones (MP3 o WAV) en coreografías jugables: cinco dificultades, notas mantenidas, saltos y notas a dos manos incluidos. Todo el proceso ocurre en tu navegador, no se sube nada a ningún servidor.</p>
@@ -337,10 +616,11 @@
 
   <!-- 1. CARGA -->
   <div class="card">
-    <h2>1. Cargar audio (puedes seleccionar varios)</h2>
-    <label class="drop-zone" id="dropZone">
-      <div class="big-icon">🎵</div>
-      <p>Arrastra uno o varios MP3 / WAV / OGG aquí, o haz click para elegir</p>
+    <h2><span aria-hidden="true">1️⃣</span> Cargar audio <small style="font-size:0.62em;color:var(--gris-400);font-weight:400;font-family:var(--font-sans);letter-spacing:0">— puedes seleccionar varios</small></h2>
+    <label class="drop-zone" id="dropZone" tabindex="0" role="button" aria-label="Subir archivos de audio MP3, WAV u OGG">
+      <div class="big-icon" aria-hidden="true">🎵</div>
+      <div class="dz-title">Suelta tus canciones aquí</div>
+      <div class="dz-sub">o pulsa para elegir archivos · MP3 · WAV · OGG · M4A · FLAC</div>
       <input type="file" id="fileInput" accept="audio/*" multiple>
     </label>
     <div id="queueContainer"></div>
@@ -348,7 +628,7 @@
 
   <!-- 2. ESTILO + ANALIZAR -->
   <div class="card" id="optionsCard" style="display:none">
-    <h2>2. Estilo de las coreografías</h2>
+    <h2><span aria-hidden="true">2️⃣</span> Estilo de las coreografías</h2>
 
     <div class="preset-grid">
       <div class="preset" data-preset="suave">
@@ -428,8 +708,8 @@
 
     </div>
 
-    <div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-      <button class="action-btn" id="analyzeBtn" onclick="analyzeAll()">▶ Analizar todo</button>
+    <div style="margin-top:22px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <button class="action-btn primary-cta" id="analyzeBtn" onclick="analyzeAll()">▶ Analizar todo</button>
       <button class="action-btn secondary" id="cancelBtn" onclick="cancelAnalysis()" disabled>Cancelar</button>
       <button class="action-btn secondary" onclick="clearQueue()">Vaciar cola</button>
     </div>
@@ -440,7 +720,7 @@
 
   <!-- 3. PREVIEW (single song selected) -->
   <div class="card hidden" id="previewCard">
-    <h2>3. Preview de canción seleccionada — <span id="previewTitle"></span></h2>
+    <h2><span aria-hidden="true">3️⃣</span> Preview de canción seleccionada <small style="font-size:0.7em;color:var(--gris-300);font-weight:400;font-family:var(--font-sans);margin-left:4px">— <span id="previewTitle"></span></small></h2>
     <div class="stats-grid">
       <div class="stat"><div class="label">BPM</div><div class="value" id="resBpm">--</div></div>
       <div class="stat"><div class="label">Offset</div><div class="value" id="resOffset">--</div></div>
@@ -456,7 +736,7 @@
       <label class="switch"><input type="checkbox" id="clickToggle" checked><span class="slider"></span></label>
     </div>
 
-    <h2 style="margin-top:16px">Charts generados</h2>
+    <h2 style="margin-top:16px">Coreografías generadas</h2>
     <div id="difficultiesContainer"></div>
 
     <details style="margin-top:14px">
@@ -467,18 +747,18 @@
 
   <!-- 4. EXPORTAR -->
   <div class="card hidden" id="exportCard">
-    <h2>4. Exportar</h2>
+    <h2><span aria-hidden="true">4️⃣</span> Exportar</h2>
     <p class="help">
       Cada canción se empaqueta como carpeta con <strong>.ssc</strong> (formato nativo SM5),
       <strong>.sm</strong> (compatibilidad universal) y el audio. Descomprime el ZIP dentro de
       <code>C:\Games\StepMania 5\Songs\AutoStepper\</code>.
     </p>
-    <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
-      <button class="action-btn" onclick="downloadAllZip()">Descargar todo (ZIP)</button>
-      <button class="action-btn secondary" onclick="downloadCurrentSsc()">Descargar .ssc actual</button>
-      <button class="action-btn secondary" onclick="downloadCurrentSm()">Descargar .sm actual</button>
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="action-btn primary-cta" onclick="downloadAllZip()">⬇ Descargar todo (ZIP)</button>
+      <button class="action-btn secondary" onclick="downloadCurrentSsc()">.ssc actual</button>
+      <button class="action-btn secondary" onclick="downloadCurrentSm()">.sm actual</button>
     </div>
-    <div id="exportStatus" style="margin-top:10px;color:#aaa;font-size:0.9em"></div>
+    <div id="exportStatus" style="margin-top:12px;color:var(--gris-300);font-size:0.9em"></div>
   </div>
 
 </div>
@@ -543,7 +823,12 @@ function log(msg, cls='') {
 const dropZone = document.getElementById('dropZone');
 const fileInput = document.getElementById('fileInput');
 
-dropZone.addEventListener('click', () => fileInput.click());
+// NOTA: NO añadimos un click handler manual al dropZone. El <input type="file">
+// vive dentro del <label class="drop-zone"> y el click del label ya dispara el
+// input nativamente. Si añadimos un listener que llame a fileInput.click(), el
+// dialog se intenta abrir DOS veces en el mismo gesto y Chrome/Edge cancela el
+// change del primero — resultado: arrastrar funciona, seleccionar desde el
+// explorador no.
 dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
 dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop', e => {
@@ -556,8 +841,11 @@ fileInput.addEventListener('change', e => {
 });
 
 function addFiles(files) {
+  // Filtro por extensión, no por file.type: en Windows el file picker entrega
+  // FLAC/M4A/OGG con type="" y se descartarían silenciosamente.
+  const AUDIO_RE = /\.(mp3|wav|ogg|m4a|flac)$/i;
   for (const file of files) {
-    if (!file.type.startsWith('audio/')) continue;
+    if (!AUDIO_RE.test(file.name)) continue;
     const nameNoExt = file.name.replace(/\.[^.]+$/, '');
     const m = nameNoExt.match(/^(.+?)\s*-\s*(.+)$/);
     let artist = '', title = nameNoExt;
@@ -606,7 +894,15 @@ function removeFromQueue(id) {
 
 function renderQueue() {
   const c = document.getElementById('queueContainer');
-  if (queue.length === 0) { c.innerHTML = ''; return; }
+  if (queue.length === 0) {
+    // Empty-state: la cola está vacía. Damos pista de qué hacer.
+    c.innerHTML = `
+      <div class="queue-empty">
+        <span class="empty-icon" aria-hidden="true">🎶</span>
+        Aún no has añadido canciones. Suéltalas arriba ↑ para empezar.
+      </div>`;
+    return;
+  }
   let html = `<div class="queue">
     <div class="queue-row header">
       <div>Archivo / Título</div>

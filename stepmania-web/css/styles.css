@@ -194,6 +194,10 @@ body {
 }
 .screen.hidden { display: none; }
 .container { max-width: 1100px; margin: 0 auto; }
+/* En songs-screen aumentamos el container porque la config-card tiene
+   layout horizontal (preview + variantes) que se beneficia de más espacio.
+   En 1920px deja ~210px de margen a cada lado (11%) en vez de 410px (21%). */
+#songs-screen .container { max-width: 1500px; }
 
 h1 {
   font-family: var(--font-display);
@@ -493,6 +497,15 @@ details summary:hover { color: #fff; }
 
 /* MODIFIERS PANEL on diff screen */
 .mods-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap: 10px; }
+/* Grid 3×3 fijo para el container de variantes en songs-screen.
+   Las 9 variantes (mirror, left, right, shuffle, hidden, sudden, solo,
+   full, randomFixed) caben exactas en 3 filas de 3 — visualmente más
+   ordenado que el auto-fit que las repartía en 4-5 columnas según ancho. */
+#globalModsContainer { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 700px) {
+  /* En móvil-tablet pequeño, 2 columnas para no apretar */
+  #globalModsContainer { grid-template-columns: repeat(2, 1fr); }
+}
 .mod-toggle {
   background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px; padding: 10px 12px; cursor: pointer; user-select:none;
@@ -610,17 +623,30 @@ details summary:hover { color: #fff; }
   .chart-row.selected::before { display: none; }
 }
 
-/* ----- Big "Jugar" CTA bar (arcade-style "Press Start") ------------------- */
+/* ----- Big "Jugar" CTA bar (arcade-style "Press Start") -------------------
+   Posición: sticky-top en diff-screen para que el botón siga al usuario por
+   el scroll. Cuando elige dificultad abajo, el CTA arriba se enciende —
+   pero no necesita volver a hacer scroll up para pulsarlo. */
 .play-cta-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin: 22px 0 36px;
+  margin: 6px 0 18px;
   padding: 14px 18px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0.7));
-  border: 1px solid rgba(0,190,200,0.18);
+  background: linear-gradient(180deg, rgba(15,15,20,0.92), rgba(15,15,20,0.85));
+  border: 1px solid rgba(0,190,200,0.28);
   border-radius: 16px;
+  position: sticky;
+  /* .screen es position:fixed; overflow:auto y empieza a top:50px del viewport
+     (justo debajo de #topbar). Por tanto el scroll container de este sticky
+     es .screen, no el viewport — el offset se mide desde el borde superior
+     de .screen, no desde la topbar. */
+  top: 8px;
+  z-index: 20;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
 }
 .play-cta-center {
   display: flex;
@@ -763,3 +789,170 @@ details summary:hover { color: #fff; }
 .queue-row[style*="cursor:pointer"]:hover {
   background: rgba(0,190,200,0.08);
 }
+
+/* ============================================================================
+   PLAYLIST MODE — selección múltiple en la biblioteca + sesión continua.
+   El usuario marca varias canciones, elige una dificultad común, y se tocan
+   en cadena con countdown automático entre cada una.
+   ============================================================================ */
+.playlist-checkbox {
+  width: 22px; height: 22px;
+  cursor: pointer;
+  accent-color: var(--turquesa-600);
+  flex-shrink: 0;
+}
+.queue-row.in-playlist {
+  background: rgba(0,190,200,0.10);
+  border-left: 3px solid var(--turquesa-600);
+}
+
+/* Barra sticky-top dentro de songs-screen — siempre visible (en idle muestra
+   un hint, con selección activa muestra contador y CTAs habilitados). El
+   scroll context es .screen (position:fixed; overflow:auto), así que el
+   offset top:8px se mide desde el borde superior de .screen, ya bajo la
+   #topbar fija. */
+.playlist-bar {
+  position: sticky;
+  top: 8px;
+  margin: 6px auto 18px;
+  max-width: 720px;
+  padding: 14px 22px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(180deg, rgba(15,15,20,0.92), rgba(15,15,20,0.85));
+  border: 2px solid rgba(0,190,200,0.35);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 30;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+/* Estado activo: brilla cuando hay selección. */
+.playlist-bar.has-selection {
+  border-color: var(--turquesa-600);
+  box-shadow: 0 8px 28px rgba(0,190,200,0.35), 0 0 0 4px rgba(0,190,200,0.12);
+}
+.playlist-bar.hidden { display: none; }
+.playlist-bar .count {
+  font-family: var(--font-display);
+  color: #fff;
+  font-size: 1.1em;
+  flex: 1;
+}
+.playlist-bar .count small {
+  color: var(--gris-400);
+  font-family: var(--font-sans);
+  font-size: 0.78em;
+  display: block;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+.playlist-bar button {
+  white-space: nowrap;
+}
+
+/* Modal genérico para setup de playlist */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.hidden { display: none; }
+.modal-content {
+  background: linear-gradient(180deg, var(--gris-900), #000);
+  border: 1px solid rgba(0,190,200,0.4);
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 460px; width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.modal-content h3 {
+  font-family: var(--font-display);
+  color: var(--turquesa-400);
+  font-size: 1.3em;
+  margin-bottom: 12px;
+}
+.modal-content .modal-help {
+  color: var(--gris-400);
+  font-size: 0.88em;
+  margin: 8px 0 18px;
+  line-height: 1.5;
+}
+.modal-content label {
+  display: block;
+  color: var(--gris-300);
+  font-size: 0.88em;
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+.modal-content select,
+.modal-content input[type="text"] {
+  width: 100%;
+  background: rgba(0,0,0,0.5);
+  border: 1px solid rgba(0,190,200,0.3);
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 1em;
+  margin-bottom: 14px;
+}
+.modal-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 18px;
+}
+
+/* Banner de "Siguiente canción" en results-screen cuando hay sesión activa.
+   Ocupa la parte superior del bloque results con countdown destacado. */
+.session-next-banner {
+  margin: 0 0 18px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(0,190,200,0.18), rgba(234,179,8,0.10));
+  border: 2px solid var(--turquesa-600);
+  border-radius: 12px;
+  text-align: center;
+}
+.session-next-banner .label {
+  color: var(--gris-300);
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+.session-next-banner .next-title {
+  font-family: var(--font-display);
+  color: #fff;
+  font-size: 1.25em;
+  margin-bottom: 8px;
+}
+.session-next-banner .countdown {
+  font-family: var(--font-display);
+  font-size: 2.4em;
+  color: var(--tulip-tree-500);
+  text-shadow: 0 0 14px rgba(234,179,8,0.6);
+  line-height: 1;
+}
+.session-next-banner .progress-text {
+  color: var(--gris-400);
+  font-size: 0.85em;
+  margin-top: 6px;
+}
+.session-summary {
+  margin: 14px 0;
+  padding: 14px 18px;
+  background: rgba(0,190,200,0.06);
+  border-left: 3px solid var(--turquesa-600);
+  border-radius: 8px;
+}
+.session-summary .row {
+  display: flex; justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dashed rgba(255,255,255,0.08);
+  font-size: 0.92em;
+}
+.session-summary .row:last-child { border-bottom: none; }
