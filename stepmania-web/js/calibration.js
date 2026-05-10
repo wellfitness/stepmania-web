@@ -1,7 +1,7 @@
 // ============================================================================
 //  CALIBRATION — dedicated screen with metronome + tap. Measures the user's
 //  consistent offset against the metronome beat and writes it directly to
-//  settings.globalOffset. Inspired by the Sync tab of test-alfombra.html.
+//  settings.globalOffset. Inspired by the Sync tab of test-pad.html.
 //
 //  Why this matters: outputLatency only reports the audio path delay; it can't
 //  account for human reaction time, perceptual offset, or pad sensor latency.

@@ -1,0 +1,2043 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Test de Hardware — Alfombra y Guitarra</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=ABeeZee&family=Righteous&display=swap');
+
+  :root {
+    --turquesa-100: #cdfffb;
+    --turquesa-400: #18f8f6;
+    --turquesa-600: #00bec8;
+    --turquesa-700: #088b96;
+    --rosa-500: #e11d48;
+    --rosa-600: #e11d48;
+    --rosa-700: #be123c;
+    --tulip-tree-400: #facc15;
+    --tulip-tree-500: #eab308;
+    --tulip-tree-600: #ca8a04;
+    --color-success: #10b981;
+    --color-success-light: #d1fae5;
+    --color-success-dark: #047857;
+    --color-warning: #f59e0b;
+    --color-warning-light: #fef3c7;
+    --color-warning-dark: #d97706;
+    --color-error: #ef4444;
+    --color-error-light: #fee2e2;
+    --color-error-dark: #dc2626;
+    --gris-50: #f9fafb;
+    --gris-100: #f3f4f6;
+    --gris-200: #e5e7eb;
+    --gris-300: #d1d5db;
+    --gris-400: #9ca3af;
+    --gris-500: #6b7280;
+    --gris-600: #4b5563;
+    --gris-700: #374151;
+    --gris-800: #1f2937;
+    --gris-900: #111827;
+
+    --fret-green:  #10b981;
+    --fret-red:    #ef4444;
+    --fret-yellow: #facc15;
+    --fret-blue:   #3b82f6;
+    --fret-orange: #f97316;
+
+    --font-display: 'Righteous', Arial, sans-serif;
+    --font-sans: 'ABeeZee', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'Consolas', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-sans);
+    background: linear-gradient(135deg, var(--gris-900) 0%, #000 100%);
+    color: #fff;
+    min-height: 100vh;
+    padding: 16px;
+  }
+
+  h1 {
+    text-align: center;
+    font-family: var(--font-display);
+    background: linear-gradient(90deg, var(--turquesa-600), var(--turquesa-400), var(--tulip-tree-500));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-size: 2.2em;
+    margin-bottom: 4px;
+    letter-spacing: 0.02em;
+  }
+
+  .subtitle { color: var(--gris-400); text-align: center; margin-bottom: 18px; font-size: 0.9em; }
+
+  /* MODE SELECTOR (alfombra / guitarra) */
+  .mode-selector {
+    display: flex; gap: 6px; max-width: 600px;
+    margin: 0 auto 16px; padding: 6px;
+    background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+  }
+  .mode-btn {
+    flex: 1; padding: 14px 18px; border: none; cursor: pointer;
+    background: transparent; color: var(--gris-400);
+    font-family: var(--font-display); font-size: 1.05em; letter-spacing: 0.04em;
+    border-radius: 10px; transition: all 0.2s;
+  }
+  .mode-btn:hover { color: #fff; background: rgba(255,255,255,0.04); }
+  .mode-btn.active {
+    background: linear-gradient(135deg, var(--turquesa-600), var(--turquesa-700));
+    color: #fff; box-shadow: 0 0 20px rgba(0,190,200,0.35);
+  }
+  .mode-btn .mode-icon { font-size: 1.4em; margin-right: 8px; }
+
+  #status {
+    padding: 10px 20px;
+    border-radius: 10px;
+    margin: 0 auto 20px;
+    font-weight: 600;
+    text-align: center;
+    transition: all 0.3s;
+    max-width: 600px;
+  }
+  .status-disconnected { background: rgba(225,29,72,0.18); border: 2px solid var(--rosa-600); color: var(--rosa-500); }
+  .status-connected    { background: rgba(16,185,129,0.18); border: 2px solid var(--color-success); color: var(--color-success); box-shadow: 0 0 20px rgba(16,185,129,0.3); }
+
+  .top-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    margin-bottom: 24px;
+  }
+
+  /* PAD (alfombra) */
+  .pad-container {
+    display: grid;
+    grid-template-columns: repeat(3, 110px);
+    grid-template-rows: repeat(3, 110px);
+    gap: 6px;
+    padding: 16px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 18px;
+    box-shadow: inset 0 0 30px rgba(0,190,200,0.18);
+  }
+  .panel {
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    transition: all 0.05s ease-out;
+    user-select: none;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel.arrow { background: linear-gradient(135deg, var(--gris-700), var(--gris-800)); border: 3px solid var(--gris-600); color: var(--gris-400); }
+  .panel.arrow .arrow-icon { font-size: 2.6em; line-height: 1; }
+  .panel.arrow .label { font-size: 0.7em; margin-top: 2px; opacity: 0.7; }
+  .panel.arrow .count {
+    position: absolute; top: 4px; right: 6px;
+    font-size: 0.7em; background: rgba(0,0,0,0.5);
+    padding: 2px 7px; border-radius: 10px; color: #fff;
+  }
+  .panel.empty { background: transparent; border: 2px dashed rgba(255,255,255,0.1); }
+  .panel.center {
+    background: rgba(0,0,0,0.3); border: 2px solid rgba(255,255,255,0.15);
+    color: var(--gris-400); font-size: 0.65em; padding: 6px; text-align: center;
+  }
+  .panel.active {
+    background: linear-gradient(135deg, var(--turquesa-400), var(--tulip-tree-400)) !important;
+    border-color: #fff !important; color: #000 !important;
+    transform: scale(0.94);
+    box-shadow: 0 0 40px rgba(0,190,200,0.85), inset 0 0 20px rgba(255,255,255,0.3);
+  }
+  .panel.target {
+    background: linear-gradient(135deg, var(--turquesa-600), var(--turquesa-400)) !important;
+    border-color: #fff !important;
+    box-shadow: 0 0 30px rgba(0,190,200,0.7);
+    animation: pulse 0.6s infinite alternate;
+  }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.04); } }
+
+  /* GUITAR (fretboard) */
+  .guitar-container {
+    display: flex; flex-direction: column; gap: 14px;
+    padding: 16px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 18px;
+    box-shadow: inset 0 0 30px rgba(255,128,0,0.15);
+    min-width: 360px;
+  }
+  .fretboard {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+  }
+  .fret {
+    aspect-ratio: 1 / 1.4;
+    border-radius: 14px 14px 4px 4px;
+    border: 3px solid var(--gris-600);
+    background: linear-gradient(180deg, var(--gris-700), var(--gris-800));
+    color: var(--gris-300);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-weight: 700; font-family: var(--font-display);
+    position: relative;
+    transition: all 0.05s ease-out;
+    user-select: none;
+  }
+  .fret .dot {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(0,0,0,0.5); border: 2px solid currentColor;
+    margin-bottom: 6px;
+    transition: all 0.05s;
+  }
+  .fret .label { font-size: 0.7em; letter-spacing: 0.05em; opacity: 0.85; }
+  .fret .count {
+    position: absolute; top: 4px; right: 6px;
+    font-size: 0.7em; background: rgba(0,0,0,0.5);
+    padding: 2px 7px; border-radius: 10px; color: #fff;
+  }
+  .fret[data-fret="0"] { color: var(--fret-green);  }
+  .fret[data-fret="1"] { color: var(--fret-red);    }
+  .fret[data-fret="2"] { color: var(--fret-yellow); }
+  .fret[data-fret="3"] { color: var(--fret-blue);   }
+  .fret[data-fret="4"] { color: var(--fret-orange); }
+  .fret.active {
+    transform: translateY(4px) scale(0.95);
+    background: currentColor !important;
+    border-color: #fff !important;
+    box-shadow: 0 0 35px currentColor, inset 0 0 14px rgba(255,255,255,0.3);
+  }
+  .fret.active .dot { background: #fff; box-shadow: 0 0 20px currentColor; }
+  .fret.active .label { color: #000; opacity: 1; }
+  .fret.target {
+    border-color: #fff !important;
+    animation: pulse 0.6s infinite alternate;
+    box-shadow: 0 0 25px currentColor;
+  }
+  .fret.unmapped::after {
+    content: '?';
+    position: absolute; bottom: 4px; right: 6px;
+    font-size: 1.1em; color: var(--rosa-500); font-weight: 800;
+  }
+
+  .strum-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .strum {
+    padding: 14px; border-radius: 12px;
+    border: 2px solid rgba(255,255,255,0.15);
+    background: rgba(0,0,0,0.3);
+    text-align: center;
+    font-family: var(--font-display); font-size: 0.95em;
+    color: var(--gris-400);
+    transition: all 0.05s;
+    user-select: none;
+  }
+  .strum.active {
+    background: linear-gradient(135deg, var(--turquesa-400), var(--turquesa-700)) !important;
+    color: #000; border-color: #fff !important;
+    transform: scale(0.96);
+    box-shadow: 0 0 25px rgba(0,190,200,0.7);
+  }
+  .strum .arrow { font-size: 1.6em; display: block; }
+  .strum .count {
+    display: block; font-size: 0.7em; opacity: 0.8;
+    font-family: var(--font-mono);
+  }
+
+  .whammy-bar {
+    background: rgba(0,0,0,0.4); padding: 10px 14px;
+    border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+  }
+  .whammy-bar .wlabel {
+    display: flex; justify-content: space-between;
+    font-size: 0.8em; color: var(--gris-400); margin-bottom: 6px;
+    font-family: var(--font-mono);
+  }
+  .whammy-track {
+    height: 14px; background: rgba(255,255,255,0.06);
+    border-radius: 7px; position: relative; overflow: hidden;
+  }
+  .whammy-fill {
+    position: absolute; top: 0; left: 0; height: 100%;
+    background: linear-gradient(90deg, var(--turquesa-600), var(--tulip-tree-500), var(--rosa-500));
+    width: 0%; transition: width 0.05s;
+    border-radius: 7px;
+  }
+
+  .meta-row {
+    display: flex; gap: 8px;
+    font-size: 0.8em; color: var(--gris-400);
+    justify-content: center;
+    font-family: var(--font-mono);
+  }
+  .meta-pill {
+    padding: 4px 10px; border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .meta-pill.active {
+    background: var(--color-success); color: #000;
+    border-color: var(--color-success);
+    box-shadow: 0 0 12px var(--color-success);
+  }
+
+  /* INFO PANEL */
+  .info-panel {
+    background: rgba(0,0,0,0.4);
+    padding: 16px 20px;
+    border-radius: 14px;
+    min-width: 300px;
+    border: 1px solid rgba(255,255,255,0.1);
+    flex: 1;
+    max-width: 400px;
+  }
+  .info-panel h2 {
+    color: var(--turquesa-400); margin-bottom: 10px; font-size: 1em;
+    font-family: var(--font-display); letter-spacing: 0.02em;
+    border-bottom: 1px solid rgba(0,190,200,0.35); padding-bottom: 6px;
+  }
+  .info-row {
+    display: flex; justify-content: space-between;
+    padding: 4px 0; font-size: 0.85em; font-family: var(--font-mono);
+  }
+  .info-row .key { color: var(--gris-400); }
+  .info-row .value { color: var(--turquesa-400); font-weight: 600; }
+
+  /* TABS */
+  .tabs {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    max-width: 1200px; margin: 0 auto 0;
+    border-bottom: 2px solid rgba(0,190,200,0.4);
+    padding-bottom: 0;
+  }
+  .tab-btn {
+    background: rgba(0,0,0,0.3); border: 1px solid rgba(0,190,200,0.3);
+    color: var(--gris-400); padding: 10px 18px; cursor: pointer;
+    border-radius: 8px 8px 0 0; font-size: 0.9em; font-weight: 600;
+    font-family: var(--font-sans);
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { color: #fff; background: rgba(0,190,200,0.18); }
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--turquesa-600), var(--turquesa-700));
+    color: #fff; border-color: transparent;
+  }
+  .tabs[data-mode-tabs="guitar"] .tab-btn.active {
+    background: linear-gradient(135deg, var(--fret-orange), var(--fret-red));
+  }
+
+  .tab-content {
+    display: none;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 0 0 14px 14px;
+    min-height: 300px;
+  }
+  .tab-content.active { display: block; }
+
+  /* COMMON */
+  button.action-btn {
+    padding: 10px 20px;
+    background: linear-gradient(90deg, var(--turquesa-600), var(--turquesa-700));
+    border: none; color: white; border-radius: 8px;
+    cursor: pointer; font-weight: 600; margin: 4px;
+    font-family: var(--font-sans);
+    transition: opacity 0.2s;
+  }
+  button.action-btn:hover { opacity: 0.85; }
+  button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.action-btn.secondary {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  button.action-btn.danger {
+    background: linear-gradient(90deg, var(--rosa-600), var(--rosa-700));
+  }
+
+  .button-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .btn-led {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 6px 2px; text-align: center;
+    font-family: var(--font-mono); font-size: 0.7em; color: var(--gris-500);
+    transition: all 0.05s;
+  }
+  .btn-led.on {
+    background: var(--color-success); color: #000;
+    box-shadow: 0 0 12px var(--color-success); border-color: var(--color-success);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .stat-card {
+    background: rgba(0,0,0,0.4); padding: 12px;
+    border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+  }
+  .stat-card h3 { font-size: 0.8em; color: var(--gris-400); margin-bottom: 6px; font-weight: 500; }
+  .stat-card .big { font-size: 1.5em; font-weight: 700; color: var(--turquesa-400); font-family: var(--font-display); }
+  .stat-card .small { font-size: 0.75em; color: var(--gris-500); margin-top: 4px; }
+  .stat-card.warn .big { color: var(--color-warning); }
+  .stat-card.bad .big { color: var(--rosa-500); }
+
+  .axes-bar {
+    height: 6px; background: rgba(255,255,255,0.08);
+    border-radius: 3px; margin-top: 4px; position: relative; overflow: hidden;
+  }
+  .axes-bar .fill {
+    position: absolute; top: 0; left: 50%; height: 100%;
+    background: linear-gradient(90deg, var(--turquesa-400), var(--turquesa-700));
+    transition: all 0.05s; border-radius: 3px;
+  }
+
+  .test-output {
+    background: #000; border: 1px solid rgba(0,190,200,0.4);
+    padding: 12px; border-radius: 8px; font-family: var(--font-mono);
+    font-size: 0.85em; max-height: 280px; overflow-y: auto;
+    margin-top: 12px; white-space: pre-wrap;
+  }
+  /* Log retro: colores hardcoded intencionalmente, parte del carácter de debugging */
+  .test-output .ok { color: #00ff64; }
+  .test-output .bad { color: #ff3366; }
+  .test-output .warn { color: #ffaa00; }
+  .test-output .info { color: #3a86ff; }
+
+  .big-number {
+    font-size: 4em; font-weight: 800; text-align: center; margin: 20px 0;
+    font-family: var(--font-display);
+    background: linear-gradient(90deg, var(--turquesa-600), var(--tulip-tree-500));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .progress-bar {
+    height: 12px; background: rgba(255,255,255,0.08);
+    border-radius: 6px; overflow: hidden; margin: 8px 0;
+  }
+  .progress-bar .fill {
+    height: 100%; background: linear-gradient(90deg, var(--color-success), var(--tulip-tree-500), var(--rosa-600));
+    transition: width 0.1s; width: 0%;
+  }
+
+  .history-list {
+    display: flex; gap: 6px; flex-wrap: wrap; padding: 12px;
+    background: rgba(0,0,0,0.4); border-radius: 10px;
+    min-height: 60px; max-height: 120px; overflow-y: auto;
+  }
+  .history-item {
+    background: linear-gradient(135deg, var(--turquesa-600), var(--turquesa-700));
+    padding: 4px 10px; border-radius: 6px; font-weight: 700;
+    font-size: 0.85em; animation: slideIn 0.3s;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .control-row {
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    margin: 12px 0; padding: 12px; background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+  }
+  .control-row label { color: var(--gris-400); font-size: 0.85em; }
+  .control-row input[type="number"], .control-row input[type="range"] {
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(0,190,200,0.4);
+    color: #fff; padding: 4px 8px; border-radius: 6px; font-family: var(--font-mono);
+  }
+  .control-row input[type="range"] { width: 200px; }
+
+  .switch {
+    position: relative; display: inline-block; width: 44px; height: 22px;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: rgba(255,255,255,0.1); border-radius: 22px; transition: 0.2s;
+  }
+  .switch .slider::before {
+    position: absolute; content: ""; height: 16px; width: 16px;
+    left: 3px; top: 3px; background: white;
+    border-radius: 50%; transition: 0.2s;
+  }
+  .switch input:checked + .slider { background: linear-gradient(90deg, var(--turquesa-600), var(--turquesa-700)); }
+  .switch input:checked + .slider::before { transform: translateX(22px); }
+
+  .help-text {
+    color: var(--gris-300); font-size: 0.85em; line-height: 1.5;
+    background: rgba(0,190,200,0.08); padding: 10px 14px;
+    border-left: 3px solid var(--turquesa-600); border-radius: 0 8px 8px 0;
+    margin: 12px 0;
+  }
+  .help-text strong { color: #fff; }
+
+  .calib-step {
+    text-align: center;
+    padding: 20px;
+    background: rgba(0,0,0,0.45);
+    border-radius: 14px;
+    margin: 12px 0;
+    border: 2px dashed rgba(255,255,255,0.15);
+  }
+  .calib-step .calib-target {
+    font-size: 2.4em;
+    font-family: var(--font-display);
+    margin: 14px 0;
+    background: linear-gradient(90deg, var(--fret-green), var(--fret-yellow), var(--fret-orange));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .calib-mapping {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px;
+    margin-top: 16px;
+  }
+  .calib-mapping .row {
+    background: rgba(255,255,255,0.04);
+    padding: 10px 12px; border-radius: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.9em;
+  }
+  .calib-mapping .row .name { color: var(--gris-300); }
+  .calib-mapping .row .val { font-family: var(--font-mono); color: var(--turquesa-400); font-weight: 700; }
+  .calib-mapping .row .val.unset { color: var(--gris-500); }
+</style>
+</head>
+<body>
+
+<h1>Test de Hardware</h1>
+<p class="subtitle">Diagnóstico de alfombra y guitarra para StepMania / Clone Hero · Gamepad API</p>
+
+<div class="mode-selector" role="tablist">
+  <button class="mode-btn active" data-mode="mat" type="button">
+    <span class="mode-icon">🦶</span>Alfombra
+  </button>
+  <button class="mode-btn" data-mode="guitar" type="button">
+    <span class="mode-icon">🎸</span>Guitarra
+  </button>
+</div>
+
+<div id="status" class="status-disconnected">Esperando dispositivo... <strong>pisa la alfombra o pulsa un traste</strong></div>
+
+<div class="top-row">
+  <!-- ALFOMBRA: 3x3 con 4 cardinales + 4 diagonales -->
+  <div id="view-mat">
+    <div class="pad-container" id="pad">
+      <div class="panel arrow" data-button="4" id="p-upleft"><span class="count">0</span><span class="arrow-icon">↖</span><span class="label">UP-LEFT</span></div>
+      <div class="panel arrow" data-button="2" id="p-up"><span class="count">0</span><span class="arrow-icon">↑</span><span class="label">ARRIBA</span></div>
+      <div class="panel arrow" data-button="5" id="p-upright"><span class="count">0</span><span class="arrow-icon">↗</span><span class="label">UP-RIGHT</span></div>
+      <div class="panel arrow" data-button="0" id="p-left"><span class="count">0</span><span class="arrow-icon">←</span><span class="label">IZQUIERDA</span></div>
+      <div class="panel center"><div>START: B9</div><div>BACK: B10</div></div>
+      <div class="panel arrow" data-button="3" id="p-right"><span class="count">0</span><span class="arrow-icon">→</span><span class="label">DERECHA</span></div>
+      <div class="panel arrow" data-button="6" id="p-downleft"><span class="count">0</span><span class="arrow-icon">↙</span><span class="label">DOWN-LEFT</span></div>
+      <div class="panel arrow" data-button="1" id="p-down"><span class="count">0</span><span class="arrow-icon">↓</span><span class="label">ABAJO</span></div>
+      <div class="panel arrow" data-button="7" id="p-downright"><span class="count">0</span><span class="arrow-icon">↘</span><span class="label">DOWN-RIGHT</span></div>
+    </div>
+  </div>
+
+  <!-- GUITARRA: fretboard 5 trastes + strum + whammy -->
+  <div id="view-guitar" style="display:none">
+    <div class="guitar-container">
+      <div class="fretboard">
+        <div class="fret" data-fret="0"><span class="count">0</span><div class="dot"></div><span class="label">VERDE</span></div>
+        <div class="fret" data-fret="1"><span class="count">0</span><div class="dot"></div><span class="label">ROJO</span></div>
+        <div class="fret" data-fret="2"><span class="count">0</span><div class="dot"></div><span class="label">AMARILLO</span></div>
+        <div class="fret" data-fret="3"><span class="count">0</span><div class="dot"></div><span class="label">AZUL</span></div>
+        <div class="fret" data-fret="4"><span class="count">0</span><div class="dot"></div><span class="label">NARANJA</span></div>
+      </div>
+      <div class="strum-row">
+        <div class="strum" id="strum-up"><span class="arrow">↑</span>STRUM ARRIBA<span class="count" id="strum-up-count">0 pulsos</span></div>
+        <div class="strum" id="strum-down"><span class="arrow">↓</span>STRUM ABAJO<span class="count" id="strum-down-count">0 pulsos</span></div>
+      </div>
+      <div class="whammy-bar">
+        <div class="wlabel"><span>Whammy</span><span id="whammyValue">0%</span></div>
+        <div class="whammy-track"><div class="whammy-fill" id="whammyFill"></div></div>
+      </div>
+      <div class="meta-row">
+        <span class="meta-pill" id="meta-tilt">TILT (Star Power)</span>
+        <span class="meta-pill" id="meta-select">SELECT</span>
+        <span class="meta-pill" id="meta-start">START</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="info-panel">
+    <h2>Estado del dispositivo</h2>
+    <div class="info-row"><span class="key">Conectado:</span><span class="value" id="i-conn">no</span></div>
+    <div class="info-row"><span class="key">Nombre:</span><span class="value" id="i-name">--</span></div>
+    <div class="info-row"><span class="key">Botones:</span><span class="value" id="i-nbtn">--</span></div>
+    <div class="info-row"><span class="key">Ejes:</span><span class="value" id="i-naxis">--</span></div>
+    <div class="info-row"><span class="key">Bitmask:</span><span class="value" id="i-bits">0</span></div>
+    <div class="info-row"><span class="key">Polling rate:</span><span class="value" id="i-poll">-- Hz</span></div>
+
+    <h2 style="margin-top:14px">LEDs (16 botones)</h2>
+    <div class="button-grid" id="btnGrid"></div>
+
+    <h2 style="margin-top:14px">Sonido al pulsar</h2>
+    <label class="switch"><input type="checkbox" id="soundToggle"><span class="slider"></span></label>
+  </div>
+</div>
+
+<!-- TABS por modo -->
+<div class="tabs" id="tabs-mat" data-mode-tabs="mat">
+  <button class="tab-btn active" data-tab="stats">Estadísticas</button>
+  <button class="tab-btn" data-tab="latency">Latencia / reflejos</button>
+  <button class="tab-btn" data-tab="jumps">Saltos (combos)</button>
+  <button class="tab-btn" data-tab="sync">Sync de audio</button>
+  <button class="tab-btn" data-tab="stress">Stress test</button>
+  <button class="tab-btn" data-tab="ghost">Ghost inputs</button>
+  <button class="tab-btn" data-tab="history">Secuencia</button>
+  <button class="tab-btn" data-tab="axes">Ejes</button>
+</div>
+
+<div class="tabs" id="tabs-guitar" data-mode-tabs="guitar" style="display:none">
+  <button class="tab-btn active" data-tab="calibrate">Calibrar</button>
+  <button class="tab-btn" data-tab="stats">Estadísticas</button>
+  <button class="tab-btn" data-tab="frets">Trastes (latencia)</button>
+  <button class="tab-btn" data-tab="strum">Strum</button>
+  <button class="tab-btn" data-tab="whammy">Whammy</button>
+  <button class="tab-btn" data-tab="chords">Chords</button>
+  <button class="tab-btn" data-tab="sync">Sync de audio</button>
+  <button class="tab-btn" data-tab="stress">Stress test</button>
+  <button class="tab-btn" data-tab="ghost">Ghost inputs</button>
+  <button class="tab-btn" data-tab="history">Secuencia</button>
+  <button class="tab-btn" data-tab="axes">Ejes</button>
+</div>
+
+<!-- ============ TABS COMPARTIDAS ============ -->
+
+<div class="tab-content active" id="tab-stats">
+  <div class="help-text">
+    Métricas en vivo de cada input. <strong>Press time consistente</strong> entre inputs indica sensores parejos. Si uno tiene un avg muy distinto, ese sensor puede estar suelto o pegado.
+  </div>
+  <div class="stats-grid" id="panelStats"></div>
+  <button class="action-btn secondary" onclick="resetStats()">Resetear estadísticas</button>
+</div>
+
+<div class="tab-content" id="tab-sync">
+  <div class="help-text">
+    Metrónomo que late visualmente y con sonido. <strong>Pulsa cualquier input a tiempo con cada beat</strong>. Te dirá si tu offset es positivo (early) o negativo (late) en milisegundos.
+    Si hay un offset consistente (ej: siempre +50ms), ese mismo valor lo configurás en StepMania como Global Offset.
+  </div>
+  <div class="control-row">
+    <label>BPM:</label>
+    <input type="range" id="bpmSlider" min="60" max="180" value="120" oninput="updateBpm()">
+    <span id="bpmDisplay" style="color:#fff;font-weight:700">120</span>
+    <button class="action-btn" id="syncStart" onclick="startSync()">Iniciar metrónomo</button>
+    <button class="action-btn secondary" onclick="stopSync()">Parar</button>
+  </div>
+  <div style="display:flex;gap:24px;align-items:center;justify-content:center;margin:20px 0;flex-wrap:wrap">
+    <div id="metronomeBeat" style="width:120px;height:120px;border-radius:50%;background:rgba(131,56,236,0.2);border:4px solid #8338ec;display:flex;align-items:center;justify-content:center;font-size:2.5em;font-weight:800;transition:all 0.1s">●</div>
+    <div>
+      <div class="info-row"><span class="key">Beats:</span><span class="value" id="syncBeats">0</span></div>
+      <div class="info-row"><span class="key">Pulsos:</span><span class="value" id="syncSteps">0</span></div>
+      <div class="info-row"><span class="key">Offset promedio:</span><span class="value" id="syncOffset">-- ms</span></div>
+      <div class="info-row"><span class="key">Mejor:</span><span class="value" id="syncBest">-- ms</span></div>
+      <div class="info-row"><span class="key">Peor:</span><span class="value" id="syncWorst">-- ms</span></div>
+    </div>
+  </div>
+  <div id="syncRecommendation" style="text-align:center;font-size:1.05em;margin-top:12px;color:#aaa"></div>
+</div>
+
+<div class="tab-content" id="tab-stress">
+  <div class="help-text">
+    Pulsa lo más rápido que puedas durante 10 segundos. Si el dispositivo <strong>pierde inputs bajo presión</strong>, te lo va a decir. Mide el tiempo entre pulsos: si hay un mínimo &lt; 30ms, podría ser bouncing (rebote del sensor).
+  </div>
+  <div style="text-align:center">
+    <button class="action-btn" id="stressStart" onclick="startStress()">Iniciar (10s)</button>
+  </div>
+  <div class="big-number" id="stressCount">0</div>
+  <div class="progress-bar"><div class="fill" id="stressProgress"></div></div>
+  <div class="stats-grid">
+    <div class="stat-card"><h3>Pulsos totales</h3><div class="big" id="stressTotal">0</div></div>
+    <div class="stat-card"><h3>Pulsos/segundo</h3><div class="big" id="stressRate">0</div></div>
+    <div class="stat-card"><h3>Intervalo mín.</h3><div class="big" id="stressMin">--</div><div class="small">ms entre presses</div></div>
+    <div class="stat-card"><h3>Intervalo máx.</h3><div class="big" id="stressMax">--</div><div class="small">ms entre presses</div></div>
+  </div>
+  <div id="stressVerdict" style="text-align:center;margin-top:12px;font-size:1em"></div>
+</div>
+
+<div class="tab-content" id="tab-ghost">
+  <div class="help-text">
+    <strong>NO TOQUES el dispositivo durante este test</strong>. Detecta inputs fantasma — si algún botón se activa solo, hay un sensor con problema (un panel "pegado" o un cable haciendo falso contacto). Eso te metería arrows fallidas en StepMania sin que las pises.
+  </div>
+  <div style="text-align:center">
+    <button class="action-btn" id="ghostStart" onclick="startGhost()">Iniciar monitoreo (60s)</button>
+  </div>
+  <div class="big-number" id="ghostCount">0</div>
+  <div style="text-align:center;color:#aaa" id="ghostStatus">Eventos fantasma detectados</div>
+  <div class="test-output" id="ghostLog"></div>
+</div>
+
+<div class="tab-content" id="tab-history">
+  <div class="help-text">
+    Últimos 50 inputs registrados, con timestamp. Útil para ver si una pulsación se "duplica" sin que la repitas (problema de bouncing).
+  </div>
+  <div class="history-list" id="historyList"></div>
+  <button class="action-btn secondary" onclick="clearHistory()">Limpiar</button>
+</div>
+
+<div class="tab-content" id="tab-axes">
+  <div class="help-text">
+    Lectura cruda de ejes. En la guitarra el <strong>eje Z (o R)</strong> normalmente es la palanca de Whammy. En la alfombra, si los ejes no están centrados en 0, hay drift.
+  </div>
+  <div id="axesContainer" style="font-family:Consolas,monospace;margin-top:12px"></div>
+</div>
+
+<!-- ============ TABS ALFOMBRA ============ -->
+
+<div class="tab-content" id="tab-latency">
+  <div class="help-text">
+    Mide tu tiempo de reacción para cada panel. <strong>El delay puro del pad USB es ~1-8ms</strong>. La diferencia hasta tu tiempo medido = reflejo humano (~200-300ms es normal). Comparar entre paneles: si uno tarda mucho más, ese sensor podría estar lento.
+  </div>
+  <div style="text-align:center">
+    <button class="action-btn" id="latencyStart" onclick="startLatency()">Iniciar test (8 rondas)</button>
+    <button class="action-btn secondary" onclick="resetLatency()">Resetear</button>
+  </div>
+  <div class="big-number" id="latencyDisplay">--</div>
+  <div style="text-align:center;color:#aaa" id="latencyStatus">Pulsa "Iniciar" — se iluminará un panel aleatorio, písalo lo más rápido que puedas.</div>
+  <div class="test-output" id="latencyLog"></div>
+</div>
+
+<div class="tab-content" id="tab-jumps">
+  <div class="help-text">
+    Verifica que la alfombra detecta <strong>pisadas simultáneas</strong> (saltos en StepMania). Si no las detecta, los saltos te van a fallar siempre. Pisa los dos paneles indicados a la vez. Si tu pad tiene diagonales, también las prueba.
+  </div>
+  <div style="text-align:center">
+    <button class="action-btn" onclick="startJumps()">Iniciar test de saltos</button>
+  </div>
+  <div id="jumpsDisplay" style="text-align:center;font-size:1.5em;margin:20px 0;color:#aaa">
+    Pulsa "Iniciar" para empezar
+  </div>
+  <div class="test-output" id="jumpsLog"></div>
+</div>
+
+<!-- ============ TABS GUITARRA ============ -->
+
+<div class="tab-content" id="tab-calibrate">
+  <div class="help-text">
+    Cada receptor de guitarra mapea los botones distinto. Esta calibración detecta tu mapping concreto y lo guarda en <code>localStorage</code> para que el resto de tests sepan qué botón es cada cosa. <strong>Pulsa el control que se te indique en cada paso.</strong>
+  </div>
+  <div class="calib-step" id="calibStep">
+    <div style="color:var(--gris-400);font-size:0.9em">Paso <span id="calibStepNum">0</span> / <span id="calibStepTotal">0</span></div>
+    <div class="calib-target" id="calibTarget">Pulsa "Iniciar" para calibrar</div>
+    <div style="color:var(--gris-300)" id="calibHint">Cada paso queda registrado al detectar el primer botón nuevo que pulses.</div>
+  </div>
+  <div style="text-align:center">
+    <button class="action-btn" id="calibStart" onclick="startCalibration()">Iniciar calibración</button>
+    <button class="action-btn secondary" onclick="skipCalibStep()">Saltar paso</button>
+    <button class="action-btn danger" onclick="clearCalibration()">Borrar mapping</button>
+  </div>
+  <h3 style="margin-top:20px;color:var(--turquesa-400);font-family:var(--font-display)">Mapping actual</h3>
+  <div class="calib-mapping" id="calibMapping"></div>
+</div>
+
+<div class="tab-content" id="tab-frets">
+  <div class="help-text">
+    Mide tu reflejo por traste. Se ilumina un traste aleatorio — pulsa <strong>solo ese traste</strong> sin tocar los otros. Útil para detectar trastes que respondan más lento (sensor desgastado, cable suelto).
+  </div>
+  <div style="text-align:center">
+    <button class="action-btn" id="fretsStart" onclick="startFrets()">Iniciar (10 rondas)</button>
+    <button class="action-btn secondary" onclick="resetFrets()">Resetear</button>
+  </div>
+  <div class="big-number" id="fretsDisplay">--</div>
+  <div style="text-align:center;color:#aaa" id="fretsStatus">Pulsa "Iniciar".</div>
+  <div class="test-output" id="fretsLog"></div>
+</div>
+
+<div class="tab-content" id="tab-strum">
+  <div class="help-text">
+    El strum bar es el control que más se desgasta en una guitarra. Este test te pide alternar arriba/abajo durante 15s y mide: <strong>(1)</strong> que detecta los dos sentidos correctamente, <strong>(2)</strong> que el ratio entre arriba/abajo sea ~1:1 (si no, hay un sentido que falla), <strong>(3)</strong> el intervalo mínimo (bouncing).
+  </div>
+  <div style="text-align:center">
+    <button class="action-btn" id="strumStart" onclick="startStrum()">Iniciar (15s)</button>
+  </div>
+  <div class="big-number" id="strumCount">0</div>
+  <div class="progress-bar"><div class="fill" id="strumProgress"></div></div>
+  <div class="stats-grid">
+    <div class="stat-card"><h3>↑ Strum arriba</h3><div class="big" id="strumUpCount">0</div></div>
+    <div class="stat-card"><h3>↓ Strum abajo</h3><div class="big" id="strumDownCount">0</div></div>
+    <div class="stat-card"><h3>Ratio ↑:↓</h3><div class="big" id="strumRatio">--</div><div class="small">ideal: ~1.0</div></div>
+    <div class="stat-card"><h3>Intervalo mín.</h3><div class="big" id="strumMin">--</div><div class="small">ms (bouncing si &lt;15)</div></div>
+  </div>
+  <div id="strumVerdict" style="text-align:center;margin-top:12px"></div>
+</div>
+
+<div class="tab-content" id="tab-whammy">
+  <div class="help-text">
+    Mueve la palanca de Whammy de un extremo al otro. Mide rango efectivo del eje analógico, deadzone y resolución. Si el rango es estrecho (&lt; 0.5) o el centro no se queda fijo, la palanca está desgastada.
+  </div>
+  <div style="text-align:center">
+    <button class="action-btn" id="whammyStart" onclick="startWhammy()">Iniciar (15s)</button>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><h3>Eje detectado</h3><div class="big" id="whammyAxis">--</div></div>
+    <div class="stat-card"><h3>Mínimo</h3><div class="big" id="whammyMin">--</div></div>
+    <div class="stat-card"><h3>Máximo</h3><div class="big" id="whammyMax">--</div></div>
+    <div class="stat-card"><h3>Rango</h3><div class="big" id="whammyRange">--</div></div>
+    <div class="stat-card"><h3>Centro (reposo)</h3><div class="big" id="whammyCenter">--</div></div>
+    <div class="stat-card"><h3>Resolución</h3><div class="big" id="whammyResolution">--</div><div class="small">valores únicos vistos</div></div>
+  </div>
+  <div id="whammyVerdict" style="text-align:center;margin-top:12px"></div>
+</div>
+
+<div class="tab-content" id="tab-chords">
+  <div class="help-text">
+    En Clone Hero los <strong>chords</strong> son varios trastes pulsados a la vez + strum. Verifica que tu guitarra detecta combinaciones simultáneas de trastes. Si una combinación no se detecta (ghosting de matriz), te van a fallar los chords del juego.
+  </div>
+  <div style="text-align:center">
+    <button class="action-btn" onclick="startChords()">Iniciar test de chords</button>
+  </div>
+  <div id="chordsDisplay" style="text-align:center;font-size:1.4em;margin:20px 0;color:#aaa">
+    Pulsa "Iniciar" para empezar
+  </div>
+  <div class="test-output" id="chordsLog"></div>
+</div>
+
+<script>
+// ============================================================================
+//                    PROFILES (alfombra / guitarra)
+// ============================================================================
+// Cada perfil declara: qué inputs lógicos tiene, sus metadatos (nombre, color,
+// frecuencia de beep), qué botones del gamepad mapean (overridable via
+// localStorage para guitarra), qué eje es analógico relevante (whammy), y
+// qué combos de saltos/chords usar en los tests.
+// El motor de polling es agnóstico al perfil.
+
+const MAT_INPUTS = {
+  0: { name:'IZQUIERDA', icon:'←', freq: 220, role: 'arrow' },
+  1: { name:'ABAJO',     icon:'↓', freq: 261, role: 'arrow' },
+  2: { name:'ARRIBA',    icon:'↑', freq: 329, role: 'arrow' },
+  3: { name:'DERECHA',   icon:'→', freq: 392, role: 'arrow' },
+  4: { name:'UP-LEFT',   icon:'↖', freq: 174, role: 'arrow' },
+  5: { name:'UP-RIGHT',  icon:'↗', freq: 466, role: 'arrow' },
+  6: { name:'DOWN-LEFT', icon:'↙', freq: 196, role: 'arrow' },
+  7: { name:'DOWN-RIGHT',icon:'↘', freq: 415, role: 'arrow' },
+  8: { name:'START',     icon:'S', freq: 523, role: 'meta' },
+  9: { name:'BACK',      icon:'B', freq: 196, role: 'meta' },
+};
+
+// Mapping default de guitarra (PS-style emulado por receptores comunes).
+// Recalibrable via localStorage 'guitar-mapping'.
+const DEFAULT_GUITAR_MAPPING = {
+  fretGreen:  0,
+  fretRed:    1,
+  fretYellow: 2,
+  fretBlue:   3,
+  fretOrange: 4,
+  strumDown:  6,
+  strumUp:    7,
+  tilt:       null,   // a calibrar
+  starPower:  null,
+  select:     8,
+  start:      9,
+  whammyAxis: 2       // axis Z por defecto
+};
+
+const FRET_META = {
+  fretGreen:  { name:'VERDE',    color:'var(--fret-green)',  freq: 196, fretIdx: 0 },
+  fretRed:    { name:'ROJO',     color:'var(--fret-red)',    freq: 246, fretIdx: 1 },
+  fretYellow: { name:'AMARILLO', color:'var(--fret-yellow)', freq: 293, fretIdx: 2 },
+  fretBlue:   { name:'AZUL',     color:'var(--fret-blue)',   freq: 349, fretIdx: 3 },
+  fretOrange: { name:'NARANJA',  color:'var(--fret-orange)', freq: 415, fretIdx: 4 },
+};
+
+const GUITAR_KEY = 'guitar-mapping';
+
+function loadGuitarMapping() {
+  try {
+    const stored = localStorage.getItem(GUITAR_KEY);
+    if (!stored) return { ...DEFAULT_GUITAR_MAPPING };
+    return { ...DEFAULT_GUITAR_MAPPING, ...JSON.parse(stored) };
+  } catch (e) {
+    return { ...DEFAULT_GUITAR_MAPPING };
+  }
+}
+function saveGuitarMapping(m) {
+  try { localStorage.setItem(GUITAR_KEY, JSON.stringify(m)); } catch (e) {}
+}
+let guitarMapping = loadGuitarMapping();
+
+// Reverse lookup: button index → role/name (para mostrar qué se pulsó)
+function guitarRoleForButton(btn) {
+  for (const [role, idx] of Object.entries(guitarMapping)) {
+    if (role === 'whammyAxis') continue;
+    if (idx === btn) return role;
+  }
+  return null;
+}
+
+// Estado del modo activo
+let currentMode = 'mat'; // 'mat' | 'guitar'
+
+// Inputs activos según el modo (button index → meta para stats)
+function getActiveInputs() {
+  if (currentMode === 'mat') {
+    return MAT_INPUTS;
+  }
+  // Guitarra: construir inputs a partir del mapping actual
+  const out = {};
+  for (const [role, idx] of Object.entries(guitarMapping)) {
+    if (role === 'whammyAxis' || idx === null || idx === undefined) continue;
+    if (FRET_META[role]) {
+      const fm = FRET_META[role];
+      out[idx] = { name: fm.name, icon: '◯', freq: fm.freq, role: 'fret', fretRole: role };
+    } else if (role === 'strumUp') {
+      out[idx] = { name:'STRUM ↑', icon:'↑', freq: 587, role: 'strum-up' };
+    } else if (role === 'strumDown') {
+      out[idx] = { name:'STRUM ↓', icon:'↓', freq: 523, role: 'strum-down' };
+    } else if (role === 'tilt') {
+      out[idx] = { name:'TILT', icon:'★', freq: 698, role: 'tilt' };
+    } else if (role === 'starPower') {
+      out[idx] = { name:'STAR PWR', icon:'★', freq: 698, role: 'starpower' };
+    } else if (role === 'select') {
+      out[idx] = { name:'SELECT', icon:'·', freq: 440, role: 'meta' };
+    } else if (role === 'start') {
+      out[idx] = { name:'START', icon:'·', freq: 523, role: 'meta' };
+    }
+  }
+  return out;
+}
+
+// ========== ESTADO GLOBAL ==========
+let counts = {};
+let pressStart = {};
+let pressStats = {}; // {bit: {count, totalMs, minMs, maxMs, lastMs}}
+const historyArr = [];
+const HISTORY_MAX = 50;
+
+let prevPressed = {};
+let activeGamepad = null;
+let pollSamples = []; // timestamps for polling rate calc
+
+let audioCtx = null;
+let soundEnabled = false;
+
+function initStats() {
+  counts = {};
+  pressStats = {};
+  const inputs = getActiveInputs();
+  Object.keys(inputs).forEach(b => {
+    counts[b] = 0;
+    pressStats[b] = { count:0, totalMs:0, minMs:Infinity, maxMs:0, lastMs:0 };
+  });
+}
+initStats();
+
+// ========== AUDIO ==========
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function beep(freq, dur=80, vol=0.15) {
+  if (!soundEnabled) return;
+  const ctx = ensureAudio();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.value = freq;
+  osc.type = 'square';
+  gain.gain.setValueAtTime(vol, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur/1000);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + dur/1000);
+}
+function tickSound() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.frequency.value = 1500;
+  gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.05);
+}
+document.getElementById('soundToggle').addEventListener('change', e => {
+  soundEnabled = e.target.checked;
+  if (soundEnabled) ensureAudio();
+});
+
+// ========== UI INIT ==========
+const btnGrid = document.getElementById('btnGrid');
+for (let i = 0; i < 16; i++) {
+  const led = document.createElement('div');
+  led.className = 'btn-led';
+  led.id = 'btn-' + i;
+  led.textContent = 'B' + (i+1);
+  btnGrid.appendChild(led);
+}
+
+function setStatus(connected, msg) {
+  const s = document.getElementById('status');
+  s.className = connected ? 'status-connected' : 'status-disconnected';
+  s.innerHTML = connected ? ('✓ ' + msg) : msg;
+}
+
+// ========== MODE SWITCHING ==========
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchMode(btn.dataset.mode));
+});
+
+function switchMode(mode) {
+  if (mode === currentMode) return;
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === mode));
+  document.getElementById('view-mat').style.display = (mode === 'mat') ? '' : 'none';
+  document.getElementById('view-guitar').style.display = (mode === 'guitar') ? '' : 'none';
+  document.getElementById('tabs-mat').style.display = (mode === 'mat') ? '' : 'none';
+  document.getElementById('tabs-guitar').style.display = (mode === 'guitar') ? '' : 'none';
+  // Reset estado de tests, stats e historial al cambiar
+  resetStats();
+  clearHistory();
+  cancelAllTests();
+  // Activa la primera pestaña del modo
+  const firstTab = document.querySelector(`#tabs-${mode} .tab-btn`);
+  if (firstTab) showTab(firstTab.dataset.tab, firstTab);
+}
+
+function showTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  const target = document.getElementById('tab-' + id);
+  if (target) target.classList.add('active');
+  // marca el botón activo dentro del grupo del modo actual
+  const tabsContainer = document.getElementById('tabs-' + currentMode);
+  if (tabsContainer) {
+    tabsContainer.querySelectorAll('.tab-btn').forEach(t =>
+      t.classList.toggle('active', t === btn));
+  }
+}
+
+// Bind de clicks de tab buttons
+document.querySelectorAll('.tab-btn').forEach(b => {
+  b.addEventListener('click', () => showTab(b.dataset.tab, b));
+});
+
+function cancelAllTests() {
+  // Cualquier test en curso se cancela al cambiar de modo o reset
+  if (latencyState) resetLatency();
+  if (jumpsState) jumpsState = null;
+  if (syncState) stopSync();
+  if (stressState) { stressState = null; document.getElementById('stressStart').disabled = false; }
+  if (ghostState) { ghostState = null; document.getElementById('ghostStart').disabled = false; }
+  if (calibState) calibState = null;
+  if (fretsState) resetFrets();
+  if (strumState) { strumState = null; document.getElementById('strumStart').disabled = false; }
+  if (whammyState) { whammyState = null; document.getElementById('whammyStart').disabled = false; }
+  if (chordsState) chordsState = null;
+}
+
+function resetStats() {
+  initStats();
+  renderPanelStats();
+  document.querySelectorAll('.panel.arrow .count').forEach(c => c.textContent = '0');
+  document.querySelectorAll('.fret .count').forEach(c => c.textContent = '0');
+  document.getElementById('strum-up-count').textContent = '0 pulsos';
+  document.getElementById('strum-down-count').textContent = '0 pulsos';
+  renderCalibMapping();
+}
+
+function renderPanelStats() {
+  const grid = document.getElementById('panelStats');
+  grid.innerHTML = '';
+  const inputs = getActiveInputs();
+  Object.entries(inputs).forEach(([bit, info]) => {
+    const s = pressStats[bit] || { count:0, totalMs:0, minMs:Infinity, maxMs:0 };
+    const avg = s.count ? Math.round(s.totalMs / s.count) : 0;
+    const min = s.minMs === Infinity ? '--' : Math.round(s.minMs);
+    const max = s.maxMs ? Math.round(s.maxMs) : '--';
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    card.innerHTML = `
+      <h3>${info.icon} ${info.name}</h3>
+      <div class="big">${s.count}</div>
+      <div class="small">pulsos</div>
+      <div class="small" style="margin-top:6px">avg: ${avg}ms | min: ${min}ms | max: ${max}ms</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+renderPanelStats();
+setInterval(renderPanelStats, 500);
+
+// ========== HISTORY ==========
+function addHistory(bit) {
+  const inputs = getActiveInputs();
+  const info = inputs[bit];
+  if (!info) return;
+  const t = new Date();
+  const ts = `${t.getMinutes().toString().padStart(2,'0')}:${t.getSeconds().toString().padStart(2,'0')}.${t.getMilliseconds().toString().padStart(3,'0')}`;
+  historyArr.unshift({ bit, ts, name: info.name, icon: info.icon });
+  if (historyArr.length > HISTORY_MAX) historyArr.pop();
+  const list = document.getElementById('historyList');
+  list.innerHTML = historyArr.map(h => `<div class="history-item">${h.icon} ${h.ts}</div>`).join('');
+}
+function clearHistory() {
+  historyArr.length = 0;
+  const list = document.getElementById('historyList');
+  if (list) list.innerHTML = '';
+}
+
+// ========== POLLING RATE ==========
+function updatePollingRate(now) {
+  pollSamples.push(now);
+  while (pollSamples.length > 0 && now - pollSamples[0] > 1000) pollSamples.shift();
+  document.getElementById('i-poll').textContent = pollSamples.length + ' Hz';
+}
+
+// ========== AXES ==========
+function updateAxes(gp) {
+  const c = document.getElementById('axesContainer');
+  if (c.children.length !== gp.axes.length) {
+    c.innerHTML = '';
+    for (let i = 0; i < gp.axes.length; i++) {
+      const row = document.createElement('div');
+      row.style.marginBottom = '10px';
+      row.innerHTML = `
+        <div style="display:flex;justify-content:space-between;color:#aaa;font-size:0.85em">
+          <span>Eje ${i}:</span><span id="ax-val-${i}">0.00</span>
+        </div>
+        <div class="axes-bar"><div class="fill" id="ax-fill-${i}"></div></div>
+      `;
+      c.appendChild(row);
+    }
+  }
+  for (let i = 0; i < gp.axes.length; i++) {
+    const v = gp.axes[i];
+    document.getElementById('ax-val-' + i).textContent = v.toFixed(3);
+    const fill = document.getElementById('ax-fill-' + i);
+    const pct = Math.abs(v) * 50;
+    if (v >= 0) { fill.style.left = '50%'; fill.style.width = pct + '%'; }
+    else { fill.style.left = (50 - pct) + '%'; fill.style.width = pct + '%'; }
+  }
+}
+
+// Whammy: lectura del eje configurado en el mapping
+function updateWhammyBar(gp) {
+  const ax = guitarMapping.whammyAxis;
+  if (ax === null || ax === undefined || ax >= gp.axes.length) return;
+  const v = gp.axes[ax];
+  // Whammy normalmente reposa en -1 (eje analógico tirado a un extremo).
+  // Mapeamos -1..+1 → 0..100% asumiendo que reposo es algún extremo.
+  const pct = ((v + 1) / 2) * 100;
+  const fill = document.getElementById('whammyFill');
+  const lbl = document.getElementById('whammyValue');
+  if (fill) fill.style.width = Math.max(0, Math.min(100, pct)).toFixed(1) + '%';
+  if (lbl) lbl.textContent = Math.round(pct) + '%';
+  // Para test whammy:
+  if (whammyState) {
+    if (whammyState.minVal === null || v < whammyState.minVal) whammyState.minVal = v;
+    if (whammyState.maxVal === null || v > whammyState.maxVal) whammyState.maxVal = v;
+    whammyState.unique.add(v.toFixed(3));
+    whammyState.axisIdx = ax;
+  }
+}
+
+// ========== EVENT DISPATCH ==========
+const pressListeners = []; // funciones que reciben { bit, time }
+const releaseListeners = [];
+function onPress(fn) { pressListeners.push(fn); return () => { const i = pressListeners.indexOf(fn); if (i>=0) pressListeners.splice(i,1); }; }
+function onRelease(fn) { releaseListeners.push(fn); return () => { const i = releaseListeners.indexOf(fn); if (i>=0) releaseListeners.splice(i,1); }; }
+
+// ========== LOOP ==========
+function findGamepad() {
+  const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const p of pads) if (p && p.connected) return p;
+  return null;
+}
+
+function visualPressForButton(btn, pressed) {
+  if (currentMode === 'mat') {
+    const panel = document.querySelector(`.panel.arrow[data-button="${btn}"]`);
+    if (panel) panel.classList.toggle('active', pressed);
+  } else {
+    // guitarra: dibuja según rol
+    const role = guitarRoleForButton(btn);
+    if (!role) return;
+    if (role.startsWith('fret')) {
+      const fm = FRET_META[role];
+      if (fm) {
+        const fretEl = document.querySelector(`.fret[data-fret="${fm.fretIdx}"]`);
+        if (fretEl) fretEl.classList.toggle('active', pressed);
+      }
+    } else if (role === 'strumUp') {
+      document.getElementById('strum-up').classList.toggle('active', pressed);
+    } else if (role === 'strumDown') {
+      document.getElementById('strum-down').classList.toggle('active', pressed);
+    } else if (role === 'tilt' || role === 'starPower') {
+      document.getElementById('meta-tilt').classList.toggle('active', pressed);
+    } else if (role === 'select') {
+      document.getElementById('meta-select').classList.toggle('active', pressed);
+    } else if (role === 'start') {
+      document.getElementById('meta-start').classList.toggle('active', pressed);
+    }
+  }
+}
+
+function loop() {
+  const now = performance.now();
+  const gp = findGamepad();
+
+  if (gp) {
+    if (!activeGamepad) {
+      activeGamepad = gp.id;
+      setStatus(true, 'Conectado — ' + gp.id);
+    }
+    document.getElementById('i-conn').textContent = 'sí';
+    document.getElementById('i-name').textContent = gp.id.length > 36 ? gp.id.slice(0,36)+'...' : gp.id;
+    document.getElementById('i-nbtn').textContent = gp.buttons.length;
+    document.getElementById('i-naxis').textContent = gp.axes.length;
+
+    let bitmask = 0;
+    let anyChange = false;
+    const inputs = getActiveInputs();
+
+    for (let i = 0; i < gp.buttons.length; i++) {
+      const pressed = gp.buttons[i].pressed || gp.buttons[i].value > 0.5;
+      if (pressed) bitmask |= (1 << i);
+
+      const led = document.getElementById('btn-' + i);
+      if (led) led.classList.toggle('on', pressed);
+
+      if (pressed && !prevPressed[i]) {
+        anyChange = true;
+        if (counts[i] === undefined) counts[i] = 0;
+        if (!pressStats[i]) pressStats[i] = { count:0, totalMs:0, minMs:Infinity, maxMs:0, lastMs:0 };
+        counts[i]++;
+        pressStart[i] = now;
+        visualPressForButton(i, true);
+        // contador en UI
+        if (currentMode === 'mat') {
+          const panel = document.querySelector(`.panel.arrow[data-button="${i}"]`);
+          if (panel) {
+            const c = panel.querySelector('.count');
+            if (c) c.textContent = counts[i];
+          }
+        } else {
+          const role = guitarRoleForButton(i);
+          if (role && role.startsWith('fret')) {
+            const fm = FRET_META[role];
+            const fretEl = document.querySelector(`.fret[data-fret="${fm.fretIdx}"] .count`);
+            if (fretEl) fretEl.textContent = counts[i];
+          } else if (role === 'strumUp') {
+            document.getElementById('strum-up-count').textContent = counts[i] + ' pulsos';
+          } else if (role === 'strumDown') {
+            document.getElementById('strum-down-count').textContent = counts[i] + ' pulsos';
+          }
+        }
+        // beep + history (solo inputs definidos en el perfil)
+        if (inputs[i]) {
+          beep(inputs[i].freq);
+          addHistory(i);
+        }
+        // calibración intercepta antes
+        if (calibState && calibState.waiting) {
+          captureCalib(i);
+        } else {
+          pressListeners.forEach(fn => fn({ bit:i, time:now }));
+        }
+      } else if (!pressed && prevPressed[i]) {
+        anyChange = true;
+        visualPressForButton(i, false);
+        if (pressStart[i] !== undefined && pressStats[i]) {
+          const dur = now - pressStart[i];
+          pressStats[i].count++;
+          pressStats[i].totalMs += dur;
+          pressStats[i].lastMs = dur;
+          if (dur < pressStats[i].minMs) pressStats[i].minMs = dur;
+          if (dur > pressStats[i].maxMs) pressStats[i].maxMs = dur;
+          delete pressStart[i];
+        }
+        releaseListeners.forEach(fn => fn({ bit:i, time:now }));
+      }
+      prevPressed[i] = pressed;
+    }
+
+    if (anyChange) updatePollingRate(now);
+
+    document.getElementById('i-bits').textContent = bitmask + ' (0x' + bitmask.toString(16) + ')';
+    updateAxes(gp);
+    if (currentMode === 'guitar') updateWhammyBar(gp);
+  } else {
+    if (activeGamepad) {
+      activeGamepad = null;
+      setStatus(false, 'Dispositivo desconectado — pulsa un input para reconectar');
+    }
+    document.getElementById('i-conn').textContent = 'no';
+  }
+
+  // limpia pollSamples viejos aun sin eventos
+  while (pollSamples.length > 0 && performance.now() - pollSamples[0] > 1000) pollSamples.shift();
+  if (pollSamples.length === 0) document.getElementById('i-poll').textContent = '0 Hz (idle)';
+
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener('gamepadconnected', e => setStatus(true, 'Detectado: ' + e.gamepad.id));
+window.addEventListener('gamepaddisconnected', () => { setStatus(false, 'Dispositivo desconectado'); activeGamepad = null; });
+
+requestAnimationFrame(loop);
+
+// ============================================================
+//                    TEST: LATENCY (alfombra)
+// ============================================================
+let latencyState = null;
+function startLatency() {
+  // panels presentes (auto-detect: solo los que tienen pressStats > 0 o todos los cardinales)
+  const panels = [0,1,2,3,4,5,6,7].filter(b => true); // todos para que pruebe diagonales
+  latencyState = { round: 0, total: 8, results: [], targetBit: null, targetTime: 0, panels };
+  document.getElementById('latencyLog').innerHTML = '';
+  document.getElementById('latencyStart').disabled = true;
+  document.getElementById('latencyDisplay').textContent = '...';
+  nextLatencyRound();
+}
+function nextLatencyRound() {
+  if (!latencyState) return;
+  if (latencyState.round >= latencyState.total) return finishLatency();
+
+  document.getElementById('latencyStatus').textContent = `Ronda ${latencyState.round+1}/${latencyState.total} — prepárate...`;
+  const delay = 800 + Math.random() * 1500;
+  setTimeout(() => {
+    if (!latencyState) return;
+    const target = latencyState.panels[Math.floor(Math.random() * latencyState.panels.length)];
+    latencyState.targetBit = target;
+    latencyState.targetTime = performance.now();
+    const panel = document.querySelector(`.panel.arrow[data-button="${target}"]`);
+    if (panel) panel.classList.add('target');
+    document.getElementById('latencyStatus').textContent = `¡Pisa ${MAT_INPUTS[target].name}!`;
+  }, delay);
+}
+function resetLatency() {
+  latencyState = null;
+  document.getElementById('latencyStart').disabled = false;
+  document.getElementById('latencyDisplay').textContent = '--';
+  document.getElementById('latencyStatus').textContent = 'Pulsa "Iniciar".';
+  document.querySelectorAll('.panel.target').forEach(p => p.classList.remove('target'));
+  document.getElementById('latencyLog').innerHTML = '';
+}
+function finishLatency() {
+  if (!latencyState) return;
+  const r = latencyState.results;
+  if (r.length === 0) return resetLatency();
+  const avg = r.reduce((a,b)=>a+b.ms,0)/r.length;
+  const sorted = [...r].sort((a,b)=>a.ms-b.ms);
+  const best = sorted[0].ms;
+  const worst = sorted[sorted.length-1].ms;
+  document.getElementById('latencyDisplay').textContent = Math.round(avg) + ' ms';
+  document.getElementById('latencyStatus').textContent = `Promedio: ${Math.round(avg)}ms | Mejor: ${Math.round(best)}ms | Peor: ${Math.round(worst)}ms`;
+  const log = document.getElementById('latencyLog');
+  log.innerHTML += `\n<span class="info">=== Resultado por panel ===</span>\n`;
+  Object.keys(MAT_INPUTS).filter(k => parseInt(k) < 8).forEach(b => {
+    const matches = r.filter(x => x.bit === parseInt(b));
+    if (matches.length) {
+      const a = matches.reduce((s,m)=>s+m.ms,0)/matches.length;
+      log.innerHTML += `${MAT_INPUTS[b].icon} ${MAT_INPUTS[b].name.padEnd(11)} avg: ${Math.round(a)}ms (${matches.length}x)\n`;
+    }
+  });
+  log.scrollTop = log.scrollHeight;
+  document.getElementById('latencyStart').disabled = false;
+  latencyState = null;
+}
+onPress(({ bit, time }) => {
+  if (!latencyState || currentMode !== 'mat') return;
+  if (latencyState.targetBit === null) return;
+  const log = document.getElementById('latencyLog');
+  if (bit === latencyState.targetBit) {
+    const ms = time - latencyState.targetTime;
+    latencyState.results.push({ bit, ms });
+    log.innerHTML += `<span class="ok">✓ ${MAT_INPUTS[bit].name}: ${Math.round(ms)}ms</span>\n`;
+  } else {
+    const exp = MAT_INPUTS[latencyState.targetBit].name;
+    const got = MAT_INPUTS[bit] ? MAT_INPUTS[bit].name : 'B'+(bit+1);
+    log.innerHTML += `<span class="bad">✗ esperaba ${exp}, pisaste ${got}</span>\n`;
+  }
+  log.scrollTop = log.scrollHeight;
+  document.querySelectorAll('.panel.target').forEach(p => p.classList.remove('target'));
+  latencyState.targetBit = null;
+  latencyState.round++;
+  if (latencyState.round < latencyState.total) nextLatencyRound();
+  else finishLatency();
+});
+
+// ============================================================
+//                    TEST: JUMPS (alfombra)
+// ============================================================
+const JUMP_COMBOS = [
+  { name: 'Izquierda + Derecha',     bits: [0, 3] },
+  { name: 'Arriba + Abajo',          bits: [2, 1] },
+  { name: 'Izquierda + Arriba',      bits: [0, 2] },
+  { name: 'Derecha + Abajo',         bits: [3, 1] },
+  { name: 'UP-LEFT + UP-RIGHT (diagonales sup.)', bits: [4, 5] },
+  { name: 'DOWN-LEFT + DOWN-RIGHT (diagonales inf.)', bits: [6, 7] },
+  { name: 'UP-LEFT + DOWN-RIGHT',    bits: [4, 7] },
+  { name: 'UP-RIGHT + DOWN-LEFT',    bits: [5, 6] },
+  { name: 'Izq + Der + Arriba (3 simultáneos)', bits: [0, 3, 2] },
+  { name: '4 cardinales simultáneos', bits: [0, 1, 2, 3] },
+];
+let jumpsState = null;
+function startJumps() {
+  jumpsState = { round: 0, currentlyHeld: new Set(), targetSet: null, started: 0, skipped: 0 };
+  document.getElementById('jumpsLog').innerHTML = '';
+  nextJump();
+}
+function nextJump() {
+  if (!jumpsState) return;
+  if (jumpsState.round >= JUMP_COMBOS.length) {
+    document.getElementById('jumpsDisplay').textContent =
+      jumpsState.skipped > 0
+        ? `Test terminado — ${JUMP_COMBOS.length - jumpsState.skipped} pasados, ${jumpsState.skipped} saltados`
+        : '✓ Todos los saltos detectados correctamente!';
+    document.getElementById('jumpsDisplay').style.color = jumpsState.skipped > 0 ? '#ffaa00' : '#00ff64';
+    jumpsState = null;
+    return;
+  }
+  const combo = JUMP_COMBOS[jumpsState.round];
+  jumpsState.targetSet = new Set(combo.bits);
+  jumpsState.started = performance.now();
+  document.getElementById('jumpsDisplay').innerHTML =
+    `Ronda ${jumpsState.round+1}/${JUMP_COMBOS.length}<br><strong>${combo.name}</strong><br>
+     <small style="font-size:0.6em;color:#888">si tu pad no tiene esos paneles, espera 5s y se salta</small>`;
+  document.getElementById('jumpsDisplay').style.color = '#ffbe0b';
+  // auto-skip si nadie pulsa en 5s
+  jumpsState.skipTimeout = setTimeout(() => {
+    if (!jumpsState || !jumpsState.targetSet) return;
+    const log = document.getElementById('jumpsLog');
+    log.innerHTML += `<span class="warn">⊘ ${combo.name} — saltado (no se detectaron pulsaciones)</span>\n`;
+    jumpsState.targetSet = null;
+    jumpsState.skipped++;
+    setTimeout(() => { if (jumpsState) { jumpsState.currentlyHeld.clear(); jumpsState.round++; nextJump(); } }, 400);
+  }, 5000);
+}
+onPress(({ bit, time }) => {
+  if (!jumpsState || !jumpsState.targetSet || currentMode !== 'mat') return;
+  jumpsState.currentlyHeld.add(bit);
+  const target = jumpsState.targetSet;
+  const allHeld = [...target].every(b => jumpsState.currentlyHeld.has(b));
+  if (allHeld) {
+    if (jumpsState.skipTimeout) clearTimeout(jumpsState.skipTimeout);
+    const ms = time - jumpsState.started;
+    const log = document.getElementById('jumpsLog');
+    log.innerHTML += `<span class="ok">✓ ${JUMP_COMBOS[jumpsState.round].name} — ${Math.round(ms)}ms</span>\n`;
+    log.scrollTop = log.scrollHeight;
+    jumpsState.targetSet = null;
+    setTimeout(() => {
+      if (!jumpsState) return;
+      jumpsState.currentlyHeld.clear();
+      jumpsState.round++;
+      nextJump();
+    }, 600);
+  }
+});
+onRelease(({ bit }) => {
+  if (jumpsState) jumpsState.currentlyHeld.delete(bit);
+});
+
+// ============================================================
+//                    TEST: SYNC (METRÓNOMO) — compartido
+// ============================================================
+let syncState = null;
+let bpm = 120;
+function updateBpm() {
+  bpm = parseInt(document.getElementById('bpmSlider').value);
+  document.getElementById('bpmDisplay').textContent = bpm;
+}
+function startSync() {
+  if (syncState) return;
+  ensureAudio();
+  syncState = {
+    bpm: bpm,
+    interval: 60000 / bpm,
+    nextBeat: performance.now() + 200,
+    beats: 0,
+    presses: [],
+    timer: null
+  };
+  document.getElementById('syncStart').disabled = true;
+  document.getElementById('syncBeats').textContent = '0';
+  document.getElementById('syncSteps').textContent = '0';
+  document.getElementById('syncOffset').textContent = '-- ms';
+  document.getElementById('syncBest').textContent = '-- ms';
+  document.getElementById('syncWorst').textContent = '-- ms';
+  document.getElementById('syncRecommendation').textContent = '';
+  syncTick();
+}
+function syncTick() {
+  if (!syncState) return;
+  const now = performance.now();
+  if (now >= syncState.nextBeat) {
+    const beatTime = syncState.nextBeat;
+    syncState.lastBeat = beatTime;
+    syncState.beats++;
+    syncState.nextBeat += syncState.interval;
+    document.getElementById('syncBeats').textContent = syncState.beats;
+    const m = document.getElementById('metronomeBeat');
+    m.style.transform = 'scale(1.3)';
+    m.style.background = 'rgba(0,255,100,0.4)';
+    setTimeout(() => { m.style.transform = 'scale(1)'; m.style.background = 'rgba(131,56,236,0.2)'; }, 100);
+    tickSound();
+  }
+  syncState.timer = requestAnimationFrame(syncTick);
+}
+function stopSync() {
+  if (!syncState) return;
+  if (syncState.timer) cancelAnimationFrame(syncState.timer);
+  document.getElementById('syncStart').disabled = false;
+
+  if (syncState.presses.length > 0) {
+    const offsets = syncState.presses;
+    const avg = offsets.reduce((a,b)=>a+b,0)/offsets.length;
+    const sorted = [...offsets].sort((a,b)=>Math.abs(a)-Math.abs(b));
+    const best = sorted[0];
+    const worst = sorted[sorted.length-1];
+    document.getElementById('syncOffset').textContent = (avg>=0?'+':'') + Math.round(avg) + ' ms';
+    document.getElementById('syncBest').textContent = (best>=0?'+':'') + Math.round(best) + ' ms';
+    document.getElementById('syncWorst').textContent = (worst>=0?'+':'') + Math.round(worst) + ' ms';
+
+    let rec = '';
+    if (Math.abs(avg) < 25) {
+      rec = `<span style="color:#00ff64">Excelente sincronización (offset &lt; 25ms). No deberías necesitar ajustar el Global Offset.</span>`;
+    } else if (avg > 0) {
+      rec = `<span style="color:#ffaa00">Llegas <strong>tarde</strong> ${Math.round(avg)}ms en promedio. En StepMania, prueba un Global Offset de <strong>+${(avg/1000).toFixed(3)}</strong> segundos (o calibrar Machine Sync).</span>`;
+    } else {
+      rec = `<span style="color:#ffaa00">Llegas <strong>temprano</strong> ${Math.round(-avg)}ms en promedio. En StepMania, prueba un Global Offset de <strong>${(avg/1000).toFixed(3)}</strong> segundos.</span>`;
+    }
+    document.getElementById('syncRecommendation').innerHTML = rec;
+  }
+  syncState = null;
+}
+onPress(({ bit, time }) => {
+  if (!syncState || !syncState.lastBeat) return;
+  const prevBeat = syncState.lastBeat;
+  const nextBeat = prevBeat + syncState.interval;
+  const distPrev = time - prevBeat;
+  const distNext = time - nextBeat;
+  const offset = Math.abs(distPrev) < Math.abs(distNext) ? distPrev : distNext;
+  if (Math.abs(offset) > syncState.interval/2) return;
+  syncState.presses.push(offset);
+  document.getElementById('syncSteps').textContent = syncState.presses.length;
+  const avg = syncState.presses.reduce((a,b)=>a+b,0)/syncState.presses.length;
+  document.getElementById('syncOffset').textContent = (avg>=0?'+':'') + Math.round(avg) + ' ms';
+});
+
+// ============================================================
+//                    TEST: STRESS — compartido
+// ============================================================
+let stressState = null;
+function startStress() {
+  stressState = { presses: [], started: performance.now(), duration: 10000 };
+  document.getElementById('stressStart').disabled = true;
+  document.getElementById('stressVerdict').textContent = '';
+  stressTick();
+}
+function stressTick() {
+  if (!stressState) return;
+  const now = performance.now();
+  const elapsed = now - stressState.started;
+  const pct = Math.min(100, elapsed / stressState.duration * 100);
+  document.getElementById('stressProgress').style.width = pct + '%';
+  if (elapsed >= stressState.duration) { finishStress(); return; }
+  document.getElementById('stressCount').textContent = stressState.presses.length;
+  requestAnimationFrame(stressTick);
+}
+function finishStress() {
+  if (!stressState) return;
+  const presses = stressState.presses;
+  const total = presses.length;
+  const seconds = stressState.duration / 1000;
+  const rate = (total/seconds).toFixed(1);
+  document.getElementById('stressTotal').textContent = total;
+  document.getElementById('stressRate').textContent = rate;
+  if (presses.length > 1) {
+    const intervals = [];
+    for (let i = 1; i < presses.length; i++) intervals.push(presses[i] - presses[i-1]);
+    const minI = Math.min(...intervals);
+    const maxI = Math.max(...intervals);
+    document.getElementById('stressMin').textContent = Math.round(minI);
+    document.getElementById('stressMax').textContent = Math.round(maxI);
+    let verdict = '';
+    if (minI < 15) verdict = `<span style="color:#ff3366">⚠ Detectado intervalo de ${Math.round(minI)}ms — puede haber bouncing del sensor.</span>`;
+    else if (rate < 3) verdict = `<span style="color:#aaa">Pulsaste poco — para test válido conviene >5/s.</span>`;
+    else verdict = `<span style="color:#00ff64">✓ Sin signos de bouncing ni inputs perdidos. Tasa: ${rate}/s.</span>`;
+    document.getElementById('stressVerdict').innerHTML = verdict;
+  }
+  document.getElementById('stressStart').disabled = false;
+  stressState = null;
+}
+onPress(({ time }) => {
+  if (!stressState) return;
+  stressState.presses.push(time);
+  document.getElementById('stressCount').textContent = stressState.presses.length;
+});
+
+// ============================================================
+//                    TEST: GHOST — compartido
+// ============================================================
+let ghostState = null;
+function startGhost() {
+  ghostState = { started: performance.now(), duration: 60000, events: 0, perInput: {} };
+  document.getElementById('ghostStart').disabled = true;
+  document.getElementById('ghostCount').textContent = '0';
+  document.getElementById('ghostLog').innerHTML = '<span class="info">NO TOQUES el dispositivo. Cualquier evento aquí es un input fantasma.</span>\n';
+  ghostTick();
+}
+function ghostTick() {
+  if (!ghostState) return;
+  const now = performance.now();
+  const elapsed = now - ghostState.started;
+  const remaining = Math.max(0, ghostState.duration - elapsed);
+  document.getElementById('ghostStatus').textContent = `Quedan ${Math.ceil(remaining/1000)}s — eventos detectados: ${ghostState.events}`;
+  if (elapsed >= ghostState.duration) {
+    const log = document.getElementById('ghostLog');
+    log.innerHTML += `\n<span class="info">=== Test finalizado ===</span>\n`;
+    if (ghostState.events === 0) log.innerHTML += `<span class="ok">✓ Sin inputs fantasma. Sensores limpios.</span>\n`;
+    else log.innerHTML += `<span class="bad">✗ ${ghostState.events} eventos fantasma — revisar sensores.</span>\n`;
+    document.getElementById('ghostStart').disabled = false;
+    ghostState = null;
+    return;
+  }
+  setTimeout(ghostTick, 250);
+}
+onPress(({ bit, time }) => {
+  if (!ghostState) return;
+  ghostState.events++;
+  ghostState.perInput[bit] = (ghostState.perInput[bit]||0) + 1;
+  document.getElementById('ghostCount').textContent = ghostState.events;
+  const log = document.getElementById('ghostLog');
+  const t = ((time - ghostState.started)/1000).toFixed(2);
+  const inputs = getActiveInputs();
+  const name = inputs[bit] ? inputs[bit].name : 'B'+(bit+1);
+  log.innerHTML += `<span class="bad">[${t}s] FANTASMA: ${name}</span>\n`;
+  log.scrollTop = log.scrollHeight;
+});
+
+// ============================================================
+//             TEST: CALIBRACIÓN GUITARRA
+// ============================================================
+const CALIB_STEPS = [
+  { role: 'fretGreen',  prompt: 'Pulsa el traste VERDE',     hint: 'El traste de más arriba (más cercano al cuerpo)' },
+  { role: 'fretRed',    prompt: 'Pulsa el traste ROJO',      hint: 'Segundo traste' },
+  { role: 'fretYellow', prompt: 'Pulsa el traste AMARILLO',  hint: 'Tercer traste' },
+  { role: 'fretBlue',   prompt: 'Pulsa el traste AZUL',      hint: 'Cuarto traste' },
+  { role: 'fretOrange', prompt: 'Pulsa el traste NARANJA',   hint: 'Quinto traste (el más alejado)' },
+  { role: 'strumDown',  prompt: 'Mueve el strum bar HACIA ABAJO', hint: 'Una sola vez, suelta antes del siguiente paso' },
+  { role: 'strumUp',    prompt: 'Mueve el strum bar HACIA ARRIBA', hint: 'Una sola vez, suelta antes del siguiente paso' },
+  { role: 'tilt',       prompt: 'Inclina la guitarra hacia ARRIBA',
+    hint: 'Mantén la guitarra vertical durante 1s. Si tu guitarra no tiene tilt, pulsa "Saltar paso".' },
+  { role: 'starPower',  prompt: 'Pulsa el botón STAR POWER (si tu guitarra tiene uno físico)',
+    hint: 'Algunas guitarras tienen un botón Star Power dedicado. Si no, pulsa "Saltar paso".' },
+  { role: 'select',     prompt: 'Pulsa SELECT / BACK',       hint: 'En guitarras GH suele ser un botón pequeño cerca del cuello' },
+  { role: 'start',      prompt: 'Pulsa START',               hint: 'En guitarras GH suele estar al lado de Select' },
+];
+
+let calibState = null;
+
+function startCalibration() {
+  calibState = { idx: 0, mapping: { ...guitarMapping }, waiting: false, capturedThisStep: new Set() };
+  document.getElementById('calibStart').disabled = true;
+  document.getElementById('calibStepTotal').textContent = CALIB_STEPS.length;
+  // Reset todos los slots a calibrar
+  CALIB_STEPS.forEach(s => calibState.mapping[s.role] = null);
+  showCalibStep();
+}
+function showCalibStep() {
+  if (!calibState) return;
+  if (calibState.idx >= CALIB_STEPS.length) {
+    finishCalibration();
+    return;
+  }
+  const step = CALIB_STEPS[calibState.idx];
+  document.getElementById('calibStepNum').textContent = calibState.idx + 1;
+  document.getElementById('calibTarget').textContent = step.prompt;
+  document.getElementById('calibHint').textContent = step.hint;
+  // Tomamos como "captura" el primer botón nuevo que se pulse (que no esté ya asignado).
+  // Pequeño delay para que el usuario suelte lo anterior.
+  calibState.waiting = false;
+  setTimeout(() => { if (calibState) calibState.waiting = true; }, 350);
+}
+function captureCalib(bit) {
+  if (!calibState || !calibState.waiting) return;
+  // No reasignar un botón que ya tiene rol en este paso
+  const usedBits = Object.entries(calibState.mapping)
+    .filter(([k,v]) => k !== 'whammyAxis' && v !== null && v !== undefined)
+    .map(([,v]) => v);
+  if (usedBits.includes(bit)) return; // pulsó un botón ya mapeado, ignorar
+  const step = CALIB_STEPS[calibState.idx];
+  calibState.mapping[step.role] = bit;
+  calibState.waiting = false;
+  // Avance al siguiente paso
+  calibState.idx++;
+  setTimeout(() => showCalibStep(), 250);
+  renderCalibMappingFromState();
+}
+function skipCalibStep() {
+  if (!calibState) return;
+  calibState.idx++;
+  showCalibStep();
+}
+function finishCalibration() {
+  if (!calibState) return;
+  guitarMapping = { ...guitarMapping, ...calibState.mapping };
+  saveGuitarMapping(guitarMapping);
+  document.getElementById('calibTarget').textContent = '✓ Calibración guardada';
+  document.getElementById('calibHint').textContent = 'El mapping queda persistido en localStorage. Cambia de pestaña para probar.';
+  document.getElementById('calibStart').disabled = false;
+  calibState = null;
+  initStats();
+  renderPanelStats();
+  renderCalibMapping();
+}
+function clearCalibration() {
+  if (!confirm('¿Borrar el mapping y volver al default?')) return;
+  try { localStorage.removeItem(GUITAR_KEY); } catch(e) {}
+  guitarMapping = loadGuitarMapping();
+  initStats();
+  renderPanelStats();
+  renderCalibMapping();
+}
+function renderCalibMappingFromState() {
+  // versión durante calibración
+  const map = (calibState && calibState.mapping) || guitarMapping;
+  renderCalibMappingObj(map);
+}
+function renderCalibMapping() {
+  renderCalibMappingObj(guitarMapping);
+}
+function renderCalibMappingObj(map) {
+  const target = document.getElementById('calibMapping');
+  if (!target) return;
+  const labels = {
+    fretGreen:'🟢 Verde', fretRed:'🔴 Rojo', fretYellow:'🟡 Amarillo',
+    fretBlue:'🔵 Azul', fretOrange:'🟠 Naranja',
+    strumDown:'↓ Strum abajo', strumUp:'↑ Strum arriba',
+    tilt:'★ Tilt', starPower:'★ Star Power',
+    select:'· Select', start:'· Start',
+    whammyAxis:'∿ Whammy (eje)'
+  };
+  target.innerHTML = '';
+  Object.entries(labels).forEach(([role, label]) => {
+    const v = map[role];
+    const isUnset = (v === null || v === undefined);
+    let display;
+    if (role === 'whammyAxis') display = isUnset ? '—' : 'eje ' + v;
+    else display = isUnset ? '—' : 'btn[' + v + ']';
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `<span class="name">${label}</span><span class="val ${isUnset?'unset':''}">${display}</span>`;
+    target.appendChild(row);
+  });
+}
+renderCalibMapping();
+
+// Reactividad: las casillas "?" en los trastes muestran que faltan calibrar
+function refreshFretUnmapped() {
+  for (const role of ['fretGreen','fretRed','fretYellow','fretBlue','fretOrange']) {
+    const fm = FRET_META[role];
+    const el = document.querySelector(`.fret[data-fret="${fm.fretIdx}"]`);
+    if (el) el.classList.toggle('unmapped',
+      guitarMapping[role] === null || guitarMapping[role] === undefined);
+  }
+}
+setInterval(refreshFretUnmapped, 600);
+
+// ============================================================
+//             TEST: FRETS LATENCY (guitarra)
+// ============================================================
+let fretsState = null;
+function startFrets() {
+  // solo trastes calibrados
+  const fretRoles = ['fretGreen','fretRed','fretYellow','fretBlue','fretOrange'];
+  const available = fretRoles.filter(r => guitarMapping[r] !== null && guitarMapping[r] !== undefined);
+  if (available.length === 0) {
+    document.getElementById('fretsLog').innerHTML = '<span class="bad">No hay trastes calibrados. Ve a "Calibrar" primero.</span>';
+    return;
+  }
+  fretsState = { round: 0, total: 10, results: [], targetRole: null, targetTime: 0, available };
+  document.getElementById('fretsLog').innerHTML = '';
+  document.getElementById('fretsStart').disabled = true;
+  document.getElementById('fretsDisplay').textContent = '...';
+  nextFretRound();
+}
+function nextFretRound() {
+  if (!fretsState) return;
+  if (fretsState.round >= fretsState.total) return finishFrets();
+  document.getElementById('fretsStatus').textContent = `Ronda ${fretsState.round+1}/${fretsState.total} — prepárate...`;
+  const delay = 800 + Math.random() * 1500;
+  setTimeout(() => {
+    if (!fretsState) return;
+    const role = fretsState.available[Math.floor(Math.random() * fretsState.available.length)];
+    fretsState.targetRole = role;
+    fretsState.targetTime = performance.now();
+    const fm = FRET_META[role];
+    const el = document.querySelector(`.fret[data-fret="${fm.fretIdx}"]`);
+    if (el) el.classList.add('target');
+    document.getElementById('fretsStatus').textContent = `¡Pulsa ${fm.name}!`;
+  }, delay);
+}
+function resetFrets() {
+  fretsState = null;
+  document.getElementById('fretsStart').disabled = false;
+  document.getElementById('fretsDisplay').textContent = '--';
+  document.getElementById('fretsStatus').textContent = 'Pulsa "Iniciar".';
+  document.querySelectorAll('.fret.target').forEach(p => p.classList.remove('target'));
+  document.getElementById('fretsLog').innerHTML = '';
+}
+function finishFrets() {
+  if (!fretsState) return;
+  const r = fretsState.results;
+  if (r.length === 0) return resetFrets();
+  const avg = r.reduce((a,b)=>a+b.ms,0)/r.length;
+  document.getElementById('fretsDisplay').textContent = Math.round(avg) + ' ms';
+  document.getElementById('fretsStatus').textContent = `Promedio: ${Math.round(avg)}ms`;
+  const log = document.getElementById('fretsLog');
+  log.innerHTML += `\n<span class="info">=== Resultado por traste ===</span>\n`;
+  ['fretGreen','fretRed','fretYellow','fretBlue','fretOrange'].forEach(role => {
+    const matches = r.filter(x => x.role === role);
+    if (matches.length) {
+      const a = matches.reduce((s,m)=>s+m.ms,0)/matches.length;
+      log.innerHTML += `${FRET_META[role].name.padEnd(10)} avg: ${Math.round(a)}ms (${matches.length}x)\n`;
+    }
+  });
+  log.scrollTop = log.scrollHeight;
+  document.getElementById('fretsStart').disabled = false;
+  fretsState = null;
+}
+onPress(({ bit, time }) => {
+  if (!fretsState || currentMode !== 'guitar') return;
+  if (!fretsState.targetRole) return;
+  const role = guitarRoleForButton(bit);
+  const log = document.getElementById('fretsLog');
+  if (role === fretsState.targetRole) {
+    const ms = time - fretsState.targetTime;
+    fretsState.results.push({ role, ms });
+    log.innerHTML += `<span class="ok">✓ ${FRET_META[role].name}: ${Math.round(ms)}ms</span>\n`;
+  } else if (role && role.startsWith('fret')) {
+    log.innerHTML += `<span class="bad">✗ esperaba ${FRET_META[fretsState.targetRole].name}, pulsaste ${FRET_META[role].name}</span>\n`;
+  } else {
+    return; // ignora strum/etc durante test de trastes
+  }
+  log.scrollTop = log.scrollHeight;
+  document.querySelectorAll('.fret.target').forEach(p => p.classList.remove('target'));
+  fretsState.targetRole = null;
+  fretsState.round++;
+  if (fretsState.round < fretsState.total) nextFretRound();
+  else finishFrets();
+});
+
+// ============================================================
+//             TEST: STRUM (guitarra)
+// ============================================================
+let strumState = null;
+function startStrum() {
+  if (guitarMapping.strumUp === null || guitarMapping.strumDown === null) {
+    document.getElementById('strumVerdict').innerHTML =
+      '<span style="color:#ff3366">Strum bar no calibrado. Ve a "Calibrar".</span>';
+    return;
+  }
+  strumState = {
+    started: performance.now(),
+    duration: 15000,
+    upTimes: [], downTimes: [],
+    intervals: []
+  };
+  document.getElementById('strumStart').disabled = true;
+  document.getElementById('strumCount').textContent = '0';
+  document.getElementById('strumProgress').style.width = '0%';
+  document.getElementById('strumVerdict').innerHTML = '<span style="color:#aaa">Alterna ↑↓ todo lo que puedas durante 15s</span>';
+  strumTick();
+}
+function strumTick() {
+  if (!strumState) return;
+  const now = performance.now();
+  const elapsed = now - strumState.started;
+  const pct = Math.min(100, elapsed / strumState.duration * 100);
+  document.getElementById('strumProgress').style.width = pct + '%';
+  if (elapsed >= strumState.duration) { finishStrum(); return; }
+  const total = strumState.upTimes.length + strumState.downTimes.length;
+  document.getElementById('strumCount').textContent = total;
+  document.getElementById('strumUpCount').textContent = strumState.upTimes.length;
+  document.getElementById('strumDownCount').textContent = strumState.downTimes.length;
+  requestAnimationFrame(strumTick);
+}
+function finishStrum() {
+  if (!strumState) return;
+  const u = strumState.upTimes.length;
+  const d = strumState.downTimes.length;
+  document.getElementById('strumUpCount').textContent = u;
+  document.getElementById('strumDownCount').textContent = d;
+  const ratio = (u && d) ? (u/d).toFixed(2) : '∞';
+  document.getElementById('strumRatio').textContent = ratio;
+  if (strumState.intervals.length) {
+    const minI = Math.min(...strumState.intervals);
+    document.getElementById('strumMin').textContent = Math.round(minI);
+  }
+  let verdict = '';
+  if (u === 0 || d === 0) {
+    verdict = `<span style="color:#ff3366">⚠ Solo se detectó un sentido del strum. ${u===0?'Strum ARRIBA no llega.':'Strum ABAJO no llega.'} Mapping mal calibrado o sensor roto.</span>`;
+  } else {
+    const r = u/d;
+    if (r < 0.5 || r > 2) {
+      verdict = `<span style="color:#ffaa00">⚠ Ratio ↑:↓ desbalanceado (${r.toFixed(2)}). Un sentido se detecta el doble que el otro — posible sensor desgastado.</span>`;
+    } else {
+      verdict = `<span style="color:#00ff64">✓ Strum balanceado (ratio ${r.toFixed(2)}). ${u+d} pulsos en 15s.</span>`;
+    }
+  }
+  document.getElementById('strumVerdict').innerHTML = verdict;
+  document.getElementById('strumStart').disabled = false;
+  strumState = null;
+}
+onPress(({ bit, time }) => {
+  if (!strumState || currentMode !== 'guitar') return;
+  const role = guitarRoleForButton(bit);
+  const lastTime = (strumState.upTimes.concat(strumState.downTimes).slice(-1)[0]);
+  if (lastTime) strumState.intervals.push(time - lastTime);
+  if (role === 'strumUp') strumState.upTimes.push(time);
+  else if (role === 'strumDown') strumState.downTimes.push(time);
+});
+
+// ============================================================
+//             TEST: WHAMMY (guitarra)
+// ============================================================
+let whammyState = null;
+function startWhammy() {
+  whammyState = {
+    started: performance.now(),
+    duration: 15000,
+    minVal: null, maxVal: null,
+    unique: new Set(),
+    axisIdx: guitarMapping.whammyAxis,
+    history: []
+  };
+  document.getElementById('whammyStart').disabled = true;
+  document.getElementById('whammyVerdict').innerHTML = '<span style="color:#aaa">Mueve la palanca de un extremo al otro varias veces</span>';
+  whammyTick();
+}
+function whammyTick() {
+  if (!whammyState) return;
+  const now = performance.now();
+  const elapsed = now - whammyState.started;
+  document.getElementById('whammyAxis').textContent = whammyState.axisIdx ?? '--';
+  document.getElementById('whammyMin').textContent = whammyState.minVal !== null ? whammyState.minVal.toFixed(3) : '--';
+  document.getElementById('whammyMax').textContent = whammyState.maxVal !== null ? whammyState.maxVal.toFixed(3) : '--';
+  if (whammyState.minVal !== null && whammyState.maxVal !== null) {
+    const range = whammyState.maxVal - whammyState.minVal;
+    document.getElementById('whammyRange').textContent = range.toFixed(3);
+    // Heurística de centro: el valor más estable (cerca de minVal o maxVal típicamente)
+    const center = (whammyState.minVal + whammyState.maxVal) / 2;
+    document.getElementById('whammyCenter').textContent = center.toFixed(3);
+  }
+  document.getElementById('whammyResolution').textContent = whammyState.unique.size;
+  if (elapsed >= whammyState.duration) { finishWhammy(); return; }
+  setTimeout(whammyTick, 100);
+}
+function finishWhammy() {
+  if (!whammyState) return;
+  const range = (whammyState.maxVal !== null && whammyState.minVal !== null)
+    ? whammyState.maxVal - whammyState.minVal : 0;
+  let verdict = '';
+  if (range < 0.5) {
+    verdict = `<span style="color:#ff3366">⚠ Rango muy estrecho (${range.toFixed(2)}). La palanca no se mueve lo suficiente o el sensor está desgastado. Quizá no estás moviéndola — prueba de nuevo.</span>`;
+  } else if (whammyState.unique.size < 30) {
+    verdict = `<span style="color:#ffaa00">⚠ Resolución baja (${whammyState.unique.size} valores únicos). El potenciómetro reporta pocos pasos discretos — uso prolongado o desgaste.</span>`;
+  } else {
+    verdict = `<span style="color:#00ff64">✓ Whammy OK. Rango ${range.toFixed(2)}, ${whammyState.unique.size} valores discretos.</span>`;
+  }
+  document.getElementById('whammyVerdict').innerHTML = verdict;
+  document.getElementById('whammyStart').disabled = false;
+  whammyState = null;
+}
+
+// ============================================================
+//             TEST: CHORDS (guitarra)
+// ============================================================
+const CHORD_COMBOS = [
+  { name:'Verde + Rojo',          roles:['fretGreen','fretRed'] },
+  { name:'Rojo + Amarillo',       roles:['fretRed','fretYellow'] },
+  { name:'Amarillo + Azul',       roles:['fretYellow','fretBlue'] },
+  { name:'Azul + Naranja',        roles:['fretBlue','fretOrange'] },
+  { name:'Verde + Amarillo (salto de 1)', roles:['fretGreen','fretYellow'] },
+  { name:'Verde + Naranja (extremos)', roles:['fretGreen','fretOrange'] },
+  { name:'Verde + Rojo + Amarillo (3)', roles:['fretGreen','fretRed','fretYellow'] },
+  { name:'Power chord (G+R+Y+B)', roles:['fretGreen','fretRed','fretYellow','fretBlue'] },
+  { name:'Verde + Rojo + Strum ↓', roles:['fretGreen','fretRed','strumDown'] },
+];
+let chordsState = null;
+function startChords() {
+  chordsState = { round:0, currentlyHeld: new Set(), targetRoles: null, started: 0, skipped: 0 };
+  document.getElementById('chordsLog').innerHTML = '';
+  nextChord();
+}
+function nextChord() {
+  if (!chordsState) return;
+  if (chordsState.round >= CHORD_COMBOS.length) {
+    document.getElementById('chordsDisplay').textContent =
+      chordsState.skipped > 0
+        ? `Test terminado — ${CHORD_COMBOS.length - chordsState.skipped} pasados, ${chordsState.skipped} saltados`
+        : '✓ Todos los chords detectados!';
+    document.getElementById('chordsDisplay').style.color = chordsState.skipped > 0 ? '#ffaa00' : '#00ff64';
+    chordsState = null;
+    return;
+  }
+  const combo = CHORD_COMBOS[chordsState.round];
+  // verificar que todos los roles estén calibrados
+  const allMapped = combo.roles.every(r => guitarMapping[r] !== null && guitarMapping[r] !== undefined);
+  if (!allMapped) {
+    document.getElementById('chordsLog').innerHTML += `<span class="warn">⊘ ${combo.name} — saltado (alguno sin calibrar)</span>\n`;
+    chordsState.skipped++;
+    chordsState.round++;
+    return nextChord();
+  }
+  chordsState.targetRoles = new Set(combo.roles);
+  chordsState.targetBits = new Set(combo.roles.map(r => guitarMapping[r]));
+  chordsState.started = performance.now();
+  document.getElementById('chordsDisplay').innerHTML =
+    `Ronda ${chordsState.round+1}/${CHORD_COMBOS.length}<br><strong>${combo.name}</strong><br>
+     <small style="font-size:0.6em;color:#888">si no llegas, espera 5s</small>`;
+  document.getElementById('chordsDisplay').style.color = '#ffbe0b';
+  chordsState.skipTimeout = setTimeout(() => {
+    if (!chordsState || !chordsState.targetRoles) return;
+    document.getElementById('chordsLog').innerHTML +=
+      `<span class="warn">⊘ ${combo.name} — saltado (timeout)</span>\n`;
+    chordsState.targetRoles = null;
+    chordsState.skipped++;
+    setTimeout(() => { if (chordsState) { chordsState.currentlyHeld.clear(); chordsState.round++; nextChord(); } }, 400);
+  }, 5000);
+}
+onPress(({ bit, time }) => {
+  if (!chordsState || !chordsState.targetRoles || currentMode !== 'guitar') return;
+  chordsState.currentlyHeld.add(bit);
+  const allHeld = [...chordsState.targetBits].every(b => chordsState.currentlyHeld.has(b));
+  if (allHeld) {
+    if (chordsState.skipTimeout) clearTimeout(chordsState.skipTimeout);
+    const ms = time - chordsState.started;
+    document.getElementById('chordsLog').innerHTML +=
+      `<span class="ok">✓ ${CHORD_COMBOS[chordsState.round].name} — ${Math.round(ms)}ms</span>\n`;
+    chordsState.targetRoles = null;
+    setTimeout(() => {
+      if (!chordsState) return;
+      chordsState.currentlyHeld.clear();
+      chordsState.round++;
+      nextChord();
+    }, 600);
+  }
+});
+onRelease(({ bit }) => {
+  if (chordsState) chordsState.currentlyHeld.delete(bit);
+});
+
+</script>
+</body>
+</html>

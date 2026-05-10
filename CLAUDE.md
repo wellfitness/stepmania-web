@@ -4,24 +4,39 @@ Suite de utilidades para una alfombra de baile (RedOctane USB Pad, VID 1430 / PI
 
 ## Archivos
 
-### `test-alfombra.html`
-Diagnóstico completo de la alfombra en el navegador (Gamepad API). 8 pestañas:
+### `test-pad.html`
+Diagnóstico de hardware en el navegador (Gamepad API). Selector inicial **Alfombra | Guitarra**.
+
+**Modo Alfombra (8 pestañas):**
 - **Estadísticas**: pisadas por panel, duración media de cada press, polling rate.
-- **Latencia**: test de reflejos por panel (panel aleatorio → mide ms hasta pisar).
-- **Saltos**: combos simultáneos (Izq+Der, Arriba+Abajo, etc).
+- **Latencia**: test de reflejos por panel (panel aleatorio → mide ms hasta pisar). Cubre las 4 cardinales + 4 diagonales (modos solo/full).
+- **Saltos**: combos simultáneos (Izq+Der, Arriba+Abajo, UP-LEFT+UP-RIGHT, DOWN-LEFT+DOWN-RIGHT, etc.). Auto-skip a los 5s si tu pad no tiene esos paneles.
 - **Sync de audio**: metrónomo configurable BPM 60-180. Mide offset del usuario y sugiere `Global Offset` para `Preferences.ini`.
 - **Stress test**: 10s de pisadas rápidas. Detecta bouncing si intervalo mínimo &lt; 15ms.
 - **Ghost inputs**: monitorea 60s sin pisar — si aparece input, hay sensor pegado.
 - **Secuencia**: histórico de últimas 50 pisadas con timestamp.
 - **Ejes**: lectura cruda de los axes del gamepad.
 
-Mapping físico via Gamepad API (distinto al de StepMania por capa de drivers):
-- `button[0]` = panel IZQUIERDA
-- `button[1]` = panel ABAJO
-- `button[2]` = panel ARRIBA
-- `button[3]` = panel DERECHA
-- `button[8]` = START
-- `button[9]` = BACK
+**Modo Guitarra (11 pestañas):**
+- **Calibrar**: asistente paso a paso para mapear los botones físicos (5 trastes, strum ↑/↓, tilt, Star Power, Select, Start). El mapping se persiste en `localStorage` con key `guitar-mapping`.
+- **Estadísticas**: pulsos por traste/strum + duración + polling rate.
+- **Trastes (latencia)**: 10 rondas de reflejos por traste. Detecta trastes lentos.
+- **Strum**: 15s alternando ↑↓. Mide ratio up:down (debería ser ~1.0) e intervalo mínimo (bouncing).
+- **Whammy**: 15s moviendo la palanca. Mide rango analógico, deadzone y resolución del potenciómetro.
+- **Chords**: combinaciones simultáneas de trastes (G+R, R+Y, power chord G+R+Y+B, fret+strum…). Detecta ghosting de matriz.
+- **Sync, Stress, Ghost, Secuencia, Ejes**: compartidas con modo alfombra.
+
+**Mapping físico alfombra via Gamepad API** (alineado con `padMap` de `game.js`):
+- `button[0]` = IZQUIERDA · `button[1]` = ABAJO · `button[2]` = ARRIBA · `button[3]` = DERECHA
+- `button[4]` = UP-LEFT · `button[5]` = UP-RIGHT · `button[6]` = DOWN-LEFT · `button[7]` = DOWN-RIGHT
+- `button[8]` = START · `button[9]` = BACK
+
+**Mapping físico guitarra Guitar Hero PS2 via receptor Sony-emulado (VID 054C/PID 0268)** — default; recalibrable:
+- `button[0..4]` = trastes Verde/Rojo/Amarillo/Azul/Naranja
+- `button[6]` = strum ↓ · `button[7]` = strum ↑
+- `button[8]` = Select · `button[9]` = Start
+- `axes[2]` (eje Z) = palanca de whammy
+- Tilt y Star Power dependen del modelo — calibrar.
 
 ### `autostepper.html`
 Generador automático de charts StepMania desde MP3/WAV. Equivalente al `phr00t/AutoStepper` (Java) pero en navegador.
@@ -59,14 +74,15 @@ Generador automático de charts StepMania desde MP3/WAV. Equivalente al `phr00t/
 
 Implementa encoder ZIP propio (modo "store", sin compresión) — sin dependencias externas.
 
-### Scripts Python (`test_pad*.py`)
-Tests de la alfombra vía WinMM `joyGetPosEx` (DirectInput equivalent). Útiles si la Gamepad API del navegador no detecta el dispositivo. Usan solo `ctypes`, sin pygame.
+### Scripts Python (`test_pad*.py`, `detectar-guitarra.py`)
+Tests vía WinMM `joyGetPosEx` (DirectInput equivalent). Útiles si la Gamepad API del navegador no detecta el dispositivo. Usan solo `ctypes`, sin pygame.
 
 - `test_pad.py`: detección + 20s de input por consola (con nombres de paneles).
 - `test_pad_raw.py`: 20s mostrando estado crudo (botones, ejes X/Y/Z, POV).
 - `test_pad_all.py`: secuencia 30s para verificar los 6 paneles principales.
+- `detectar-guitarra.py`: enumera los 16 slots de joystick de Windows con VID/PID/nombre/nº de botones, identifica heurísticamente cuál es guitarra (8-13 botones + eje Z) y monitoriza inputs durante 30s. Útil para confirmar que el receptor PS2→USB está visible al sistema antes de calibrar en el navegador.
 
-Mapping físico via WinMM (distinto al del navegador):
+Mapping físico alfombra via WinMM (distinto al del navegador):
 - B1=ARRIBA, B2=ABAJO, B3=IZQUIERDA, B4=DERECHA, B7=UP-LEFT, B8=UP-RIGHT, B9=START, B10=BACK
 
 ## Cómo usar

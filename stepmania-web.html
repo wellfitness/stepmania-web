@@ -130,10 +130,10 @@
         <div class="title">Crear charts</div>
         <div class="desc">AutoStepper: convierte cualquier MP3 en un chart con 5 dificultades.</div>
       </div>
-      <div class="menu-card" onclick="goto('pad')">
-        <div class="icon">🦶</div>
-        <div class="title">Probar alfombra</div>
-        <div class="desc">Diagnóstico del pad: latencia, saltos, ghost inputs, sync de audio.</div>
+      <div class="menu-card" onclick="window.open('test-pad.html','_blank')">
+        <div class="icon">🎸</div>
+        <div class="title">Probar hardware</div>
+        <div class="desc">Diagnóstico de alfombra y guitarra: calibración, latencia, saltos/chords, strum, whammy, ghost inputs, sync.</div>
       </div>
       <div class="menu-card" onclick="goto('library')">
         <div class="icon">📚</div>
@@ -579,7 +579,7 @@
         <h3 style="margin-top:18px;color:var(--tulip-tree-500);font-size:1em">🆘 Si algo falla</h3>
         <ul style="line-height:1.8;color:var(--gris-300);margin-left:20px">
           <li><strong>Las flechas no se ven o se ven raras</strong>: F5 para recargar la pestaña.</li>
-          <li><strong>La alfombra no responde</strong>: ve a <strong>🦶 Probar alfombra</strong> y verifica que cada panel se ilumina al pisarlo. Si no, desconecta y reconecta el USB. Si nada, prueba la herramienta standalone <code>test-alfombra.html</code> con sus 8 pestañas.</li>
+          <li><strong>La alfombra no responde</strong>: ve a <strong>🦶 Probar alfombra</strong> y verifica que cada panel se ilumina al pisarlo. Si no, desconecta y reconecta el USB. Si nada, prueba la herramienta standalone <code>test-pad.html</code> (alfombra + guitarra).</li>
           <li><strong>El audio se oye desfasado</strong>: vuelve a calibrar.</li>
           <li><strong>"Se han perdido mis canciones"</strong>: comprueba si abriste la app en otro navegador o en incógnito. Si era el mismo navegador y se borraron, restaura desde tu último ZIP de backup.</li>
         </ul>
@@ -699,7 +699,7 @@
           <li><strong>Crudo / LEDs</strong>: muestra el estado bitmask de los 16 botones del gamepad y la tasa de polling.</li>
         </ul>
 
-        <p style="margin-top:14px;padding:12px;background:rgba(0,190,200,0.10);border-left:3px solid var(--turquesa-600);border-radius:6px;color:var(--gris-300);font-size:0.9em">💡 Para un test más completo (estadísticas detalladas por panel, sync de audio con metrónomo, stress test, secuencia, ejes), usa la herramienta separada <code>test-alfombra.html</code> con 8 pestañas (ver "Otras tools").</p>
+        <p style="margin-top:14px;padding:12px;background:rgba(0,190,200,0.10);border-left:3px solid var(--turquesa-600);border-radius:6px;color:var(--gris-300);font-size:0.9em">💡 Para un test más completo (estadísticas por panel/traste, sync de audio con metrónomo, stress test, ghost inputs, calibración de guitarra), usa la herramienta separada <code>test-pad.html</code> con modo Alfombra + modo Guitarra (ver "Otras tools").</p>
       </div>
 
       <!-- TUT: CALIBRATION -->
@@ -835,9 +835,9 @@
         <p style="line-height:1.6;color:var(--gris-300)">Hay dos herramientas hermanas standalone que viven en archivos separados pero comparten el mismo dominio.</p>
 
         <div class="card" style="margin-top:14px;background:rgba(0,190,200,0.06);border:1px solid rgba(0,190,200,0.2)">
-          <h3 style="color:var(--turquesa-400);font-family:var(--font-display);margin-bottom:8px">🦶 test-alfombra.html</h3>
-          <p style="line-height:1.6;color:var(--gris-300);margin-bottom:10px">Diagnóstico ampliado del dance pad con <strong>8 pestañas</strong>: Estadísticas (pisadas por panel + duración + polling rate), Latencia (test de reflejos), Saltos (combos simultáneos), Sync de audio (metrónomo + tap), Stress test (10s rápido + detección de bouncing), Ghost inputs (60s sin pisar), Secuencia (histórico últimas 50), Ejes (estado crudo del gamepad).</p>
-          <a href="test-alfombra.html" target="_blank" class="action-btn" style="display:inline-block;text-decoration:none;font-size:0.9em">Abrir test-alfombra.html →</a>
+          <h3 style="color:var(--turquesa-400);font-family:var(--font-display);margin-bottom:8px">🦶🎸 test-pad.html</h3>
+          <p style="line-height:1.6;color:var(--gris-300);margin-bottom:10px">Diagnóstico de hardware con selector <strong>Alfombra | Guitarra</strong>. Modo alfombra: 8 paneles (4 cardinales + 4 diagonales para modos solo/full), latencia, saltos, sync, stress, ghost, secuencia, ejes. Modo guitarra: calibración del mapping (5 trastes + strum + tilt + whammy), latencia por traste, test del strum bar, test de la palanca de whammy, chords simultáneos, sync, stress, ghost.</p>
+          <a href="test-pad.html" target="_blank" class="action-btn" style="display:inline-block;text-decoration:none;font-size:0.9em">Abrir test-pad.html →</a>
         </div>
 
         <div class="card" style="margin-top:14px;background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.2)">
