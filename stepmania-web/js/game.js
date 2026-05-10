@@ -463,7 +463,7 @@ function handleLaneRelease(lane) {
   gameState.score += SCORES[judg];
   if (judg === 'bad') gameState.combo = 0;
   else { gameState.combo++; gameState.maxCombo = Math.max(gameState.maxCombo, gameState.combo); }
-  gameState.hitFx.push(makeHitFx(lane));
+  gameState.hitFx.push(makeHitFx(lane, judg));
   showJudgment(judg);
 }
 
@@ -608,31 +608,77 @@ function handleLanePress(lane) {
     gameState.combo += Math.max(1, Math.round(cm));
     gameState.maxCombo = Math.max(gameState.maxCombo, gameState.combo);
   }
-  gameState.hitFx.push(makeHitFx(lane));
+  gameState.hitFx.push(makeHitFx(lane, judg));
   showJudgment(judg);
 }
 
-// Particle burst on hit. Each particle has its own velocity + gravity for
-// natural arc. ~10 particles per hit, ~350ms life. Cleanup is handled in render
-// (filter by age). Cheap: ~100 active particles in worst case.
-function makeHitFx(lane) {
+// Perfil de FX por tier de juicio. La idea: clavar la nota debe SENTIRSE
+// distinto físicamente a rasparla, no solo cambiar el texto. Cuanto mejor
+// el acierto, más espectáculo (más anillos, más partículas, core blanco).
+//
+// Diseño:
+//   - Baseline siempre = anillo blanco exterior + anillo lane-tinted interior
+//     (firma visual de SM, no se toca).
+//   - Sobre eso, multiplicadores por tier escalan radio, lineWidth, partículas,
+//     velocidad y vida. Más opciones discretas: extraRing y coreFlash solo en
+//     marvelous para que sea inequívocamente "el bueno".
+//   - Las partículas mantienen gravedad real (G=280) — look de fuente clásica
+//     de DDR, mejor que las balísticas planas. Solo varía la densidad.
+//
+// Tier "great" es el baseline neutro (multipliers = 1.0, 8 partículas).
+const SM_HIT_PROFILES = {
+  marvelous: { duration: 0.42, expandMul: 1.50, lineWidthMul: 1.2, blur: 30,
+               particleCount: 16, particleSpeedMul: 1.4, particleLifeMul: 1.4,
+               extraRing: true, coreFlash: true },
+  perfect:   { duration: 0.38, expandMul: 1.25, lineWidthMul: 1.1, blur: 22,
+               particleCount: 12, particleSpeedMul: 1.2, particleLifeMul: 1.2,
+               extraRing: false, coreFlash: false },
+  great:     { duration: 0.34, expandMul: 1.00, lineWidthMul: 1.0, blur: 16,
+               particleCount: 8,  particleSpeedMul: 1.0, particleLifeMul: 1.0,
+               extraRing: false, coreFlash: false },
+  good:      { duration: 0.28, expandMul: 0.85, lineWidthMul: 0.9, blur: 12,
+               particleCount: 5,  particleSpeedMul: 0.9, particleLifeMul: 0.85,
+               extraRing: false, coreFlash: false },
+  bad:       { duration: 0.22, expandMul: 0.75, lineWidthMul: 0.8, blur: 8,
+               particleCount: 3,  particleSpeedMul: 0.85, particleLifeMul: 0.75,
+               extraRing: false, coreFlash: false },
+};
+
+// Particle burst on hit. Cada partícula tiene velocidad propia + gravedad
+// para arco natural (look de fuente DDR clásica). Cleanup en render por edad.
+// El número de partículas y su vida/velocidad escalan con el tier (perfil).
+function makeHitFx(lane, judg) {
+  const profile = SM_HIT_PROFILES[judg] || SM_HIT_PROFILES.great;
   const particles = [];
-  const N = 10;
+  const N = profile.particleCount;
   for (let i = 0; i < N; i++) {
     const angle = (Math.PI * 2 * i / N) + (Math.random() - 0.5) * 0.3;
-    const speed = 80 + Math.random() * 120;
+    const speed = (80 + Math.random() * 120) * profile.particleSpeedMul;
     particles.push({
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed - 60,    // initial upward bias
       x0: 0, y0: 0
     });
   }
-  return { lane, t: performance.now(), particles };
+  return { lane, t: performance.now(), kind: judg, particles };
 }
+
+// Texto castellano por tier — Sincro habla español. Mantenemos el `judg`
+// interno (marvelous/perfect/great/good/bad/miss) intacto para no romper
+// SCORES, judgments[], CSS .judgment.{kind} ni el resumen final; solo
+// traducimos lo que ve el jugador.
+const JUDGMENT_LABELS = {
+  marvelous: 'EXCELENTE',
+  perfect:   'PERFECTO',
+  great:     'GENIAL',
+  good:      'BIEN',
+  bad:       'MAL',
+  miss:      'FALLO',
+};
 
 function showJudgment(judg) {
   const el = document.getElementById('hudJudgment');
-  el.textContent = judg.toUpperCase();
+  el.textContent = JUDGMENT_LABELS[judg] || judg.toUpperCase();
   el.className = 'judgment show ' + judg;
   // Posición ENCIMA del receptor — receptorY se calcula en render() con la
   // misma fórmula. Le restamos ~55px para que quede claramente arriba sin
@@ -740,10 +786,12 @@ function render(audioTime) {
       ctx2d.arc(cx, cy, receptorRadius - 2, 0, Math.PI*2);
       ctx2d.fill();
     }
-    // Miss flash: anillo rojo expansivo cuando se pierde nota o se pisa mine.
-    // Mismo principio que los hit fx pero centrado en el receptor del lane,
-    // así el ojo del jugador (mirando los receptores) capta el fallo al
-    // instante en lugar de tener que leer el texto MISS.
+    // Miss flash: anillo rojo CONTRACTIVO + X superpuesta. Antes el anillo
+    // expandía igual que los aciertos pero en rojo — ambiguo (forma idéntica,
+    // solo cambia el color). Ahora el patrón es opuesto:
+    //   - Aciertos → anillos EXPANDEN hacia afuera (hacia el éxito)
+    //   - Fallos   → anillo CONTRAE hacia el receptor (rotura) + X inequívoca
+    // Esa asimetría de forma da feedback más rápido que el contraste de color.
     const missAge = (performance.now() - gameState.missFlashTime[i]) / 350;
     if (missAge >= 0 && missAge < 1) {
       const a = 1 - missAge;
@@ -754,7 +802,17 @@ function render(audioTime) {
       ctx2d.strokeStyle = '#ff3366';
       ctx2d.lineWidth = 5;
       ctx2d.beginPath();
-      ctx2d.arc(cx, cy, receptorRadius * (1 + missAge * 0.6), 0, Math.PI*2);
+      ctx2d.arc(cx, cy, receptorRadius * (1.4 - missAge * 0.7), 0, Math.PI*2);
+      ctx2d.stroke();
+      // X grande sobre el receptor — solo el fallo dibuja diagonales,
+      // así el ojo distingue acierto/fallo por geometría sin leer texto.
+      ctx2d.lineCap = 'round';
+      ctx2d.lineWidth = 4;
+      ctx2d.shadowBlur = 14;
+      const r = receptorRadius * 0.55;
+      ctx2d.beginPath();
+      ctx2d.moveTo(cx - r, cy - r); ctx2d.lineTo(cx + r, cy + r);
+      ctx2d.moveTo(cx + r, cy - r); ctx2d.lineTo(cx - r, cy + r);
       ctx2d.stroke();
       ctx2d.restore();
     }
@@ -905,39 +963,97 @@ function render(audioTime) {
     ctx2d.fillRect(startX, showStart, totalWidth, H - showStart);
   }
 
-  // Hit FX: radial ring + particle burst per hit. Particles use ballistic
-  // motion (vx const, vy with gravity) — gives a fountain-like splash.
+  // Hit FX estratificado por tier (ver SM_HIT_PROFILES). Capas:
+  //   1) Anillo blanco exterior (baseline — firma SM)
+  //   2) Anillo lane-tinted interior (baseline — refuerza color de carril)
+  //   3) Anillo extra grande lane-tinted (solo marvelous, escalonado)
+  //   4) Core blanco brillante (solo marvelous, primera mitad)
+  //   5) Partículas con gravedad real (densidad/velocidad/vida según perfil)
+  //
+  // Cleanup por edad usa la duration propia del perfil (marvelous dura más
+  // porque el efecto es más rico; bad dura menos porque no merece pantalla).
   const now = performance.now();
-  gameState.hitFx = gameState.hitFx.filter(fx => now - fx.t < 350);
+  gameState.hitFx = gameState.hitFx.filter(fx => {
+    const p = SM_HIT_PROFILES[fx.kind] || SM_HIT_PROFILES.great;
+    return now - fx.t < p.duration * 1000;
+  });
   for (const fx of gameState.hitFx) {
+    const profile = SM_HIT_PROFILES[fx.kind] || SM_HIT_PROFILES.great;
     const ageMs = now - fx.t;
-    const age = ageMs / 350;
+    const dur = profile.duration * 1000;
+    const age = ageMs / dur;
     const alpha = 1 - age;
-    // Anillo escalado a ARROW_SIZE: 55% como base, expande hasta +90%.
-    const radius = ARROW_SIZE * 0.55 + age * ARROW_SIZE * 0.9;
+    // Anillo escalado a ARROW_SIZE: 55% como base, expande hasta +90% × expandMul.
+    const baseRadius = ARROW_SIZE * 0.55;
+    const radius = baseRadius + age * ARROW_SIZE * 0.9 * profile.expandMul;
     const cx = startX + fx.lane*laneWidth + laneWidth/2;
-    // Outer white ring
+
+    // Capa 1 — outer white ring (baseline)
+    ctx2d.save();
+    if (profile.blur) { ctx2d.shadowBlur = profile.blur; ctx2d.shadowColor = 'rgba(255,255,255,0.6)'; }
     ctx2d.strokeStyle = `rgba(255,255,255,${alpha*0.6})`;
-    ctx2d.lineWidth = 3 * (1-age);
+    ctx2d.lineWidth = 3 * profile.lineWidthMul * (1-age);
     ctx2d.beginPath(); ctx2d.arc(cx, receptorY, radius, 0, Math.PI*2); ctx2d.stroke();
-    // Lane-tinted ring (smaller)
+    ctx2d.restore();
+
+    // Capa 2 — inner lane-tinted ring (baseline, smaller)
+    ctx2d.save();
+    if (profile.blur) { ctx2d.shadowBlur = profile.blur; ctx2d.shadowColor = tints[fx.lane]; }
     ctx2d.strokeStyle = `${tints[fx.lane]}${Math.floor(alpha*255).toString(16).padStart(2,'0')}`;
-    ctx2d.lineWidth = 5 * (1-age);
+    ctx2d.lineWidth = 5 * profile.lineWidthMul * (1-age);
     ctx2d.beginPath(); ctx2d.arc(cx, receptorY, radius*0.7, 0, Math.PI*2); ctx2d.stroke();
-    // Particles (if present — old fx without particles still render the rings)
-    if (fx.particles) {
+    ctx2d.restore();
+
+    // Capa 3 — extra ring (solo marvelous): segunda onda más grande, arranca
+    // 15% del ciclo después que las baseline para dar sensación de eco/réplica.
+    if (profile.extraRing && age > 0.15) {
+      const extraAge = (age - 0.15) / 0.85;
+      ctx2d.save();
+      ctx2d.globalAlpha = 1 - extraAge;
+      ctx2d.shadowBlur = 26;
+      ctx2d.shadowColor = tints[fx.lane];
+      ctx2d.strokeStyle = tints[fx.lane];
+      ctx2d.lineWidth = 4 * (1 - extraAge);
+      ctx2d.beginPath();
+      ctx2d.arc(cx, receptorY, radius * 1.4, 0, Math.PI*2);
+      ctx2d.stroke();
+      ctx2d.restore();
+    }
+
+    // Capa 4 — core flash blanco (solo marvelous): fogonazo de cámara
+    // breve, decae en la primera mitad de la animación.
+    if (profile.coreFlash && age < 0.5) {
+      const coreAge = age / 0.5;
+      ctx2d.save();
+      ctx2d.globalAlpha = (1 - coreAge) * 0.85;
+      ctx2d.shadowBlur = 32;
+      ctx2d.shadowColor = '#fff';
+      ctx2d.fillStyle = '#fff';
+      ctx2d.beginPath();
+      ctx2d.arc(cx, receptorY, baseRadius * (0.5 + coreAge * 0.5), 0, Math.PI*2);
+      ctx2d.fill();
+      ctx2d.restore();
+    }
+
+    // Capa 5 — partículas con gravedad. Cada una respeta la duration global
+    // del fx (no vida individual como en GH); se desvanecen junto con los
+    // anillos para no dejar puntos huérfanos al final.
+    if (fx.particles && fx.particles.length) {
       const t = ageMs / 1000;
       const G = 280; // gravity (px/s²)
+      ctx2d.save();
+      ctx2d.shadowBlur = profile.blur ? 8 : 0;
+      ctx2d.shadowColor = tints[fx.lane];
       ctx2d.fillStyle = tints[fx.lane];
       for (const p of fx.particles) {
         const px = cx + p.vx * t;
         const py = receptorY + p.vy * t + 0.5 * G * t * t;
-        const size = 4 * (1 - age);
+        const size = 4 * profile.lineWidthMul * (1 - age);
         if (size <= 0) continue;
         ctx2d.globalAlpha = alpha;
         ctx2d.beginPath(); ctx2d.arc(px, py, size, 0, Math.PI*2); ctx2d.fill();
       }
-      ctx2d.globalAlpha = 1;
+      ctx2d.restore();
     }
   }
 
@@ -977,8 +1093,8 @@ async function endGame() {
   // currentColor de su clase (.j-marvelous, .j-perfect…) para el relleno.
   const gradeClass = 'g-' + grade.toLowerCase();
   const rows = [
-    ['marvelous','Marvelous'], ['perfect','Perfect'], ['great','Great'],
-    ['good','Good'], ['bad','Bad'], ['miss','Miss'],
+    ['marvelous','Excelente'], ['perfect','Perfecto'], ['great','Genial'],
+    ['good','Bien'],            ['bad','Mal'],          ['miss','Fallo'],
   ];
   const judgmentRows = rows.map(([k, label]) => {
     const count = j[k] || 0;

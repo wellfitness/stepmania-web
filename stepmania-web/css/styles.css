@@ -425,6 +425,40 @@ input[type="file"] { display: none; }
   pointer-events: none; z-index: 25;
 }
 .gameHUD .judgment.show { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+/* Diferenciación por tier — además del color, modulamos size + glow + animación.
+   El cerebro recibe varios canales redundantes y clasifica el resultado sin leer.
+     marvelous → 40% más grande, glow triple + halo blanco, pop elástico
+     perfect   → 20% más grande, glow doble
+     great     → baseline (la nomenclatura "genial" sigue siendo positiva)
+     good      → ligeramente menor (acierto correcto pero sin fanfarria)
+     bad       → claramente más pequeño (acierto raspado, casi miss)
+     miss      → glow rojo intenso + shake horizontal */
+.gameHUD .judgment.show.marvelous {
+  font-size: 3.4em;
+  text-shadow: 0 0 30px currentColor, 0 0 12px currentColor, 0 0 4px #fff, 0 1px 3px rgba(0,0,0,0.9);
+  animation: smJudgmentMarvelousPop 0.45s cubic-bezier(.2,1.6,.5,1);
+}
+.gameHUD .judgment.show.perfect {
+  font-size: 2.9em;
+  text-shadow: 0 0 22px currentColor, 0 0 8px currentColor, 0 1px 3px rgba(0,0,0,0.9);
+}
+.gameHUD .judgment.show.good { font-size: 2.1em; }
+.gameHUD .judgment.show.bad  { font-size: 1.8em; }
+.gameHUD .judgment.show.miss {
+  font-size: 2.3em;
+  text-shadow: 0 0 22px currentColor, 0 0 10px currentColor, 0 1px 3px rgba(0,0,0,0.9);
+  animation: smJudgmentMissShake 0.30s ease-in-out;
+}
+@keyframes smJudgmentMarvelousPop {
+  0%   { transform: translate(-50%, -50%) scale(0.4); }
+  35%  { transform: translate(-50%, -50%) scale(1.55); }
+  100% { transform: translate(-50%, -50%) scale(1.1); }
+}
+@keyframes smJudgmentMissShake {
+  0%, 100% { transform: translate(-50%, -50%) scale(1.1); }
+  25%      { transform: translate(-54%, -50%) scale(1.1); }
+  75%      { transform: translate(-46%, -50%) scale(1.1); }
+}
 .gameHUD .judgment.marvelous { color: #00f5d4; }
 .gameHUD .judgment.perfect   { color: #ffbe0b; }
 .gameHUD .judgment.great     { color: #00ff64; }

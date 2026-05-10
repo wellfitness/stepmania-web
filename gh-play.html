@@ -5,10 +5,10 @@
 <title>GH Play — Simulador Guitar Hero · Sincro</title>
 <meta name="theme-color" content="#00bec8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
-<link rel="apple-touch-icon" href="/icons/icon.svg">
-<script src="/stepmania-web/js/pwa-bootstrap.js" defer></script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<script src="stepmania-web/js/pwa-bootstrap.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=ABeeZee&family=Righteous&display=swap');
 
@@ -521,8 +521,55 @@
     transition: opacity 0.2s, transform 0.2s;
   }
   .judge-text.show { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
-  .judge-perfect { color: var(--fret-yellow); }
-  .judge-good    { color: var(--color-success); }
+  /* Diferenciación por tier — el ojo recibe size + glow + (animación) además
+     del color. Lo importante: TODOS los aciertos (perfect/good/bad) tienen
+     scale ≥ 1, fondo opaco y son inequívocamente positivos. Solo miss tiene
+     shake + glow rojo intenso. Overstrum es minúsculo y gris (apenas ruido). */
+  .judge-text.show.judge-perfect {
+    font-size: 2.7em;
+    text-shadow: 0 0 28px currentColor, 0 0 12px currentColor, 0 0 4px #fff, 0 1px 3px rgba(0,0,0,0.9);
+    animation: judgePerfectPop 0.45s cubic-bezier(.2,1.6,.5,1);
+  }
+  .judge-text.show.judge-good {
+    font-size: 2.15em;
+    text-shadow: 0 0 18px currentColor, 0 0 6px currentColor, 0 1px 3px rgba(0,0,0,0.9);
+  }
+  .judge-text.show.judge-bad {
+    /* BIEN sigue siendo HIT (suma combo y puntos). Antes era 1.7em sin glow,
+       lo que parecía marginal/casi-fallo. Ahora 2em con halo naranja para
+       que el ojo lo lea como "acierto de baja precisión", no como "fallaste". */
+    font-size: 2em;
+    text-shadow: 0 0 16px currentColor, 0 0 6px currentColor, 0 1px 3px rgba(0,0,0,0.9);
+  }
+  .judge-text.show.judge-miss {
+    font-size: 1.95em;
+    text-shadow: 0 0 20px currentColor, 0 0 8px currentColor, 0 1px 3px rgba(0,0,0,0.9);
+    animation: judgeMissShake 0.30s ease-in-out;
+  }
+  /* Overstrum (strum sobrante) — visualmente despreciable. Pequeño, gris,
+     fondo casi transparente, sin glow, sin animación. Solo informa que se
+     rompió combo; el HUD ya muestra el contador real. */
+  .judge-text.show.judge-overstrum {
+    font-size: 1em;
+    background: rgba(0,0,0,0.25);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    transform: translate(-50%, -50%) scale(1);
+    letter-spacing: 0.15em;
+  }
+  @keyframes judgePerfectPop {
+    0%   { transform: translate(-50%, -50%) scale(0.4); }
+    35%  { transform: translate(-50%, -50%) scale(1.5); }
+    100% { transform: translate(-50%, -50%) scale(1.15); }
+  }
+  @keyframes judgeMissShake {
+    0%, 100% { transform: translate(-50%, -50%) scale(1.15); }
+    25%      { transform: translate(-54%, -50%) scale(1.15); }
+    75%      { transform: translate(-46%, -50%) scale(1.15); }
+  }
+  .judge-perfect   { color: var(--fret-yellow); }
+  .judge-good      { color: var(--color-success); }
+  .judge-bad       { color: var(--fret-orange); }
+  .judge-overstrum { color: var(--gris-400); }
   .judge-miss    { color: var(--rosa-500); }
 
   .pause-overlay {
@@ -2169,16 +2216,21 @@ function judgeHit(note, idx, t) {
 }
 
 function breakCombo() {
-  // Overstrum: strum sin frets correctos. No es un miss de nota concreta,
-  // pero rompe combo. Lo trackeamos aparte para el resumen.
+  // Overstrum: strum sin frets correctos. NO es un fallo de nota concreta —
+  // es ruido del controller (pre/post-strums normales, whammy generando
+  // strum fantasma en GH PS2 al compartir axes[1]). Castigarlo con FALLO + X
+  // como si hubieras perdido una nota era injusto y arruinaba la percepción
+  // del juego. Ahora:
+  //   - Combo break sigue ocurriendo (consecuencia funcional justa).
+  //   - Visual: anillo gris muy sutil en los receptores (perfil 'overstrum').
+  //   - Texto: "STRUM" pequeño en gris, NO el FALLO grande con shake.
+  //   - Si no había combo (combo === 0), ni texto siquiera — silencio total.
   game.overstrums++;
-  // Flash rojo en TODOS los frets para que el overstrum se vea sin
-  // ambigüedad (no hay un fret concreto al que asociarlo).
   const ctx = window.AudioPipeline.ensureAudioContext();
-  flashFrets([0,1,2,3,4], 'miss', ctx.currentTime - game.audioStartTime);
+  flashFrets([0,1,2,3,4], 'overstrum', ctx.currentTime - game.audioStartTime);
   if (game.combo > 0) {
     game.combo = 0;
-    showJudge('miss');
+    showJudge('overstrum');
     updateHud();
   }
 }
@@ -2200,12 +2252,29 @@ function processMisses(t) {
   }
 }
 
-// Marca cada fret con el kind del judgment + timestamp. El render() dibujará
-// un anillo expansivo coloreado durante FLASH_DURATION segundos.
+// Marca cada fret con el kind del judgment + timestamp + partículas pre-generadas.
+// Pre-generar las partículas (en vez de hacerlas en cada frame del render) hace
+// el efecto determinista y barato: el render solo hace lerp por edad.
+//
+// Sesgo angular hacia arriba (-π/2 ± 1.3 rad): evita que las partículas vuelen
+// hacia abajo e invadan la zona de la HUD/footer. La explosión "sube" hacia
+// el highway, donde el ojo del jugador ya está mirando.
 function flashFrets(frets, kind, t) {
   if (!game) return;
+  const profile = FLASH_PROFILES[kind] || FLASH_PROFILES.bad;
   for (const f of frets) {
-    if (f >= 0 && f < 5) game.fretFlashes[f] = { kind, time: t };
+    if (f < 0 || f >= 5) continue;
+    const particles = [];
+    for (let i = 0; i < profile.particles; i++) {
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * 2.6;
+      particles.push({
+        angle,
+        speed: profile.particleSpeed * (0.65 + Math.random() * 0.7),
+        life:  profile.particleLife  * (0.7  + Math.random() * 0.5),
+        size:  2 + Math.random() * 3,
+      });
+    }
+    game.fretFlashes[f] = { kind, time: t, particles };
   }
 }
 
@@ -2242,9 +2311,19 @@ function getMultiplier() {
 let judgeTimeout = null;
 function showJudge(kind) {
   const el = document.getElementById('judgeText');
-  const text = { perfect: 'PERFECT!', good: 'GOOD', bad: 'BAD', miss: 'MISS' }[kind];
+  // Texto en castellano alineado con la nomenclatura de la suite (Sincro habla
+  // español). Mapeo intencional por tier de timing window:
+  //   perfect (≤45ms)  → EXCELENTE   · acierto clavado
+  //   good    (≤90ms)  → GENIAL      · buen timing pero no clavado
+  //   bad     (≤135ms) → BIEN        · llegaste, pero raspando (sigue siendo HIT)
+  //   miss             → FALLO       · perdiste la nota (cayó por la pantalla)
+  //   overstrum        → strum extra · ruido del controller, NO es un fallo
+  const text = {
+    perfect: '¡EXCELENTE!', good: 'GENIAL', bad: 'BIEN',
+    miss: 'FALLO', overstrum: 'strum',
+  }[kind];
   el.textContent = text;
-  el.className = 'judge-text show judge-' + kind.replace('bad', 'good');
+  el.className = 'judge-text show judge-' + kind;
   if (judgeTimeout) clearTimeout(judgeTimeout);
   judgeTimeout = setTimeout(() => el.classList.remove('show'), 350);
 }
@@ -2269,16 +2348,57 @@ function resizeCanvas() {
 }
 
 const FRET_COLORS = ['#10b981', '#ef4444', '#facc15', '#3b82f6', '#f97316'];
-// Colores del flash de feedback en los receptores. Mapean a las clases
-// .j-perfect/.j-good/.j-bad/.j-miss del resumen final, así el ojo aprende
-// la asociación color↔judgment desde la propia partida.
-const FLASH_COLORS = {
-  perfect: '#facc15',  // amarillo (fret-yellow)
-  good:    '#10b981',  // verde (color-success)
-  bad:     '#f97316',  // naranja (fret-orange)
-  miss:    '#ef4444',  // rojo (color-error)
+// Perfil completo del feedback visual por tier de juicio. Cuanto mejor el
+// acierto, más canales sensoriales se activan: color + tamaño + nº de anillos
+// + partículas + destello central. Esta jerarquía estratificada permite al
+// ojo clasificar el resultado sin leer el texto (refuerzo operante).
+//
+// Diseño por tier:
+//   perfect → "explosión": 3 anillos escalonados + 14 partículas + core blanco
+//   good    → "celebración": 2 anillos + 7 partículas
+//   bad     → "ack": 1 anillo simple (acierto raspado, sin fanfarria)
+//   miss    → "rotura": 1 anillo que CONTRAE (en vez de expandir) + X roja
+const FLASH_PROFILES = {
+  perfect: {
+    color: '#facc15', duration: 0.34, rings: 3, ringDelay: 0.06,
+    maxExpand: 2.3, lineWidth: 5, blur: 38,
+    particles: 14, particleSpeed: 320, particleLife: 0.45,
+    coreFlash: true,
+  },
+  good: {
+    color: '#10b981', duration: 0.24, rings: 2, ringDelay: 0.05,
+    maxExpand: 1.8, lineWidth: 4, blur: 26,
+    particles: 7, particleSpeed: 200, particleLife: 0.32,
+    coreFlash: false,
+  },
+  bad: {
+    color: '#f97316', duration: 0.20, rings: 1, ringDelay: 0,
+    maxExpand: 1.5, lineWidth: 3, blur: 16,
+    particles: 0, particleSpeed: 0, particleLife: 0,
+    coreFlash: false,
+  },
+  miss: {
+    color: '#ef4444', duration: 0.32, rings: 1, ringDelay: 0,
+    maxExpand: 0.7,           // <1 → contrae el anillo (rompe la expectativa)
+    lineWidth: 4, blur: 22,
+    particles: 0, particleSpeed: 0, particleLife: 0,
+    coreFlash: false,
+    isMiss: true,             // dibuja también una X sobre el receptor
+  },
+  // overstrum: strum sin fret correcto. Visualmente MUY discreto — no es un
+  // fallo de nota concreta, es ruido del controller (whammy compartiendo
+  // axes[1] con strum, pre/post-strums normales). Se castigaba antes con el
+  // mismo lenguaje visual que un miss real, lo que daba sensación de "fallo
+  // todo el tiempo aunque acierte". Ahora: un anillo gris fino que apenas se
+  // nota — el feedback funcional (combo break en HUD) es suficiente.
+  overstrum: {
+    color: '#9ca3af',         // gris neutro — no rojo, no es fallo
+    duration: 0.18, rings: 1, ringDelay: 0,
+    maxExpand: 1.2, lineWidth: 1, blur: 0,
+    particles: 0, particleSpeed: 0, particleLife: 0,
+    coreFlash: false,
+  },
 };
-const FLASH_DURATION = 0.18;  // segundos — corto para no estorbar lectura
 
 function render(t) {
   ctx2d.clearRect(0, 0, canvasW, canvasH);
@@ -2339,24 +2459,97 @@ function render(t) {
       ctx2d.fill();
       ctx2d.shadowBlur = 0;
     }
-    // Flash de feedback: anillo expansivo del color del último judgment de
-    // este fret. Crece de 1× a 1.7× del radio mientras se desvanece, así el
-    // ojo capta el éxito/fallo en la zona donde ya está mirando.
+    // Flash de feedback estratificado por tier (ver FLASH_PROFILES). Capas:
+    //   1) Anillos escalonados (1-3 según tier; miss contrae en lugar de expandir)
+    //   2) Destello blanco central (solo perfect, primera mitad de la animación)
+    //   3) Partículas con sesgo angular hacia arriba (perfect/good)
+    //   4) X grande sobre el receptor (solo miss)
     const flash = game && game.fretFlashes[i];
-    if (flash && t - flash.time < FLASH_DURATION) {
-      const age = (t - flash.time) / FLASH_DURATION;   // 0 → 1
-      const alpha = 1 - age;
-      const radiusMul = 1 + age * 0.7;
-      ctx2d.save();
-      ctx2d.globalAlpha = alpha;
-      ctx2d.shadowBlur = 26;
-      ctx2d.shadowColor = FLASH_COLORS[flash.kind];
-      ctx2d.strokeStyle = FLASH_COLORS[flash.kind];
-      ctx2d.lineWidth = 5;
-      ctx2d.beginPath();
-      ctx2d.arc(cx, hitY, receptorRadius * radiusMul, 0, Math.PI * 2);
-      ctx2d.stroke();
-      ctx2d.restore();
+    if (flash) {
+      const profile = FLASH_PROFILES[flash.kind] || FLASH_PROFILES.bad;
+      const elapsed = t - flash.time;
+      if (elapsed < profile.duration) {
+        const color = profile.color;
+
+        // Capa 1 — anillos. Cada anillo arranca con ringDelay segundos de
+        // retardo respecto al anterior, dando sensación de onda expansiva.
+        for (let r = 0; r < profile.rings; r++) {
+          const ringStart = r * profile.ringDelay;
+          const ringElapsed = elapsed - ringStart;
+          if (ringElapsed < 0) continue;
+          const ringDur = profile.duration - ringStart;
+          const age = Math.min(1, ringElapsed / ringDur);
+          const alpha = (1 - age) * (1 - r * 0.18);   // anillos posteriores más tenues
+          const radiusMul = profile.isMiss
+            ? 1.3 - age * (1.3 - profile.maxExpand)   // contrae
+            : 1 + age * (profile.maxExpand - 1);      // expande
+          ctx2d.save();
+          ctx2d.globalAlpha = alpha;
+          ctx2d.shadowBlur = profile.blur;
+          ctx2d.shadowColor = color;
+          ctx2d.strokeStyle = color;
+          ctx2d.lineWidth = profile.lineWidth;
+          ctx2d.beginPath();
+          ctx2d.arc(cx, hitY, receptorRadius * radiusMul, 0, Math.PI * 2);
+          ctx2d.stroke();
+          ctx2d.restore();
+        }
+
+        // Capa 2 — core flash blanco (solo perfect). Fogonazo breve de
+        // cámara que arranca brillante y se va apagando en la primera mitad.
+        if (profile.coreFlash && elapsed < profile.duration * 0.5) {
+          const coreAge = elapsed / (profile.duration * 0.5);
+          ctx2d.save();
+          ctx2d.globalAlpha = (1 - coreAge) * 0.9;
+          ctx2d.shadowBlur = 32;
+          ctx2d.shadowColor = '#fff';
+          ctx2d.fillStyle = '#fff';
+          ctx2d.beginPath();
+          ctx2d.arc(cx, hitY, receptorRadius * (0.5 + coreAge * 0.5), 0, Math.PI * 2);
+          ctx2d.fill();
+          ctx2d.restore();
+        }
+
+        // Capa 3 — partículas. Cada una vive su propia life individual (puede
+        // morir antes que el flash); se desvanecen en alpha y se encogen.
+        if (flash.particles && flash.particles.length) {
+          ctx2d.save();
+          ctx2d.shadowBlur = 12;
+          ctx2d.shadowColor = color;
+          ctx2d.fillStyle = color;
+          for (const p of flash.particles) {
+            if (elapsed > p.life) continue;
+            const t01 = elapsed / p.life;
+            const dist = p.speed * elapsed;
+            const px = cx + Math.cos(p.angle) * dist;
+            const py = hitY + Math.sin(p.angle) * dist;
+            ctx2d.globalAlpha = 1 - t01;
+            ctx2d.beginPath();
+            ctx2d.arc(px, py, p.size * (1 - t01 * 0.5), 0, Math.PI * 2);
+            ctx2d.fill();
+          }
+          ctx2d.restore();
+        }
+
+        // Capa 4 — X sobre el receptor (solo miss). Señal visual inequívoca:
+        // ningún acierto produce líneas diagonales, solo el fallo.
+        if (profile.isMiss) {
+          const age = elapsed / profile.duration;
+          ctx2d.save();
+          ctx2d.globalAlpha = 1 - age;
+          ctx2d.strokeStyle = color;
+          ctx2d.lineWidth = 5;
+          ctx2d.lineCap = 'round';
+          ctx2d.shadowBlur = 14;
+          ctx2d.shadowColor = color;
+          const r = receptorRadius * 0.6;
+          ctx2d.beginPath();
+          ctx2d.moveTo(cx - r, hitY - r); ctx2d.lineTo(cx + r, hitY + r);
+          ctx2d.moveTo(cx + r, hitY - r); ctx2d.lineTo(cx - r, hitY + r);
+          ctx2d.stroke();
+          ctx2d.restore();
+        }
+      }
     }
   }
 
@@ -2445,10 +2638,10 @@ function finishGame() {
   const j = game.judgments;
   const gradeClass = 'g-' + grade.toLowerCase();
   const rows = [
-    ['perfect', 'Perfect'],
-    ['good',    'Good'],
-    ['bad',     'Bad'],
-    ['miss',    'Miss'],
+    ['perfect', 'Excelente'],
+    ['good',    'Genial'],
+    ['bad',     'Bien'],
+    ['miss',    'Fallo'],
   ];
   const judgmentRows = rows.map(([k, label]) => {
     const count = j[k] || 0;
@@ -2461,7 +2654,7 @@ function finishGame() {
       </div>`;
   }).join('') + `
       <div class="judgment-row j-overstrum">
-        <span class="jname">Overstrum</span>
+        <span class="jname">Strum vacío</span>
         <span class="jbar"><i style="width:0%"></i></span>
         <span class="jcount">${game.overstrums}</span>
       </div>`;

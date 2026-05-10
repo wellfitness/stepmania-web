@@ -5,10 +5,10 @@
 <title>Test de Hardware — Alfombra y Guitarra</title>
 <meta name="theme-color" content="#00bec8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
-<link rel="apple-touch-icon" href="/icons/icon.svg">
-<script src="/stepmania-web/js/pwa-bootstrap.js" defer></script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<script src="stepmania-web/js/pwa-bootstrap.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=ABeeZee&family=Righteous&display=swap');
 
@@ -2142,6 +2142,10 @@ onPress(({ bit, time }) => {
 // ============================================================
 //             TEST: CALIBRACIÓN GUITARRA
 // ============================================================
+// Orden: críticos primero (frets, strum, navegación) → opcionales al final.
+// Razón: si el usuario sólo tiene Start/Select y no Tilt/StarPower, debe asignar
+// sus botones críticos PRIMERO. Si Tilt/StarPower fueran antes, el usuario
+// pulsaría su botón Start pensando que era el StarPower y dejaría Start sin asignar.
 const GUITAR_CALIB_STEPS = [
   { role: 'fretGreen',  prompt: 'Pulsa el traste VERDE',     hint: 'El traste de más arriba (más cercano al cuerpo)' },
   { role: 'fretRed',    prompt: 'Pulsa el traste ROJO',      hint: 'Segundo traste' },
@@ -2150,12 +2154,17 @@ const GUITAR_CALIB_STEPS = [
   { role: 'fretOrange', prompt: 'Pulsa el traste NARANJA',   hint: 'Quinto traste (el más alejado)' },
   { role: 'strumDown',  prompt: 'Mueve el strum bar HACIA ABAJO', hint: 'Una sola vez, suelta antes del siguiente paso. Si no se detecta, en algunos receptores el strum es POV (mira "Ejes") — salta el paso.' },
   { role: 'strumUp',    prompt: 'Mueve el strum bar HACIA ARRIBA', hint: 'Una sola vez, suelta antes del siguiente paso' },
-  { role: 'tilt',       prompt: 'Inclina la guitarra hacia ARRIBA',
-    hint: 'Mantén la guitarra vertical durante 1s. Si tu guitarra no tiene tilt, pulsa "Saltar paso".' },
-  { role: 'starPower',  prompt: 'Pulsa el botón STAR POWER (si tu guitarra tiene uno físico)',
-    hint: 'Algunas guitarras tienen un botón Star Power dedicado. Si no, pulsa "Saltar paso".' },
   { role: 'select',     prompt: 'Pulsa SELECT / BACK',       hint: 'En guitarras GH suele ser un botón pequeño cerca del cuello' },
   { role: 'start',      prompt: 'Pulsa START',               hint: 'En guitarras GH suele estar al lado de Select' },
+  { role: 'whammyAxis', prompt: 'Mueve la palanca de WHAMMY de un extremo al otro (VARIAS veces)',
+    optional: true, axisDetect: true, durationMs: 5000,
+    hint: '(Opcional) Tienes 5s — muévela arriba/abajo VARIAS veces hasta el final. Auto-detecto el eje. Si no tienes whammy, pulsa "Saltar paso".' },
+  { role: 'tilt',       prompt: 'Inclina la guitarra hacia ARRIBA',
+    optional: true,
+    hint: '(Opcional) Mantén la guitarra vertical durante 1s. Si no tienes sensor de tilt, pulsa "Saltar paso".' },
+  { role: 'starPower',  prompt: 'Pulsa el botón STAR POWER (si tu guitarra tiene uno físico)',
+    optional: true,
+    hint: '(Opcional) Pocas guitarras tienen un botón dedicado. Si la tuya no, pulsa "Saltar paso".' },
 ];
 
 const MAT_CALIB_STEPS = [
@@ -2163,12 +2172,12 @@ const MAT_CALIB_STEPS = [
   { role: 'down',      prompt: 'Pisa ABAJO (↓)',      hint: 'Panel inferior central' },
   { role: 'up',        prompt: 'Pisa ARRIBA (↑)',     hint: 'Panel superior central' },
   { role: 'right',     prompt: 'Pisa DERECHA (→)',    hint: 'Panel derecho' },
-  { role: 'upLeft',    prompt: 'Pisa UP-LEFT (↖)',    hint: 'Diagonal superior-izquierda. Si tu pad no la tiene, "Saltar paso".' },
-  { role: 'upRight',   prompt: 'Pisa UP-RIGHT (↗)',   hint: 'Diagonal superior-derecha. Si no la tienes, salta.' },
-  { role: 'downLeft',  prompt: 'Pisa DOWN-LEFT (↙)',  hint: 'Diagonal inferior-izquierda. La mayoría de pads no la tienen — salta.' },
-  { role: 'downRight', prompt: 'Pisa DOWN-RIGHT (↘)', hint: 'Diagonal inferior-derecha. La mayoría de pads no la tienen — salta.' },
+  { role: 'upLeft',    prompt: 'Pisa UP-LEFT (↖)',    optional: true, hint: '(Opcional) Diagonal superior-izquierda. Si tu pad no la tiene, "Saltar paso".' },
+  { role: 'upRight',   prompt: 'Pisa UP-RIGHT (↗)',   optional: true, hint: '(Opcional) Diagonal superior-derecha. Si no la tienes, salta.' },
+  { role: 'downLeft',  prompt: 'Pisa DOWN-LEFT (↙)',  optional: true, hint: '(Opcional) Diagonal inferior-izquierda. La mayoría de pads no la tienen — salta.' },
+  { role: 'downRight', prompt: 'Pisa DOWN-RIGHT (↘)', optional: true, hint: '(Opcional) Diagonal inferior-derecha. La mayoría de pads no la tienen — salta.' },
   { role: 'start',     prompt: 'Pulsa START',          hint: 'Suele ser un botón en el centro o lateral del pad' },
-  { role: 'back',      prompt: 'Pulsa BACK / SELECT',  hint: 'A veces se llama Select. Salta si no lo tienes.' },
+  { role: 'back',      prompt: 'Pulsa BACK / SELECT',  optional: true, hint: '(Opcional) A veces se llama Select. Salta si no lo tienes.' },
 ];
 
 // Helpers mode-aware
@@ -2206,6 +2215,11 @@ function getCurrentLabels() {
 }
 
 let calibState = null;
+// Sub-detector de eje (whammy) durante el wizard. Vive aparte de calibState
+// porque su input no son botones (capture(bit)) ni baseline-axis
+// (detectCalibAxisCapture), sino un sample-all-axes durante N segundos
+// que elige el eje con mayor rango — mismo algoritmo que el test "Whammy".
+let calibAxisDetectState = null;
 
 function startCalibration() {
   const steps = getCurrentCalibSteps();
@@ -2233,7 +2247,121 @@ function showCalibStep() {
   document.getElementById('calibTarget').textContent = step.prompt;
   document.getElementById('calibHint').textContent = step.hint;
   calibState.waiting = false;
+  // CRÍTICO: resetear baseline de ejes al entrar a cada step. Si no, un step
+  // axis-capturable (tilt) que viene después de otro step que NO consumió la
+  // baseline (whammyAxis, o step saltado) heredaría valores obsoletos del eje
+  // y dispararía con delta erróneo (o no dispararía nunca). detectCalibAxisCapture
+  // toma una nueva baseline en su primer frame con waiting=true.
+  calibState.axisBaseline = null;
+  // Step de detección de eje (whammy): no esperamos un botón, samplaeamos
+  // todos los ejes durante step.durationMs y elegimos el de mayor rango.
+  if (step.axisDetect) {
+    startCalibAxisDetect(step);
+    return;
+  }
   setTimeout(() => { if (calibState) calibState.waiting = true; }, 350);
+}
+
+// Umbrales calibrados a guitarras GH PS2 (potenciómetro analógico): rango típico
+// 0.7-1.0, resolución 5-15 valores únicos en 5s de movimiento normal. Los bajamos
+// para tolerar movimientos cortos del usuario y palancas con resolución baja.
+const WHAMMY_MIN_RANGE = 0.30;       // antes 0.50 — demasiado estricto
+const WHAMMY_MIN_UNIQUE = 3;         // antes 5 — algunos receptores cuantizan
+const WHAMMY_DRIFT_NOISE = 0.08;     // ejes con rango < esto = drift natural, no movimiento
+
+function startCalibAxisDetect(step) {
+  // Pre-fill heurístico para GH PS2: si el strum ya fue calibrado como axis-based
+  // (objeto {axis, dir}), el whammy comparte EL MISMO eje en ese receptor. Lo
+  // mostramos como sugerencia inicial — el detector lo confirma si el usuario
+  // mueve la palanca. Si mueve otro eje con más fuerza, lo sobreescribe.
+  let suggested = null;
+  if (step.role === 'whammyAxis' && currentMode === 'guitar' && calibState) {
+    const sd = calibState.mapping.strumDown;
+    if (sd && typeof sd === 'object' && typeof sd.axis === 'number') suggested = sd.axis;
+  }
+  calibAxisDetectState = {
+    role: step.role,
+    started: performance.now(),
+    duration: step.durationMs || 5000,
+    perAxis: {},
+    suggested,
+  };
+  if (suggested !== null) {
+    document.getElementById('calibHint').textContent =
+      `Tu strum es analógico — el whammy probablemente comparte el eje ${suggested}. Muévelo para confirmar (o mueve OTRO eje si tu guitarra es distinta).`;
+  }
+  calibAxisDetectTick();
+}
+function pickBestAxisFrom(perAxis) {
+  // Devuelve { axis, range } del eje con mayor score.
+  // NOTA: NO filtramos ejes ya mapeados como strum. En GH PS2 (VID:054c/PID:0268)
+  // strum y whammy COMPARTEN axes[1] — la palanca es un potenciómetro analógico
+  // y el strum un microswitch digital, ambos modulando el mismo eje. Filtrar
+  // axes[1] aquí dejaría al usuario sin detector. La discriminación strum vs
+  // whammy en juego ya está en detectAxisStrum (transición desde neutro).
+  // Score = range * (1 + 0.1 * unique) premia ejes con resolución analógica
+  // (más valores intermedios = whammy analógico vs strum digital).
+  let bestAxis = -1, bestScore = 0, bestRange = 0;
+  for (const [ax, data] of Object.entries(perAxis)) {
+    const range = data.max - data.min;
+    if (range < WHAMMY_DRIFT_NOISE) continue;
+    if (data.unique.size < WHAMMY_MIN_UNIQUE) continue;
+    const score = range * (1 + 0.1 * data.unique.size);
+    if (score > bestScore) { bestAxis = +ax; bestScore = score; bestRange = range; }
+  }
+  return { axis: bestAxis, range: bestRange };
+}
+function calibAxisDetectTick() {
+  if (!calibState || !calibAxisDetectState) return;
+  const gp = findGamepad();
+  if (gp) {
+    for (let i = 0; i < gp.axes.length; i++) {
+      const v = gp.axes[i];
+      let a = calibAxisDetectState.perAxis[i];
+      if (!a) { a = { min: v, max: v, unique: new Set(), samples: 0 }; calibAxisDetectState.perAxis[i] = a; }
+      if (v < a.min) a.min = v;
+      if (v > a.max) a.max = v;
+      a.unique.add(v.toFixed(3));
+      a.samples++;
+    }
+  }
+  const elapsed = performance.now() - calibAxisDetectState.started;
+  const remaining = Math.max(0, Math.ceil((calibAxisDetectState.duration - elapsed) / 1000));
+  const { axis: bestAxis, range: bestRange } = pickBestAxisFrom(calibAxisDetectState.perAxis);
+  document.getElementById('calibHint').textContent =
+    bestAxis >= 0
+      ? `Detectando ${remaining}s… eje candidato: ${bestAxis} (rango ${bestRange.toFixed(2)}). Sigue moviendo de extremo a extremo.`
+      : `Detectando ${remaining}s… mueve la palanca de WHAMMY de extremo a extremo VARIAS veces (no solo un poquito).`;
+  if (elapsed >= calibAxisDetectState.duration) {
+    finishCalibAxisDetect();
+    return;
+  }
+  setTimeout(calibAxisDetectTick, 80);
+}
+function finishCalibAxisDetect() {
+  if (!calibState || !calibAxisDetectState) return;
+  const { axis: bestAxis, range: bestRange } = pickBestAxisFrom(calibAxisDetectState.perAxis);
+  const role = calibAxisDetectState.role;
+  const suggested = calibAxisDetectState.suggested;
+  if (bestAxis >= 0 && bestRange >= WHAMMY_MIN_RANGE) {
+    calibState.mapping[role] = bestAxis;
+    showCalibToast(`✓ eje ${bestAxis} → ${role} (rango ${bestRange.toFixed(2)})`);
+  } else if (suggested !== null) {
+    // Fallback al sugerido por GH PS2: si no se detectó movimiento pero el strum
+    // es analógico, usar el mismo eje. Mejor que dejarlo sin asignar.
+    calibState.mapping[role] = suggested;
+    showCalibToast(`✓ eje ${suggested} → ${role} (asumido del strum, no se detectó movimiento)`);
+  } else {
+    // Diagnóstico: muestra qué se vio para que el usuario entienda por qué falló
+    const summary = Object.entries(calibAxisDetectState.perAxis)
+      .map(([ax, d]) => `eje${ax}=±${((d.max - d.min) / 2).toFixed(2)}`)
+      .join(' ');
+    showCalibToast(`⚠ ${role} no detectado — ${summary || 'sin movimiento'}. Saltado.`);
+  }
+  calibAxisDetectState = null;
+  calibState.idx++;
+  setTimeout(() => showCalibStep(), 350);
+  renderCalibMappingFromState();
 }
 function captureCalib(bit) {
   if (!calibState || !calibState.waiting) return;
@@ -2252,13 +2380,28 @@ function captureCalib(bit) {
 }
 function skipCalibStep() {
   if (!calibState) return;
+  // Si estamos en sub-detector de eje, cancelarlo limpiamente.
+  if (calibAxisDetectState) calibAxisDetectState = null;
+  const steps = (calibState.mode === 'mat') ? MAT_CALIB_STEPS : GUITAR_CALIB_STEPS;
+  const step = steps[calibState.idx];
+  if (step) {
+    const labels = getCurrentLabels();
+    showCalibToast(`⤼ Saltado: ${labels[step.role] || step.role}`);
+  }
   calibState.idx++;
   showCalibStep();
 }
 function finishCalibration() {
   if (!calibState) return;
   const baseMapping = getCurrentMapping();
-  applyCurrentMapping({ ...baseMapping, ...calibState.mapping });
+  // Filtra nulls del mapping del wizard antes de fusionar: si el usuario saltó
+  // un step (o el detector axis falló), preservamos el valor previo en vez de
+  // sobreescribirlo con null. Para borrar todo, hay botón "Borrar mapping".
+  const newMappings = {};
+  for (const [k, v] of Object.entries(calibState.mapping)) {
+    if (v !== null && v !== undefined) newMappings[k] = v;
+  }
+  applyCurrentMapping({ ...baseMapping, ...newMappings });
   document.getElementById('calibTarget').textContent = '✓ Calibración guardada';
   document.getElementById('calibHint').textContent = 'El mapping queda persistido en localStorage. Cambia de pestaña para probar.';
   document.getElementById('calibStart').disabled = false;
@@ -2301,25 +2444,22 @@ function renderCalibMappingObj(map) {
     row.dataset.role = role;
     if (pendingReassignRole === role) row.classList.add('pending');
     const hint = (role === 'whammyAxis')
-      ? '<span class="hint">se auto-detecta en el test Whammy</span>'
+      ? '<span class="hint">clic para detectar el eje</span>'
       : '';
     row.innerHTML = `<span class="name">${label} ${hint}</span><span class="val ${isUnset?'unset':''}">${display}</span>`;
-    if (role !== 'whammyAxis') {
-      // Affordance accesible: cada fila es un botón. Click + Enter/Space funcionan.
-      row.setAttribute('role', 'button');
-      row.setAttribute('tabindex', '0');
-      row.setAttribute('aria-label', `Reasignar ${label} (actual: ${display})`);
-      row.addEventListener('click', () => startReassign(role));
-      row.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          startReassign(role);
-        }
-      });
-    } else {
-      row.style.cursor = 'default';
-      row.setAttribute('aria-label', `${label}: ${display} — auto-detectado`);
-    }
+    // Affordance accesible: cada fila es un botón. Click + Enter/Space funcionan.
+    // whammyAxis usa flujo de detección de eje (sample-all-axes); el resto, captura de botón.
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+    row.setAttribute('aria-label', `Reasignar ${label} (actual: ${display})`);
+    const trigger = (role === 'whammyAxis') ? () => startReassignAxis(role) : () => startReassign(role);
+    row.addEventListener('click', trigger);
+    row.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        trigger();
+      }
+    });
     target.appendChild(row);
   });
 }
@@ -2327,6 +2467,9 @@ function renderCalibMappingObj(map) {
 // IMPORTANTE: declarar antes del primer renderCalibMapping() porque
 // renderCalibMappingObj lo lee y, sin esto, TDZ rompe el loop de polling.
 let pendingReassignRole = null;
+// Sub-detector activo cuando se reasigna un rol AXIS (whammy) desde la fila.
+// Declarado aquí (antes de startReassign) porque startReassign lo referencia.
+let axisReassignState = null;
 
 // ---- Detección axis-based de strum (Guitar Hero PS2 con strum/whammy en el mismo eje) ----
 // Diseño: en algunas guitarras (notable: GH original via PS2→USB Sony-emulado),
@@ -2440,6 +2583,8 @@ updateCalibHelpText();
 
 function startReassign(role) {
   if (calibState) return;
+  // Si había un sub-detector de eje activo (otro clic en whammy), abortar.
+  if (axisReassignState) axisReassignState = null;
   pendingReassignRole = role;
   const labels = getCurrentLabels();
   document.getElementById('calibTarget').textContent =
@@ -2452,6 +2597,8 @@ function startReassign(role) {
 
 function cancelReassign() {
   pendingReassignRole = null;
+  // Cancela también el sub-detector de eje si estaba activo (reasignación de whammy).
+  if (axisReassignState) axisReassignState = null;
   document.getElementById('calibTarget').textContent =
     'Pulsa "Iniciar" o haz clic en una fila ↓ para reasignar individualmente';
   document.getElementById('calibHint').textContent =
@@ -2460,8 +2607,89 @@ function cancelReassign() {
   renderCalibMapping();
 }
 
+// Reasignación de un rol AXIS (whammyAxis) fuera del wizard:
+// abre un sub-detector de 4s con el mismo algoritmo que el step axisDetect del wizard.
+// (axisReassignState declarada arriba, junto a pendingReassignRole.)
+
+function startReassignAxis(role) {
+  if (calibState) return; // hay calibración completa en curso
+  if (axisReassignState) return; // ya hay un detector activo
+  pendingReassignRole = role; // marca para que la fila se vea "pending" en el render
+  axisReassignState = {
+    role,
+    started: performance.now(),
+    duration: 5000,
+    perAxis: {}
+  };
+  document.getElementById('calibTarget').textContent =
+    `Mueve el control para asignar a: ${(getCurrentLabels()[role] || role)}`;
+  document.getElementById('calibHint').textContent =
+    'Mueve la palanca de un extremo al otro VARIAS veces. Auto-detecto el eje.';
+  document.getElementById('cancelReassignBtn').style.display = '';
+  renderCalibMapping();
+  axisReassignTick();
+}
+// Reasignación fuera del wizard: misma lógica que pickBestAxisFrom (no filtra strum).
+function pickBestAxisFromReassign(perAxis) {
+  return pickBestAxisFrom(perAxis);
+}
+function axisReassignTick() {
+  if (!axisReassignState) return;
+  const gp = findGamepad();
+  if (gp) {
+    for (let i = 0; i < gp.axes.length; i++) {
+      const v = gp.axes[i];
+      let a = axisReassignState.perAxis[i];
+      if (!a) { a = { min: v, max: v, unique: new Set() }; axisReassignState.perAxis[i] = a; }
+      if (v < a.min) a.min = v;
+      if (v > a.max) a.max = v;
+      a.unique.add(v.toFixed(3));
+    }
+  }
+  const elapsed = performance.now() - axisReassignState.started;
+  const remaining = Math.max(0, Math.ceil((axisReassignState.duration - elapsed) / 1000));
+  const { axis: bestAxis, range: bestRange } = pickBestAxisFromReassign(axisReassignState.perAxis);
+  document.getElementById('calibHint').textContent =
+    bestAxis >= 0
+      ? `Detectando ${remaining}s… eje candidato: ${bestAxis} (rango ${bestRange.toFixed(2)}). Sigue moviendo.`
+      : `Detectando ${remaining}s… mueve la palanca de WHAMMY de extremo a extremo VARIAS veces.`;
+  if (elapsed >= axisReassignState.duration) {
+    finishAxisReassign();
+    return;
+  }
+  setTimeout(axisReassignTick, 80);
+}
+function finishAxisReassign() {
+  if (!axisReassignState) return;
+  const { axis: bestAxis, range: bestRange } = pickBestAxisFromReassign(axisReassignState.perAxis);
+  const role = axisReassignState.role;
+  const perAxisSnapshot = axisReassignState.perAxis;
+  axisReassignState = null;
+  pendingReassignRole = null;
+  document.getElementById('cancelReassignBtn').style.display = 'none';
+  if (bestAxis >= 0 && bestRange >= WHAMMY_MIN_RANGE) {
+    const m = getCurrentMapping();
+    m[role] = bestAxis;
+    applyCurrentMapping(m);
+    showCalibToast(`✓ eje ${bestAxis} → ${role} (rango ${bestRange.toFixed(2)})`);
+    document.getElementById('calibTarget').textContent =
+      `✓ ${role} = eje ${bestAxis}. Haz clic en otra fila o pulsa "Iniciar"`;
+  } else {
+    const summary = Object.entries(perAxisSnapshot)
+      .map(([ax, d]) => `eje${ax}=±${((d.max - d.min) / 2).toFixed(2)}`)
+      .join(' ');
+    showCalibToast(`⚠ ${role} no detectado — ${summary || 'sin movimiento'}.`);
+    document.getElementById('calibTarget').textContent =
+      `No se detectó movimiento suficiente. Vuelve a hacer clic en la fila Whammy y mueve la palanca con más amplitud.`;
+  }
+  renderCalibMapping();
+}
+
 function captureReassign(bit) {
   if (!pendingReassignRole) return;
+  // Si la reasignación es de un eje (whammy), NO consumir botones — solo el sub-detector
+  // de eje puede asignarlo. Evita que pulsar un fret durante la detección rompa el mapping.
+  if (axisReassignState || pendingReassignRole === 'whammyAxis') return;
   const role = pendingReassignRole;
   const m = getCurrentMapping();
   // Limpia cualquier otro rol que tuviera ese botón
