@@ -24,6 +24,7 @@ const RUNTIME       = `${CACHE_VERSION}-runtime`;
 
 const PRECACHE_URLS = [
   '/',
+  '/app.html',
   '/index.html',
   '/play.html',
   '/gh-play.html',

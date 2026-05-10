@@ -47,7 +47,34 @@
     // por si alguien embebe la app desde otro dominio (no soportado).
     inShell = false;
   }
-  if (inShell) document.documentElement.classList.add('in-shell');
+  if (inShell) {
+    document.documentElement.classList.add('in-shell');
+    // Inyecta CSS para ocultar los topbars internos cuando la página corre
+    // dentro del shell SPA (app.html) — el shell ya provee chrome unificado
+    // y no queremos doble navegación. Selectores cubren los IDs/clases
+    // existentes en cada HTML de la suite (#topbar en play.html,
+    // #sat-topbar en gh-play/autostepper/gh-autostepper/test-pad,
+    // header.topbar en index.html).
+    var injectShellCSS = function () {
+      if (document.getElementById('sincro-in-shell-css')) return;
+      var s = document.createElement('style');
+      s.id = 'sincro-in-shell-css';
+      s.textContent =
+        'html.in-shell #topbar,' +
+        'html.in-shell #sat-topbar,' +
+        'html.in-shell header.topbar,' +
+        'html.in-shell .topbar:not(.shell-topbar) {' +
+          'display:none !important;' +
+        '}' +
+        'html.in-shell body {' +
+          'padding-top:0 !important;' +
+          'margin-top:0 !important;' +
+        '}';
+      (document.head || document.documentElement).appendChild(s);
+    };
+    if (document.head) injectShellCSS();
+    else document.addEventListener('DOMContentLoaded', injectShellCSS);
+  }
 
   // ---- Install prompt capture ----------------------------------------------
   var deferredPrompt = null;

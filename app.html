@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Sincro — Suite rítmica</title>
+<meta name="theme-color" content="#00bec8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Sincro: suite de juego rítmico para alfombra de baile y guitarra Guitar Hero. Juega, crea coreografías y prueba tu hardware.">
+<link rel="canonical" href="https://play.movimientofuncional.app/app.html">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+<link rel="apple-touch-icon" href="/icons/icon.svg">
+<script src="/stepmania-web/js/pwa-bootstrap.js" defer></script>
+<style>
+  :root {
+    --shell-bg: #0f172a;
+    --shell-surface: #1e293b;
+    --shell-border: rgba(0, 190, 200, 0.18);
+    --shell-fg: #e2e8f0;
+    --shell-muted: #94a3b8;
+    --shell-accent: #00bec8;
+    --shell-accent-2: #fbbf24;
+    --shell-active: rgba(0, 190, 200, 0.22);
+    --shell-h: 56px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--shell-bg);
+    color: var(--shell-fg);
+    font-family: 'ABeeZee', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .shell-topbar {
+    flex: 0 0 var(--shell-h);
+    height: var(--shell-h);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    background: linear-gradient(180deg, var(--shell-surface) 0%, var(--shell-bg) 100%);
+    border-bottom: 1px solid var(--shell-border);
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.4);
+    z-index: 10;
+  }
+  .shell-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Righteous', system-ui, sans-serif;
+    font-size: 22px;
+    font-weight: 400;
+    text-decoration: none;
+    background: linear-gradient(135deg, var(--shell-accent) 0%, var(--shell-accent-2) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .shell-brand::before { content: '⚡'; -webkit-text-fill-color: var(--shell-accent); color: var(--shell-accent); }
+
+  .shell-nav {
+    flex: 1;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--shell-accent) transparent;
+  }
+  .shell-nav::-webkit-scrollbar { height: 4px; }
+  .shell-nav::-webkit-scrollbar-thumb { background: var(--shell-accent); border-radius: 2px; }
+  .shell-nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    color: var(--shell-muted);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 120ms ease, color 120ms ease;
+  }
+  .shell-nav a:hover { color: var(--shell-fg); background: rgba(255,255,255,0.04); }
+  .shell-nav a.active {
+    color: var(--shell-fg);
+    background: var(--shell-active);
+    box-shadow: inset 0 0 0 1px var(--shell-border);
+  }
+
+  .shell-actions { display: flex; gap: 8px; align-items: center; }
+  .shell-install {
+    appearance: none;
+    border: 1px solid var(--shell-accent);
+    background: transparent;
+    color: var(--shell-accent);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 120ms ease;
+  }
+  .shell-install:hover { background: rgba(0, 190, 200, 0.12); }
+  .shell-install[hidden] { display: none; }
+
+  .shell-main {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: var(--shell-bg);
+  }
+  .shell-frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: var(--shell-bg);
+  }
+
+  .shell-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    color: var(--shell-muted);
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+  .shell-loading[hidden] { opacity: 0; }
+  .shell-loading::before {
+    content: '';
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--shell-border);
+    border-top-color: var(--shell-accent);
+    border-radius: 50%;
+    animation: shell-spin 800ms linear infinite;
+  }
+  @keyframes shell-spin { to { transform: rotate(360deg); } }
+
+  /* Mobile: encoge brand y oculta texto en links salvo el activo */
+  @media (max-width: 640px) {
+    .shell-topbar { gap: 6px; padding: 0 8px; }
+    .shell-brand { font-size: 18px; }
+    .shell-nav a { padding: 8px 10px; font-size: 13px; }
+    .shell-install { padding: 6px 10px; font-size: 12px; }
+  }
+
+  /* Standalone PWA: aprovecha el área de window-controls-overlay */
+  @media (display-mode: window-controls-overlay) {
+    .shell-topbar {
+      padding-left: env(titlebar-area-x, 16px);
+      padding-right: calc(100vw - env(titlebar-area-width, 100vw) - env(titlebar-area-x, 0px) + 16px);
+      app-region: drag;
+    }
+    .shell-brand, .shell-nav, .shell-actions { app-region: no-drag; }
+  }
+</style>
+</head>
+<body>
+  <header class="shell-topbar" role="banner">
+    <a class="shell-brand" href="#/play" aria-label="Sincro · Inicio">Sincro</a>
+    <nav class="shell-nav" aria-label="Navegación principal">
+      <a href="#/play"           data-route="/play">🦶 Bailar</a>
+      <a href="#/gh-play"        data-route="/gh-play">🎸 Tocar</a>
+      <a href="#/autostepper"    data-route="/autostepper">🪄 Crear DDR</a>
+      <a href="#/gh-autostepper" data-route="/gh-autostepper">🎼 Crear GH</a>
+      <a href="#/test-pad"       data-route="/test-pad">🛠️ Equipo</a>
+      <a href="#/about"          data-route="/about">ℹ️ Sincro</a>
+    </nav>
+    <div class="shell-actions">
+      <button id="installBtn" class="shell-install" hidden type="button">Instalar app</button>
+    </div>
+  </header>
+  <main class="shell-main">
+    <iframe id="shellFrame"
+            class="shell-frame"
+            name="sincro-shell-frame"
+            title="Sincro — vista activa"
+            allow="gamepad; fullscreen; autoplay; microphone; midi; clipboard-write"
+            allowfullscreen></iframe>
+    <div id="shellLoading" class="shell-loading">Cargando…</div>
+  </main>
+<script>
+  // Shell SPA — router de hash a iframe.
+  // Cada ruta carga el HTML clásico dentro del iframe; el bootstrap del HTML
+  // detecta window.name === 'sincro-shell-frame' y oculta su topbar interno
+  // (regla CSS inyectada por pwa-bootstrap.js cuando in-shell=true).
+  //
+  // Gamepad API funciona en iframes same-origin sin permisos extra. Web
+  // Audio + fullscreen requieren gesto de usuario originado en el iframe
+  // — los handlers de cada juego ya cumplen esto (botón "Iniciar" antes de
+  // empezar). El atributo allow="gamepad; fullscreen; autoplay" desbloquea
+  // las features delegadas al iframe.
+  (function () {
+    'use strict';
+    var ROUTES = {
+      '/play':           '/play.html',
+      '/gh-play':        '/gh-play.html',
+      '/autostepper':    '/autostepper.html',
+      '/gh-autostepper': '/gh-autostepper.html',
+      '/test-pad':       '/test-pad.html',
+      '/about':          '/index.html'
+    };
+    var DEFAULT_ROUTE = '/play';
+
+    var frame   = document.getElementById('shellFrame');
+    var loading = document.getElementById('shellLoading');
+    var navLinks = Array.prototype.slice.call(document.querySelectorAll('.shell-nav a'));
+
+    function currentRoute() {
+      var h = (location.hash || '').replace(/^#/, '');
+      return Object.prototype.hasOwnProperty.call(ROUTES, h) ? h : DEFAULT_ROUTE;
+    }
+
+    function setActive(route) {
+      navLinks.forEach(function (a) {
+        a.classList.toggle('active', a.dataset.route === route);
+      });
+    }
+
+    function navigate() {
+      var route = currentRoute();
+      var url   = ROUTES[route];
+      // Solo cambia src si cambió la ruta — evita reload innecesarios cuando
+      // el usuario hace click en el link de la ruta activa.
+      if (frame.dataset.route !== route) {
+        loading.hidden = false;
+        frame.dataset.route = route;
+        frame.src = url;
+      }
+      setActive(route);
+      document.title = 'Sincro · ' + route.slice(1).replace('-', ' ');
+    }
+
+    frame.addEventListener('load', function () {
+      loading.hidden = true;
+    });
+
+    window.addEventListener('hashchange', navigate);
+
+    // Asegura que haya hash al entrar — start_url=/app.html sin hash debe
+    // resolver a la ruta default (/play).
+    if (!location.hash) location.replace('#' + DEFAULT_ROUTE);
+    else navigate();
+
+    // Botón de instalación PWA — bootstrap dispara 'sincro-pwa-installable'
+    // cuando el navegador tiene el prompt deferido disponible.
+    var installBtn = document.getElementById('installBtn');
+    document.addEventListener('sincro-pwa-installable', function () {
+      installBtn.hidden = false;
+    });
+    document.addEventListener('sincro-pwa-installed', function () {
+      installBtn.hidden = true;
+    });
+    installBtn.addEventListener('click', function () {
+      if (!window.SincroPWA || !window.SincroPWA.canInstall()) return;
+      window.SincroPWA.promptInstall().then(function (choice) {
+        if (choice && choice.outcome === 'accepted') installBtn.hidden = true;
+      });
+    });
+
+    // Si la PWA ya está instalada, oculta el botón aunque dispare más tarde.
+    if (window.SincroPWA && window.SincroPWA.isInstalled()) {
+      installBtn.hidden = true;
+    }
+  })();
+</script>
+</body>
+</html>
