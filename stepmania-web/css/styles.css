@@ -75,12 +75,38 @@ body {
 }
 #topbar .crumb { color: var(--gris-400); margin-left: 14px; font-size: 0.9em; }
 #topbar .spacer { flex: 1; }
+/* Pill de estado del pad/dispositivo: fondo claro para contraste alto.
+   Indicador circular de estado a la izquierda mantiene el código de color
+   (verde conectado / rojo desconectado) sin teñir el texto. Trunca con
+   ellipsis cuando el nombre del gamepad es largo (ej. "PLAYSTATION(R)3..."). */
 #topbar .pill {
-  background: rgba(16,185,129,0.18); color: var(--color-success);
-  padding: 4px 10px; border-radius: 12px; font-size: 0.78em;
+  background: #fff; color: var(--gris-900);
+  padding: 4px 12px; border-radius: 12px;
+  font-size: 0.78em; font-weight: 600;
   margin-left: 10px;
+  border: 1px solid var(--color-success);
+  box-shadow: 0 0 8px rgba(16,185,129,0.35);
+  max-width: 240px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 6px;
 }
-#topbar .pill.off { background: rgba(225,29,72,0.18); color: var(--rosa-500); }
+#topbar .pill::before {
+  content: '';
+  display: inline-block;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+  flex-shrink: 0;
+}
+#topbar .pill.off {
+  border-color: var(--rosa-600);
+  box-shadow: 0 0 8px rgba(225,29,72,0.35);
+  color: var(--gris-700);
+}
+#topbar .pill.off::before {
+  background: var(--rosa-500);
+  box-shadow: 0 0 6px var(--rosa-500);
+}
 
 /* Navegación rápida en topbar (Bailar / Tocar / Equipo / Tutorial) */
 #topbar .topbar-nav {
