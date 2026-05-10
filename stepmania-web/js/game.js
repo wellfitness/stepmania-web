@@ -75,10 +75,36 @@ let gameState = null;
 const canvas = document.getElementById('gameCanvas');
 const ctx2d = canvas.getContext('2d');
 let canvasW = 0, canvasH = 0;
+// Sizing del playfield. Antes ARROW_SIZE/laneWidth eran constantes pensadas
+// para 1280×720 → en laptop FHD el playfield ocupaba <20% del ancho.
+//
+// Modelo nuevo (espejo del highway de gh-play.html):
+//   playfieldW = clamp(540, canvasW × 0.5, 1040)
+//   laneWidth  = playfieldW / numLanes   (4/6/8 según el chart)
+//   ARROW_SIZE = laneWidth × 0.78        (deja ~22% de respiro entre lanes)
+//
+// Beneficio: en 4 carriles las flechas son grandes (≈186 px en FHD), pero
+// cuando un chart de 6 u 8 carriles entra, el playfield NO se ensancha —
+// los lanes simplemente se reparten dentro de los mismos ~960 px, así que
+// las 8 flechas siguen cabiendo cómodas (≈94 px cada una en FHD) sin que
+// el HUD lateral se solape.
+//
+// uiScale se mantiene solo para receptorY (margen superior — no afecta a
+// la geometría de los lanes).
+let uiScale = 1;
+let playfieldW = 540;
+let ARROW_SIZE = 56;
+function recomputePlayfieldSize() {
+  uiScale = Math.max(1, Math.min(1.6, canvasW / 1100));
+  playfieldW = Math.max(540, Math.min(canvasW * 0.5, 1040));
+  const numLanes = (gameState && gameState.laneConfig) ? gameState.laneConfig.lanes : 4;
+  ARROW_SIZE = Math.round((playfieldW / numLanes) * 0.78);
+  buildArrowSprites();
+}
 function resizeCanvas() {
   canvasW = canvas.width = window.innerWidth;
   canvasH = canvas.height = window.innerHeight;
-  buildArrowSprites();
+  recomputePlayfieldSize();
 }
 window.addEventListener('resize', resizeCanvas);
 
@@ -86,7 +112,6 @@ window.addEventListener('resize', resizeCanvas);
 // Cache key is rotation+color (not lane index) so the same rotation is
 // reused across configs (e.g. lane 0 in single and lane 0 in solo are both
 // the "left" arrow at -90°). Sprites get rebuilt on canvas resize.
-const ARROW_SIZE = 56;
 const arrowSpriteCache = new Map();
 function buildArrowSprites() { arrowSpriteCache.clear(); }
 
@@ -330,6 +355,11 @@ async function startGame() {
     laneConfig,
     nativeLanes,
   };
+  // El playfield es FIJO en ancho (clamp 540-1040 px). ARROW_SIZE depende
+  // de cuántos lanes reparten ese ancho, así que se recomputa ahora que
+  // gameState.laneConfig.lanes ya está fijado para este chart. Sin esto,
+  // un chart de 8 lanes renderiza sprites pre-cacheados al tamaño de 4 lanes.
+  recomputePlayfieldSize();
   document.getElementById('hudSongInfo').textContent = gameState.songInfo;
   document.getElementById('hudScore').textContent = '0';
   document.getElementById('hudCombo').textContent = '0';
@@ -613,11 +643,16 @@ function render(audioTime) {
   const numLanes = cfg.lanes;
   const tints = cfg.tints;
   const rotations = cfg.rotations;
-  // Shrink lane width slightly for high lane counts so the playfield still fits.
-  const laneWidth = numLanes <= 4 ? 80 : (numLanes === 6 ? 70 : 64);
+  // El playfield total es FIJO (clamp 540-1040 según viewport, mismo target
+  // que el highway de gh-play.html). Los carriles se reparten dentro: 4 lanes
+  // → flechas grandes; 8 lanes → flechas más ajustadas pero playfield igual.
+  // Esto garantiza que un chart full-mode de 8 carriles no se desborde.
+  const laneWidth = Math.round(playfieldW / numLanes);
   const totalWidth = laneWidth * numLanes;
   const startX = W/2 - totalWidth/2;
-  const receptorY = 110;
+  // receptorY proporcional a uiScale — en pantallas grandes ofrecemos algo
+  // más de margen superior sin tapar la HUD.
+  const receptorY = Math.round(110 * uiScale);
   // Apply per-section #SPEEDS and #SCROLLS modifiers based on current beat.
   // Negative scroll = reverse direction (notes flow upward from below).
   const T = gameState.timingEngine;
@@ -660,8 +695,10 @@ function render(audioTime) {
     if (dt >= 0 && dt < pulseDur) beatPulse = (1 - dt/pulseDur) * intensity;
   }
 
-  // Receptor row
-  const receptorRadius = numLanes <= 4 ? 28 : (numLanes === 6 ? 24 : 22);
+  // Receptor radius proporcional al lane (36% → diámetro ≈72% del lane,
+  // similar al ratio del receptor circular de gh-play.html y consistente
+  // entre 4/6/8 carriles).
+  const receptorRadius = Math.round(laneWidth * 0.36);
   for (let i = 0; i < numLanes; i++) {
     const cx = startX + i*laneWidth + laneWidth/2;
     const cy = receptorY;
@@ -709,14 +746,18 @@ function render(audioTime) {
     const grad = ctx2d.createLinearGradient(0, top, 0, bot);
     if (n.type === 'roll') { grad.addColorStop(0,'rgba(255,200,0,0.85)'); grad.addColorStop(1,'rgba(255,120,0,0.6)'); }
     else                   { grad.addColorStop(0,'rgba(0,255,180,0.85)'); grad.addColorStop(1,'rgba(0,140,255,0.55)'); }
+    // Hold/roll body: 55% del laneWidth (antes 44 px hardcoded sobre lane 80).
+    // Escala automáticamente con uiScale al estar referenciado a laneWidth.
+    const holdHalfW = Math.round(laneWidth * 0.275);
+    const holdCapH = Math.round(laneWidth * 0.225);
     ctx2d.fillStyle = released ? 'rgba(120,120,120,0.4)' : grad;
-    ctx2d.fillRect(cx-22, top, 44, Math.max(0, bot-top));
+    ctx2d.fillRect(cx-holdHalfW, top, holdHalfW*2, Math.max(0, bot-top));
     // Tail cap
     ctx2d.fillStyle = released ? 'rgba(120,120,120,0.55)' : (n.type === 'roll' ? '#ff8800' : '#00f5d4');
     ctx2d.beginPath();
-    ctx2d.moveTo(cx-22, bot);
-    ctx2d.lineTo(cx+22, bot);
-    ctx2d.lineTo(cx, bot+18);
+    ctx2d.moveTo(cx-holdHalfW, bot);
+    ctx2d.lineTo(cx+holdHalfW, bot);
+    ctx2d.lineTo(cx, bot+holdCapH);
     ctx2d.closePath();
     ctx2d.fill();
   }
@@ -750,11 +791,14 @@ function render(audioTime) {
     if (n.type === 'mine') {
       ctx2d.save();
       ctx2d.globalAlpha = alpha;
-      // Pulsating mine
+      // Pulsating mine — radio y font escalan con ARROW_SIZE para coincidir
+      // visualmente con las notas (antes 18 px fijos sobre flecha de 56).
+      const mineR = Math.round(ARROW_SIZE * 0.32);
       const pulse = 0.7 + 0.3 * Math.sin(performance.now()/100);
       ctx2d.fillStyle = `rgba(255,51,102,${pulse})`;
-      ctx2d.beginPath(); ctx2d.arc(cx, y, 18, 0, Math.PI*2); ctx2d.fill();
-      ctx2d.fillStyle = '#fff'; ctx2d.font = 'bold 18px sans-serif';
+      ctx2d.beginPath(); ctx2d.arc(cx, y, mineR, 0, Math.PI*2); ctx2d.fill();
+      ctx2d.fillStyle = '#fff';
+      ctx2d.font = `bold ${mineR}px sans-serif`;
       ctx2d.textAlign = 'center'; ctx2d.textBaseline = 'middle';
       ctx2d.fillText('M', cx, y);
       ctx2d.restore();
@@ -834,7 +878,8 @@ function render(audioTime) {
     const ageMs = now - fx.t;
     const age = ageMs / 350;
     const alpha = 1 - age;
-    const radius = 30 + age * 50;
+    // Anillo escalado a ARROW_SIZE: 55% como base, expande hasta +90%.
+    const radius = ARROW_SIZE * 0.55 + age * ARROW_SIZE * 0.9;
     const cx = startX + fx.lane*laneWidth + laneWidth/2;
     // Outer white ring
     ctx2d.strokeStyle = `rgba(255,255,255,${alpha*0.6})`;

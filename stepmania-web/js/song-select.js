@@ -35,7 +35,16 @@ async function refreshSongs() {
 function renderSongList() {
   const c = document.getElementById('songsContainer');
   if (!_allSongsCache.length) {
-    c.innerHTML = '<p style="color:#aaa;text-align:center;padding:30px">No hay canciones. <button class="action-btn" onclick="goto(\'create\')">Crear charts</button></p>';
+    c.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">🎵</div>
+        <div class="empty-title">Tu biblioteca está vacía</div>
+        <div class="empty-desc">Crea tu primera coreografía desde un MP3, o importa un paquete de StepMania.</div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button class="action-btn" onclick="goto('create')">🎵 Crear coreografía</button>
+          <button class="action-btn secondary" onclick="goto('library')">📥 Importar archivos</button>
+        </div>
+      </div>`;
     return;
   }
   const q = (document.getElementById('songSearch')?.value || '').toLowerCase().trim();
@@ -109,24 +118,35 @@ async function renderDiffScreen() {
   renderTagChips();
   const c = document.getElementById('diffsContainer');
   c.innerHTML = '';
+  // Reset chart selection cada vez que entramos a la pantalla — la usuaria
+  // debe elegir explícitamente, y el botón "Jugar" arranca solo cuando hay
+  // chart elegido (patrón arcade clásico: selecciona → confirma).
+  selectedChart = null;
+  updatePlayCtaState();
   const scores = await dbScoresForSong(selectedSong.id);
   const scoreMap = Object.fromEntries(scores.map(s => [s.chartKey, s]));
   for (const chart of selectedSong.charts) {
     const el = document.createElement('div');
-    el.className = 'queue-row';
+    el.className = 'chart-row';
     el.style.cursor = 'pointer';
-    el.style.gridTemplateColumns = '1fr 60px 80px 70px 36px';
+    el.dataset.chartKey = chart.key;
     const sc = scoreMap[chart.key];
-    const gradeCell = sc ? `<span class="grade-pill grade-${sc.grade}">${sc.grade}</span>` : '<span style="color:#444">—</span>';
+    const gradeCell = sc ? `<span class="grade-pill grade-${sc.grade}">${sc.grade}</span>` : '<span class="chart-row-empty">—</span>';
     const deleteBtn = sc
       ? `<button class="icon-btn danger" title="Eliminar high score" onclick="event.stopPropagation();deleteChartScore('${chart.key}')">×</button>`
-      : '<span></span>';
-    el.innerHTML = `<div><strong>${chart.name}</strong></div>
-      <div style="color:var(--tulip-tree-500)">★ ${chart.rating}</div>
-      <div>${chart.count} pasos</div>
-      <div>${gradeCell}</div>
-      ${deleteBtn}`;
-    el.addEventListener('click', () => { selectedChart = chart; goto('play'); });
+      : '';
+    // Estrellas visuales según rating (max 15)
+    const ratingNum = Math.max(0, Math.min(15, chart.rating || 0));
+    el.innerHTML = `
+      <div class="chart-row-name"><strong>${chart.name}</strong></div>
+      <div class="chart-row-rating" title="Dificultad ${ratingNum}/15">
+        <span class="chart-row-stars">★</span> ${ratingNum}
+      </div>
+      <div class="chart-row-meta">${chart.count} pasos</div>
+      <div class="chart-row-grade">${gradeCell}</div>
+      <div class="chart-row-action">${deleteBtn}</div>
+    `;
+    el.addEventListener('click', () => selectChartUI(chart, el));
     c.appendChild(el);
   }
   // Init mods UI
@@ -167,6 +187,37 @@ async function deleteChartScore(chartKey) {
   if (!confirm('¿Borrar el high score de esta dificultad?')) return;
   await dbScoreDelete(selectedSong.id, chartKey);
   renderDiffScreen();
+}
+
+// ----- Chart selection UI ---------------------------------------------------
+// Mantiene la dificultad elegida visualmente y habilita el botón "Jugar"
+// (CTA grande). El juego solo arranca al pulsar "Jugar" — el patrón clásico
+// arcade: seleccionas → confirmas. Antes el clic en la fila lanzaba la canción
+// directamente, lo cual era poco intuitivo.
+function selectChartUI(chart, rowEl) {
+  selectedChart = chart;
+  // Quitar selección de todas las filas y marcar solo la actual
+  document.querySelectorAll('#diffsContainer .chart-row').forEach(r => r.classList.remove('selected'));
+  if (rowEl) rowEl.classList.add('selected');
+  updatePlayCtaState();
+}
+function updatePlayCtaState() {
+  const btn = document.getElementById('playCtaBtn');
+  const hint = document.getElementById('playCtaHint');
+  if (!btn) return;
+  if (selectedChart) {
+    btn.disabled = false;
+    btn.classList.add('ready');
+    if (hint) hint.textContent = `Listo: ${selectedChart.name} · ${selectedChart.count} pasos`;
+  } else {
+    btn.disabled = true;
+    btn.classList.remove('ready');
+    if (hint) hint.textContent = 'Elige una dificultad para empezar';
+  }
+}
+function confirmChartAndPlay() {
+  if (!selectedChart) return;
+  goto('play');
 }
 
 // ----- Manual BPM/offset edit (per song) -----------------------------------

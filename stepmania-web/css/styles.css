@@ -402,16 +402,27 @@ input[type="file"] { display: none; }
 .gameHUD .judgment.miss      { color: #ff3366; }
 
 .results {
-  background: rgba(0,0,0,0.85); padding: 30px 40px; border-radius: 18px;
-  border: 1px solid rgba(0,190,200,0.4); max-width: 500px;
+  background: linear-gradient(180deg, rgba(0,190,200,0.06), rgba(0,0,0,0.85) 60%);
+  padding: 32px 40px; border-radius: 20px;
+  border: 1px solid rgba(0,190,200,0.4); max-width: 520px;
   margin: 60px auto;
+  box-shadow: 0 12px 40px rgba(0,190,200,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
 }
-.results h2 { font-family: var(--font-display); font-size: 1.8em; margin-bottom: 16px; text-align: center; }
+.results h2 {
+  font-family: var(--font-display); font-size: 2em; margin-bottom: 18px; text-align: center;
+  background: linear-gradient(90deg, var(--turquesa-400), var(--tulip-tree-500));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  letter-spacing: 0.02em;
+}
 .results .stat-line {
-  display: flex; justify-content: space-between; padding: 6px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   font-family: 'Consolas', monospace;
+  font-size: 0.95em;
+  transition: background 0.15s;
 }
+.results .stat-line:hover { background: rgba(255,255,255,0.03); }
 .results .stat-line .key { color: var(--gris-400); }
 
 .help { color: var(--gris-500); font-size: 0.85em; line-height: 1.5; margin-top: 6px; }
@@ -523,3 +534,232 @@ details summary:hover { color: #fff; }
   border-bottom: 1px solid rgba(0,190,200,0.3); padding-bottom: 8px;
 }
 .modal .close-row { display:flex; justify-content:flex-end; margin-top: 14px; }
+
+/* ============================================================================
+   DIFF SCREEN — Selección de dificultad + CTA "Jugar" (patrón arcade)
+   ============================================================================
+   La selección de chart y el arranque del juego son dos pasos separados:
+   1) Pulsar una fila de dificultad la marca como seleccionada (no lanza nada).
+   2) Aparece el CTA gigante "▶ Jugar" abajo, que arranca la partida.
+   El patrón sigue Clone Hero / DDR cabinet: "elegir → confirmar".
+============================================================================ */
+
+#diffsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 80px 100px 70px 36px;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 16px;
+  background: rgba(0,0,0,0.35);
+  border: 2px solid rgba(255,255,255,0.06);
+  border-radius: 12px;
+  font-size: 0.92em;
+  transition: all 0.15s;
+  position: relative;
+}
+.chart-row:hover {
+  border-color: rgba(0,190,200,0.45);
+  background: rgba(0,190,200,0.08);
+  transform: translateX(2px);
+}
+.chart-row.selected {
+  border-color: var(--turquesa-400);
+  background: linear-gradient(90deg, rgba(0,190,200,0.22), rgba(234,179,8,0.10));
+  box-shadow: 0 0 20px rgba(0,190,200,0.35), inset 0 0 0 1px rgba(0,245,212,0.4);
+  transform: translateX(4px);
+}
+.chart-row.selected::before {
+  content: '▸';
+  position: absolute;
+  left: -18px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--turquesa-400);
+  font-size: 1.4em;
+  text-shadow: 0 0 10px var(--turquesa-400);
+  animation: chart-row-pointer 0.6s ease-out;
+}
+@keyframes chart-row-pointer {
+  0%   { opacity: 0; transform: translate(-12px, -50%); }
+  100% { opacity: 1; transform: translate(0, -50%); }
+}
+.chart-row-name { color: #fff; font-size: 1.05em; word-break: break-word; }
+.chart-row-rating {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--tulip-tree-500);
+  letter-spacing: 0.04em;
+}
+.chart-row-rating .chart-row-stars { color: var(--tulip-tree-500); }
+.chart-row-meta { color: var(--gris-400); font-size: 0.88em; font-family: var(--font-mono); }
+.chart-row-grade { text-align: center; }
+.chart-row-empty { color: var(--gris-700); }
+.chart-row-action { text-align: right; }
+
+@media (max-width: 600px) {
+  .chart-row {
+    grid-template-columns: 1fr 60px 70px 60px 30px;
+    gap: 8px;
+    padding: 12px 12px;
+    font-size: 0.85em;
+  }
+  .chart-row.selected::before { display: none; }
+}
+
+/* ----- Big "Jugar" CTA bar (arcade-style "Press Start") ------------------- */
+.play-cta-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 22px 0 36px;
+  padding: 14px 18px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.5), rgba(0,0,0,0.7));
+  border: 1px solid rgba(0,190,200,0.18);
+  border-radius: 16px;
+}
+.play-cta-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.play-cta-hint {
+  color: var(--gris-400);
+  font-size: 0.85em;
+  letter-spacing: 0.02em;
+  font-family: var(--font-mono);
+}
+.play-cta-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 56px;
+  font-family: var(--font-display);
+  font-size: 1.6em;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--gris-700), var(--gris-800));
+  border: 2px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+  min-width: 280px;
+  justify-content: center;
+}
+.play-cta-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+.play-cta-btn .play-cta-icon {
+  font-size: 0.9em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+  transition: transform 0.2s ease;
+}
+.play-cta-btn.ready {
+  background: linear-gradient(135deg, var(--turquesa-600) 0%, var(--turquesa-700) 50%, var(--tulip-tree-500) 130%);
+  border-color: var(--turquesa-400);
+  color: #001416;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.18);
+  box-shadow:
+    0 0 0 4px rgba(0,190,200,0.18),
+    0 8px 24px rgba(0,190,200,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.3);
+  animation: play-cta-pulse 1.6s ease-in-out infinite;
+}
+.play-cta-btn.ready .play-cta-icon {
+  background: rgba(0,0,0,0.25);
+  color: #fff;
+}
+.play-cta-btn.ready:hover {
+  transform: translateY(-2px) scale(1.02);
+  animation-play-state: paused;
+  box-shadow:
+    0 0 0 4px rgba(0,190,200,0.3),
+    0 12px 32px rgba(0,190,200,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.4);
+}
+.play-cta-btn.ready:hover .play-cta-icon { transform: scale(1.15); }
+.play-cta-btn.ready:active { transform: translateY(0) scale(0.99); }
+@keyframes play-cta-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 4px rgba(0,190,200,0.18),
+      0 8px 24px rgba(0,190,200,0.35),
+      inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(0,190,200,0.10),
+      0 12px 36px rgba(0,190,200,0.55),
+      inset 0 1px 0 rgba(255,255,255,0.45);
+  }
+}
+@media (max-width: 600px) {
+  .play-cta-bar {
+    flex-wrap: wrap;
+    padding: 12px;
+  }
+  .play-cta-btn {
+    min-width: 0;
+    width: 100%;
+    padding: 16px 24px;
+    font-size: 1.3em;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .play-cta-btn.ready { animation: none; }
+  .chart-row.selected::before { animation: none; }
+}
+
+/* ============================================================================
+   CARD HEADERS — Refinamiento de jerarquía visual
+   ============================================================================ */
+.card h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: 0.02em;
+}
+
+/* Empty-state genérico (lista vacía, biblioteca vacía...) */
+.empty-state {
+  text-align: center;
+  padding: 36px 20px;
+  color: var(--gris-400);
+}
+.empty-state .empty-icon {
+  font-size: 3em;
+  margin-bottom: 10px;
+  opacity: 0.5;
+}
+.empty-state .empty-title {
+  font-family: var(--font-display);
+  color: var(--gris-300);
+  font-size: 1.1em;
+  margin-bottom: 6px;
+}
+.empty-state .empty-desc {
+  font-size: 0.9em;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+
+/* Queue-row: highlight más claro al hover (usado en song list) */
+.queue-row[onclick]:hover,
+.queue-row[style*="cursor:pointer"]:hover {
+  background: rgba(0,190,200,0.08);
+}

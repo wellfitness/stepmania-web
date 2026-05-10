@@ -564,24 +564,130 @@ section { padding: 80px 24px; position: relative; }
 /* FOOTER */
 .site-footer {
   border-top: 1px solid rgba(0,190,200,0.2);
-  padding: 40px 24px 30px;
-  background: #000; color: var(--gris-500); font-size: 0.85em;
+  padding: 56px 24px 28px;
+  background: var(--gris-900); color: var(--gris-300); font-size: 0.9em;
 }
-.site-footer .container { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 32px; }
+.site-footer .container {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 48px;
+  max-width: 1180px;
+  margin: 0 auto;
+  align-items: start;
+}
 .site-footer h2 {
   font-family: var(--font-display);
-  color: var(--turquesa-400);
-  font-size: 1em; margin-bottom: 10px;
+  color: #fff;
+  font-size: 1em; margin-bottom: 14px;
   letter-spacing: 0.5px;
 }
 .site-footer ul { list-style: none; padding: 0; }
 .site-footer li { padding: 4px 0; }
-.legal {
-  margin-top: 30px; padding-top: 20px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  text-align: center; color: var(--gris-700);
-  font-family: var(--font-mono); font-size: 0.78em;
+.site-footer a { color: var(--gris-300); }
+.site-footer a:hover, .site-footer a:focus-visible { color: var(--turquesa-400); }
+
+/* Tarjeta Elena */
+.elena-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(0,190,200,0.4);
+  border-top: 3px solid var(--turquesa-400);
+  border-radius: 16px;
+  padding: 20px;
 }
+.elena-head { display: flex; gap: 14px; margin-bottom: 14px; }
+.elena-photo {
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--turquesa-600);
+  flex-shrink: 0;
+}
+.elena-meta h3 {
+  font-family: var(--font-display);
+  color: var(--turquesa-400);
+  font-size: 1.15em; line-height: 1; margin-bottom: 6px;
+}
+.elena-meta p { font-size: 0.78em; color: var(--gris-300); line-height: 1.35; margin: 0; }
+.elena-meta .location { font-size: 0.72em; color: var(--gris-400); margin-top: 4px; }
+.elena-cert {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 6px; padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(0,190,200,0.15);
+  border: 1px solid rgba(0,190,200,0.4);
+  color: var(--turquesa-400);
+  font-size: 0.72em;
+}
+.elena-cert::before { content: '🏅'; font-size: 0.9em; }
+.elena-bio { font-size: 0.82em; color: var(--gris-300); line-height: 1.55; margin-bottom: 14px; }
+.elena-bio strong { color: #fff; }
+.social-row { display: flex; gap: 8px; }
+.social-row a {
+  width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--gris-700);
+  border-radius: 50%;
+  color: var(--turquesa-400);
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.social-row a:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: var(--turquesa-600);
+  transform: translateY(-1px);
+}
+.social-row svg { width: 18px; height: 18px; }
+
+/* Ecosistema MF */
+.eco-list { display: flex; flex-direction: column; gap: 8px; }
+.eco-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--gris-700);
+  border-left: 3px solid var(--turquesa-600);
+  border-radius: 10px;
+  transition: background .15s ease, border-color .15s ease;
+}
+.eco-card:hover { background: rgba(255,255,255,0.09); border-color: var(--turquesa-500); color: inherit; }
+.eco-card.principal { border: 1px solid rgba(0,190,200,0.6); border-left: 3px solid var(--turquesa-400); }
+.eco-card.rosa     { border-left-color: #f472b6; }
+.eco-card.dorado   { border-left-color: var(--tulip-tree-500); }
+.eco-icon {
+  font-size: 1.4em;
+  flex-shrink: 0;
+  width: 32px; text-align: center;
+}
+.eco-body { flex: 1; min-width: 0; }
+.eco-body strong { display: block; color: #fff; font-size: 0.92em; font-weight: 600; }
+.eco-body span { display: block; color: var(--gris-400); font-size: 0.78em; margin-top: 2px; }
+.eco-badge {
+  font-size: 0.7em; padding: 3px 9px; border-radius: 999px; flex-shrink: 0;
+}
+.eco-badge.rosa     { color: #f472b6; background: rgba(244,114,182,0.15); }
+.eco-badge.turquesa { color: var(--turquesa-400); background: rgba(0,190,200,0.15); }
+.eco-badge.dorado {
+  color: var(--gris-900); font-weight: 600;
+  background: linear-gradient(135deg, var(--tulip-tree-500), var(--tulip-tree-600));
+}
+
+
+.legal {
+  margin-top: 36px; padding-top: 22px;
+  border-top: 1px solid rgba(0,190,200,0.3);
+  text-align: center; color: var(--gris-400);
+  font-family: var(--font-mono); font-size: 0.78em;
+  max-width: 1100px;
+  margin-left: auto; margin-right: auto;
+}
+.legal .copyright {
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 1em;
+  margin-bottom: 12px;
+}
+.legal .copyright a { color: var(--turquesa-400); }
+.legal .copyright a:hover { color: var(--tulip-tree-500); text-decoration: underline; }
 
 @media (max-width: 768px) {
   .topbar { padding: 0 16px; }
@@ -591,6 +697,7 @@ section { padding: 80px 24px; position: relative; }
   section { padding: 60px 20px; }
   .brain-layout { grid-template-columns: 1fr; gap: 32px; }
   .site-footer .container { grid-template-columns: 1fr; gap: 24px; }
+  .elena-head { flex-direction: column; align-items: flex-start; }
 }
 </style>
 </head>
@@ -1075,41 +1182,80 @@ section { padding: 80px 24px; position: relative; }
 <footer class="site-footer" role="contentinfo">
   <div class="container">
 
-    <section aria-labelledby="footer-about">
-      <h2 id="footer-about">⚡ Sincro</h2>
-      <p style="color:var(--gris-500);max-width:380px">
-        El espacio de juego rítmico de Movimiento Funcional. Respaldado por estudios científicos
-        revisados por otros expertos. De código abierto, tus datos se quedan en tu dispositivo,
-        sin rastreo. Acepta canciones en formato StepMania (.ssc / .sm).
+    <!-- Columna 1: Tarjeta Elena -->
+    <section class="elena-card" aria-labelledby="footer-elena">
+      <div class="elena-head">
+        <img class="elena-photo"
+             src="elena-cruces.webp"
+             alt="Elena Cruces"
+             width="70" height="70">
+        <div class="elena-meta">
+          <h3 id="footer-elena">Elena Cruces</h3>
+          <p>Entrenadora de fuerza para mujeres +40 — Prevención y salud ósea</p>
+          <p class="location">Vigo, Galicia — Online y presencial</p>
+          <span class="elena-cert">Certificada Nº 038020</span>
+        </div>
+      </div>
+      <p class="elena-bio">
+        Más de 8 años ayudando a mujeres +40 a recuperar su fuerza, funcionalidad y confianza.<br>
+        <strong>Metodología científica + experiencia personal.</strong>
       </p>
+      <div class="social-row" aria-label="Redes sociales">
+        <a href="https://t.me/movimientofuncional" target="_blank" rel="noopener noreferrer" aria-label="Telegram">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.14-3.05-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+        </a>
+        <a href="https://youtube.com/@movimientofuncional" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.5 6.2c-.3-1-1.1-1.8-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5C1.6 4.4.8 5.2.5 6.2.1 8.1.1 12 .1 12s0 3.9.4 5.8c.3 1 1.1 1.8 2.1 2.1 1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5c1-.3 1.8-1.1 2.1-2.1.4-1.9.4-5.8.4-5.8s0-3.9-.4-5.8zM9.6 15.6V8.4l6.2 3.6-6.2 3.6z"/></svg>
+        </a>
+        <a href="https://www.linkedin.com/in/elena-cruces-movimientofuncional-net/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45v6.29zM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12zm1.78 13.02H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z"/></svg>
+        </a>
+        <a href="https://www.instagram.com/movimientofuncional.es/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16zM12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63c-.79.3-1.46.72-2.13 1.39C1.34 2.69.92 3.36.62 4.14.32 4.9.12 5.78.06 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.3.79.72 1.46 1.39 2.13.67.67 1.34 1.09 2.13 1.39.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56.79-.3 1.46-.72 2.13-1.39.67-.67 1.09-1.34 1.39-2.13.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91-.3-.79-.72-1.46-1.39-2.13C21.31 1.34 20.64.92 19.86.62 19.1.32 18.22.12 16.95.06 15.67.01 15.26 0 12 0zm0 5.84a6.16 6.16 0 1 0 0 12.32 6.16 6.16 0 0 0 0-12.32zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.41-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z"/></svg>
+        </a>
+      </div>
     </section>
 
-    <nav aria-labelledby="footer-tools">
-      <h2 id="footer-tools">Herramientas</h2>
-      <ul>
-        <li><a href="play.html">▶ Jugar</a></li>
-        <li><a href="autostepper.html">🎵 AutoStepper</a></li>
-        <li><a href="test-pad.html">🦶 Comprobar el equipo</a></li>
-      </ul>
-    </nav>
-
-    <nav aria-labelledby="footer-science">
-      <h2 id="footer-science">Ciencia</h2>
-      <ul>
-        <li><a href="#beneficios">Tres beneficios</a></li>
-        <li><a href="#cerebro">Tu cerebro</a></li>
-        <li><a href="https://doi.org/10.1136/bjsports-2024-108589" target="_blank" rel="noopener noreferrer">Revisión científica 2025 (BJSM)</a></li>
-        <li><a href="https://doi.org/10.1093/gerona/glae035" target="_blank" rel="noopener noreferrer">Estudio sobre videojuegos de baile</a></li>
-      </ul>
+    <!-- Columna 2: Ecosistema Movimiento Funcional -->
+    <nav aria-labelledby="footer-eco">
+      <h2 id="footer-eco">🔗 Ecosistema Movimiento Funcional</h2>
+      <div class="eco-list">
+        <a class="eco-card principal" href="https://academia.movimientofuncional.app" target="_blank" rel="noopener noreferrer">
+          <span class="eco-icon" aria-hidden="true">🏋️</span>
+          <span class="eco-body"><strong>Odisea Antifrágil</strong><span>Tu academia de entrenamiento funcional</span></span>
+        </a>
+        <a class="eco-card rosa" href="https://academia.movimientofuncional.app/entrena-tus-huesos" target="_blank" rel="noopener noreferrer">
+          <span class="eco-icon" aria-hidden="true">🦴</span>
+          <span class="eco-body"><strong>Entrena tu Hueso</strong><span>Guía práctica: impacto progresivo en casa</span></span>
+          <span class="eco-badge rosa">Gratis</span>
+        </a>
+        <a class="eco-card" href="https://academia.movimientofuncional.app/curso-menopausia" target="_blank" rel="noopener noreferrer">
+          <span class="eco-icon" aria-hidden="true">🎓</span>
+          <span class="eco-body"><strong>Recupera tu Vitalidad</strong><span>Curso gratuito: menopausia y entrenamiento</span></span>
+          <span class="eco-badge turquesa">Gratis</span>
+        </a>
+        <a class="eco-card dorado" href="https://movimientofuncional.app/proyecto-genesis" target="_blank" rel="noopener noreferrer">
+          <span class="eco-icon" aria-hidden="true">⭐</span>
+          <span class="eco-body"><strong>Proyecto Génesis</strong><span>Tu punto de partida personalizado</span></span>
+          <span class="eco-badge dorado">De pago</span>
+        </a>
+      </div>
     </nav>
 
   </div>
 
-  <p class="legal">
-    Esta información tiene fines divulgativos. Las referencias citadas provienen de PubMed y Scholar Gateway
-    y no constituyen consejo médico individual. Consulta con un profesional sanitario antes de iniciar
-    cualquier programa de ejercicio si tienes condiciones de salud preexistentes.
-  </p>
+  <div class="legal">
+    <p class="copyright">
+      © 2026 <strong>Movimiento Funcional</strong> — Sincro es una herramienta gratuita y de código abierto ·
+      <a href="https://movimientofuncional.app" target="_blank" rel="noopener noreferrer">movimientofuncional.app</a> ·
+      <a href="mailto:hola@movimientofuncional.app">hola@movimientofuncional.app</a>
+    </p>
+    <p>
+      Esta información tiene fines divulgativos. Las referencias citadas provienen de PubMed y Scholar Gateway
+      y no constituyen consejo médico individual. Consulta con un profesional sanitario antes de iniciar
+      cualquier programa de ejercicio si tienes condiciones de salud preexistentes.
+    </p>
+  </div>
 </footer>
 
 </body>
