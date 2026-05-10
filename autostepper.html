@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>AutoStepper Web — Generador de charts StepMania</title>
+<title>AutoStepper — Crea coreografías para Sincro desde tus canciones</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=ABeeZee&family=Righteous&display=swap');
 
@@ -331,7 +331,7 @@
 <body>
 
 <h1>AutoStepper Web</h1>
-<p class="subtitle">Genera charts StepMania 5 (.ssc + .sm) desde MP3/WAV — 5 dificultades, holds, rolls, jumps, hands, RADARVALUES reales. Procesado en el navegador, sin subir nada.</p>
+<p class="subtitle">Convierte tus canciones (MP3 o WAV) en coreografías jugables: cinco dificultades, notas mantenidas, saltos y notas a dos manos incluidos. Todo el proceso ocurre en tu navegador, no se sube nada a ningún servidor.</p>
 
 <div class="container">
 
@@ -348,7 +348,7 @@
 
   <!-- 2. ESTILO + ANALIZAR -->
   <div class="card" id="optionsCard" style="display:none">
-    <h2>2. Estilo de los charts</h2>
+    <h2>2. Estilo de las coreografías</h2>
 
     <div class="preset-grid">
       <div class="preset" data-preset="suave">
@@ -501,6 +501,7 @@
   </div>
 </div>
 
+<script src="stepmania-web/js/audio-pipeline.js"></script>
 <script>
 // ============================================================
 //                  GLOBAL STATE
@@ -509,6 +510,10 @@
 const queue = [];
 let queueIdCounter = 0;
 
+// audioCtx local: lo expone AudioPipeline. Mantenemos esta referencia para que
+// el código de reproducción/preview (createBufferSource, createOscillator…)
+// pueda usarla directamente sin pasar por el módulo. Se rellena lazy en
+// ensureAudioCtx().
 let audioCtx = null;
 let analyzing = false;
 let cancelRequested = false;
@@ -725,141 +730,25 @@ function closeTapSync() {
 }
 
 // ============================================================
-//                  AUDIO PROCESSING
+//                  AUDIO PROCESSING — delegado a AudioPipeline
 // ============================================================
+// La pipeline (decode, mono, bass-emphasis, envelope, ODF, peaks, BPM,
+// offset) vive en stepmania-web/js/audio-pipeline.js — compartida con
+// gh-autostepper.html. Ver ese módulo para detalles de cada algoritmo.
+// Aquí solo destructuramos para mantener llamadas sin prefijo.
+const {
+  decodeFile, toMono, bassEmphasize,
+  computeEnergyEnvelope, computeODF,
+  pickPeaks, detectBPM, detectOffset
+} = window.AudioPipeline;
+
+// ensureAudioCtx local: rellena el `audioCtx` global para que el código de
+// reproducción/preview (createBufferSource, createOscillator, etc.) pueda
+// usarlo directamente. Internamente delega al singleton del módulo, así que
+// análisis y playback comparten el mismo AudioContext.
 function ensureAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!audioCtx) audioCtx = window.AudioPipeline.ensureAudioContext();
   return audioCtx;
-}
-
-async function decodeFile(file) {
-  ensureAudioCtx();
-  const buf = await file.arrayBuffer();
-  return await audioCtx.decodeAudioData(buf.slice(0));
-}
-
-function toMono(buffer) {
-  const ch0 = buffer.getChannelData(0);
-  if (buffer.numberOfChannels === 1) return ch0;
-  const ch1 = buffer.getChannelData(1);
-  const out = new Float32Array(ch0.length);
-  for (let i = 0; i < ch0.length; i++) out[i] = (ch0[i] + ch1[i]) * 0.5;
-  return out;
-}
-
-function computeEnergyEnvelope(samples, sr) {
-  const winMs = 23, hopMs = 5;
-  const winSize = Math.floor(sr * winMs / 1000);
-  const hopSize = Math.floor(sr * hopMs / 1000);
-  const numFrames = Math.max(0, Math.floor((samples.length - winSize) / hopSize));
-  const env = new Float32Array(numFrames);
-  for (let f = 0; f < numFrames; f++) {
-    let sum = 0;
-    const start = f * hopSize;
-    for (let i = 0; i < winSize; i++) { const s = samples[start + i]; sum += s*s; }
-    env[f] = Math.sqrt(sum / winSize);
-  }
-  return { env, hopSize, framesPerSec: sr / hopSize };
-}
-
-function computeODF(env) {
-  const odf = new Float32Array(env.length);
-  for (let i = 1; i < env.length; i++) {
-    const a = env[i] + 1e-6;
-    const b = env[i-1] + 1e-6;
-    const d = Math.log(a) - Math.log(b);
-    odf[i] = d > 0 ? d : 0;
-  }
-  let max = 0;
-  for (let i = 0; i < odf.length; i++) if (odf[i] > max) max = odf[i];
-  if (max > 0) for (let i = 0; i < odf.length; i++) odf[i] /= max;
-  return odf;
-}
-
-function pickPeaks(odf, framesPerSec, sensitivity) {
-  const peaks = [];
-  const halfWin = Math.floor(framesPerSec * 0.075);
-  const minSpacing = Math.floor(framesPerSec * 0.05);
-
-  const meanArr = new Float32Array(odf.length);
-  let sum = 0;
-  const winLen = Math.min(2*halfWin + 1, odf.length);
-  for (let i = 0; i < winLen; i++) sum += odf[i];
-  for (let i = 0; i < odf.length; i++) {
-    const lo = i - halfWin - 1;
-    const hi = i + halfWin;
-    if (lo >= 0 && hi < odf.length) sum += odf[hi] - odf[lo];
-    meanArr[i] = sum / Math.max(1, winLen);
-  }
-
-  for (let i = 1; i < odf.length - 1; i++) {
-    const thresh = Math.max(0.02, meanArr[i] * sensitivity);
-    if (odf[i] > thresh && odf[i] > odf[i-1] && odf[i] >= odf[i+1]) {
-      if (peaks.length === 0 || i - peaks[peaks.length-1] >= minSpacing) {
-        peaks.push(i);
-      }
-    }
-  }
-  return peaks;
-}
-
-// BPM range tuned for danceable genres:
-//   pop/rock ~90-130, house ~120-130, techno ~125-145, DnB ~165-180.
-// Narrower range than general-purpose detection → fewer octave errors.
-function detectBPM(odf, framesPerSec) {
-  const minLag = Math.floor(framesPerSec * 60 / 180);
-  const maxLag = Math.floor(framesPerSec * 60 / 90);
-  let best = { lag: 0, score: 0 };
-  for (let lag = minLag; lag <= maxLag; lag++) {
-    let s = 0;
-    const N = odf.length - lag;
-    for (let i = 0; i < N; i++) s += odf[i] * odf[i + lag];
-    if (s > best.score) best = { lag, score: s };
-  }
-  let bpm = 60 * framesPerSec / best.lag;
-  while (bpm < 90) bpm *= 2;
-  while (bpm > 180) bpm /= 2;
-  return bpm;
-}
-
-function detectOffset(odf, framesPerSec, bpm) {
-  const beatFrames = framesPerSec * 60 / bpm;
-  const numBeats = Math.floor(odf.length / beatFrames);
-  let best = { phase: 0, score: 0 };
-  const step = Math.max(1, Math.floor(beatFrames / 100));
-  for (let phase = 0; phase < beatFrames; phase += step) {
-    let s = 0;
-    for (let b = 0; b < numBeats; b++) {
-      const idx = Math.round(phase + b * beatFrames);
-      if (idx < odf.length) s += odf[idx];
-    }
-    if (s > best.score) best = { phase, score: s };
-  }
-  return best.phase / framesPerSec;
-}
-
-// Bass-emphasis pre-filter — cascaded 2-pole IIR low-pass at ~200 Hz.
-// Isolates kick drum and bassline so the envelope is dominated by the
-// downbeat in danceable genres (techno, dance, pop, rock). Removes
-// vocals, hi-hats, distorted guitars, cymbals — anything that would
-// add noise to BPM detection.
-function bassEmphasize(samples, sr) {
-  const fc = 200;
-  const alpha = Math.exp(-2 * Math.PI * fc / sr);
-  const oneMinus = 1 - alpha;
-  const out = new Float32Array(samples.length);
-  let y = 0;
-  for (let i = 0; i < samples.length; i++) {
-    y = alpha * y + oneMinus * samples[i];
-    out[i] = y;
-  }
-  // Second cascaded pass for steeper rolloff (~12 dB/octave)
-  y = 0;
-  for (let i = 0; i < out.length; i++) {
-    y = alpha * y + oneMinus * out[i];
-    out[i] = y;
-  }
-  return out;
 }
 
 // ============================================================

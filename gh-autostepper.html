@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>GH AutoStepper — Crea charts de Guitar Hero (.chart) desde tus canciones</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=ABeeZee&family=Righteous&display=swap');
+
+  :root {
+    --turquesa-600: #00bec8;
+    --turquesa-700: #088b96;
+    --rosa-500: #e11d48;
+    --rosa-600: #e11d48;
+    --rosa-700: #be123c;
+    --tulip-tree-400: #facc15;
+    --tulip-tree-500: #eab308;
+    --color-success: #10b981;
+    --color-success-light: #d1fae5;
+    --color-success-dark: #047857;
+    --color-warning: #f59e0b;
+    --color-warning-light: #fef3c7;
+    --color-warning-dark: #d97706;
+    --color-error: #ef4444;
+    --color-error-light: #fee2e2;
+    --color-error-dark: #dc2626;
+    --gris-100: #f3f4f6;
+    --gris-200: #e5e7eb;
+    --gris-300: #d1d5db;
+    --gris-400: #9ca3af;
+    --gris-500: #6b7280;
+    --gris-700: #374151;
+    --gris-800: #1f2937;
+    --gris-900: #111827;
+
+    /* Paleta GH: 5 colores de trastes */
+    --fret-green:  #10b981;
+    --fret-red:    #ef4444;
+    --fret-yellow: #facc15;
+    --fret-blue:   #3b82f6;
+    --fret-orange: #f97316;
+    --gh-accent:   #f97316;        /* naranja GH como acento principal */
+    --gh-accent-2: #fbbf24;        /* dorado para gradientes */
+
+    --font-display: 'Righteous', Arial, sans-serif;
+    --font-sans: 'ABeeZee', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono: 'Consolas', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: linear-gradient(135deg, var(--gris-900) 0%, #000 100%);
+    color: #fff; min-height: 100vh; padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    font-family: var(--font-display);
+    background: linear-gradient(90deg, var(--fret-green), var(--fret-yellow), var(--fret-orange), var(--fret-red));
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent; font-size: 2.2em; margin-bottom: 4px;
+    letter-spacing: 0.02em;
+  }
+  .subtitle { color: var(--gris-400); text-align: center; margin-bottom: 24px; font-size: 0.9em; }
+
+  .container {
+    max-width: 1100px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  .card {
+    background: rgba(0,0,0,0.4); border-radius: 14px;
+    padding: 20px 24px; border: 1px solid rgba(249,115,22,0.25);
+  }
+  .card h2 {
+    font-family: var(--font-display);
+    color: var(--gh-accent); font-size: 1.05em; margin-bottom: 14px;
+    border-bottom: 1px solid rgba(249,115,22,0.3); padding-bottom: 8px;
+    letter-spacing: 0.02em;
+  }
+
+  .drop-zone {
+    border: 2px dashed rgba(249,115,22,0.5); border-radius: 12px;
+    padding: 30px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: rgba(249,115,22,0.05);
+    display: block;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--gh-accent); background: rgba(249,115,22,0.12);
+    box-shadow: 0 0 24px rgba(249,115,22,0.25);
+  }
+  .drop-zone .big-icon { font-size: 3em; margin-bottom: 8px; }
+  .drop-zone p { color: var(--gris-400); }
+  input[type="file"] { display: none; }
+
+  /* Queue */
+  .queue {
+    margin-top: 14px; border-radius: 10px; overflow: hidden;
+    background: rgba(0,0,0,0.3);
+  }
+  .queue-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 90px 110px 130px 110px;
+    gap: 8px; align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.88em;
+  }
+  .queue-row.header {
+    background: rgba(249,115,22,0.15); color: var(--gris-300);
+    font-weight: 600; font-size: 0.78em; text-transform: uppercase;
+  }
+  .queue-row .name { color: #fff; word-break: break-word; }
+  .queue-row .status .badge {
+    display: inline-block; padding: 3px 8px; border-radius: 6px;
+    font-size: 0.78em; font-weight: 600;
+  }
+  .badge.pending  { background: var(--gris-200); color: var(--gris-700); }
+  .badge.working  { background: var(--color-warning-light); color: var(--color-warning-dark); }
+  .badge.done     { background: rgba(16,185,129,0.2); color: var(--color-success); }
+  .badge.error    { background: var(--color-error-light); color: var(--color-error-dark); }
+  .queue-row .bpm input {
+    width: 70px; background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(249,115,22,0.4); color: #fff;
+    padding: 4px 6px; border-radius: 6px; font-family: var(--font-mono);
+  }
+  .queue-row .actions { display: flex; gap: 4px; }
+  .queue-row .icon-btn {
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+    color: #fff; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+    font-size: 0.8em; transition: all 0.15s;
+  }
+  .queue-row .icon-btn:hover { background: rgba(249,115,22,0.3); }
+  .queue-row .icon-btn.danger:hover { background: rgba(225,29,72,0.4); }
+
+  .form-row {
+    display: flex; gap: 12px; align-items: center;
+    margin-bottom: 10px; flex-wrap: wrap;
+  }
+  .form-row label { color: var(--gris-400); min-width: 130px; font-size: 0.9em; }
+  .form-row input[type="number"], .form-row select, .form-row input[type="text"] {
+    background: rgba(0,0,0,0.5); border: 1px solid rgba(249,115,22,0.4);
+    color: #fff; padding: 6px 10px; border-radius: 6px; font-family: inherit;
+    flex: 1; min-width: 100px;
+  }
+  .form-row input[type="range"] { flex: 1; min-width: 180px; accent-color: var(--gh-accent); }
+  .form-row .display { font-family: var(--font-mono); color: var(--fret-yellow); font-weight: 700; min-width: 60px; }
+
+  button.action-btn {
+    padding: 10px 22px;
+    background: linear-gradient(90deg, var(--gh-accent), var(--fret-red));
+    border: none; color: white; border-radius: 8px;
+    cursor: pointer; font-weight: 700; font-size: 0.95em;
+    transition: opacity 0.2s, box-shadow 0.2s;
+    font-family: var(--font-display); letter-spacing: 0.02em;
+  }
+  button.action-btn:hover { opacity: 0.92; box-shadow: 0 0 16px rgba(249,115,22,0.5); }
+  button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+  button.action-btn.secondary {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  button.action-btn.danger {
+    background: linear-gradient(90deg, var(--rosa-600), var(--rosa-700));
+  }
+
+  .progress-bar {
+    height: 10px; background: rgba(255,255,255,0.08);
+    border-radius: 5px; overflow: hidden; margin: 10px 0;
+  }
+  .progress-bar .fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--fret-green), var(--fret-yellow), var(--fret-orange), var(--fret-red));
+    transition: width 0.15s; width: 0%;
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px; margin-top: 10px;
+  }
+  .stat {
+    background: rgba(0,0,0,0.4); padding: 12px; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.08); text-align: center;
+  }
+  .stat .label { color: var(--gris-400); font-size: 0.78em; }
+  .stat .value { color: var(--fret-yellow); font-size: 1.4em; font-weight: 700; margin-top: 4px; font-family: var(--font-display); }
+
+  .help { color: var(--gris-500); font-size: 0.85em; line-height: 1.5; margin-top: 6px; }
+  .help strong { color: #fff; }
+
+  .difficulty-card {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; background: rgba(255,255,255,0.04);
+    border-radius: 8px; margin-bottom: 8px;
+  }
+  .difficulty-card .name { color: #fff; font-weight: 600; font-family: var(--font-display); }
+  .difficulty-card .meta { color: var(--gris-400); font-size: 0.85em; }
+
+  .preset-row {
+    display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap;
+  }
+  .preset-btn {
+    padding: 8px 16px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; cursor: pointer;
+    color: #fff; font-family: var(--font-display); font-size: 0.9em;
+    letter-spacing: 0.02em; transition: all 0.2s;
+  }
+  .preset-btn:hover {
+    background: rgba(249,115,22,0.18);
+    border-color: var(--gh-accent);
+  }
+  .preset-btn.active {
+    background: linear-gradient(135deg, var(--gh-accent), var(--fret-red));
+    border-color: transparent; color: #fff;
+    box-shadow: 0 0 12px rgba(249,115,22,0.4);
+  }
+
+  .log {
+    background: #000; border: 1px solid rgba(249,115,22,0.4);
+    padding: 12px; border-radius: 8px;
+    font-family: var(--font-mono); font-size: 0.83em;
+    max-height: 220px; overflow-y: auto;
+    margin-top: 12px; white-space: pre-wrap; line-height: 1.5;
+  }
+  .log .ok   { color: #00ff64; }
+  .log .bad  { color: #ff3366; }
+  .log .warn { color: #ffaa00; }
+  .log .info { color: #3a86ff; }
+
+  .fret-pills { display: inline-flex; gap: 4px; }
+  .fret-pill {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.08);
+  }
+  .fret-pill[data-active="0"] { background: var(--fret-green); border-color: var(--fret-green); box-shadow: 0 0 4px var(--fret-green); }
+  .fret-pill[data-active="1"] { background: var(--fret-red); border-color: var(--fret-red); box-shadow: 0 0 4px var(--fret-red); }
+  .fret-pill[data-active="2"] { background: var(--fret-yellow); border-color: var(--fret-yellow); box-shadow: 0 0 4px var(--fret-yellow); }
+  .fret-pill[data-active="3"] { background: var(--fret-blue); border-color: var(--fret-blue); box-shadow: 0 0 4px var(--fret-blue); }
+  .fret-pill[data-active="4"] { background: var(--fret-orange); border-color: var(--fret-orange); box-shadow: 0 0 4px var(--fret-orange); }
+
+  .footer-link {
+    text-align: center; margin-top: 30px; color: var(--gris-500);
+    font-size: 0.85em;
+  }
+  .footer-link a { color: var(--gh-accent); text-decoration: none; }
+  .footer-link a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<h1>🎸 GH AutoStepper</h1>
+<p class="subtitle">Genera charts de Guitar Hero (<code>.chart</code>) desde MP3/WAV — listos para Clone Hero o el simulador de Sincro</p>
+
+<div class="container">
+
+  <!-- 1. UPLOAD -->
+  <div class="card">
+    <h2>1 · Sube canciones</h2>
+    <label class="drop-zone" id="dropZone">
+      <div class="big-icon">🎵</div>
+      <p><strong style="color:#fff">Arrastra MP3/WAV aquí</strong> o pulsa para seleccionar</p>
+      <p style="margin-top:6px;font-size:0.8em">Puedes añadir varios archivos a la cola</p>
+      <input type="file" id="fileInput" accept="audio/*" multiple>
+    </label>
+
+    <div class="queue" id="queue"></div>
+  </div>
+
+  <!-- 2. PRESET + SETTINGS -->
+  <div class="card">
+    <h2>2 · Ajustes</h2>
+    <div class="preset-row">
+      <button class="preset-btn" data-preset="suave">🌿 Suave</button>
+      <button class="preset-btn active" data-preset="normal">⚡ Normal</button>
+      <button class="preset-btn" data-preset="intenso">🔥 Intenso</button>
+      <button class="preset-btn" data-preset="custom">⚙️ Custom</button>
+    </div>
+
+    <div class="form-row">
+      <label>Sensibilidad onsets:</label>
+      <input type="range" id="sensitivity" min="0.8" max="3.0" step="0.1" value="1.7">
+      <span class="display" id="sensVal">1.7</span>
+    </div>
+    <div class="help">Más bajo = detecta más notas. Sub-1.0 puede meter ruido en canciones suaves.</div>
+
+    <div class="form-row" style="margin-top:14px">
+      <label>Resolución máx (Expert):</label>
+      <select id="subdiv">
+        <option value="4">Negras (1/4)</option>
+        <option value="8" selected>Corcheas (1/8)</option>
+        <option value="16">Semicorcheas (1/16)</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <label>% chords (Hard+):</label>
+      <input type="range" id="chordProb" min="0" max="0.6" step="0.05" value="0.18">
+      <span class="display" id="chordVal">18%</span>
+    </div>
+    <div class="help">Probabilidad de que una nota se convierta en acorde de 2 trastes. Easy/Medium nunca tienen chords.</div>
+
+    <div class="form-row">
+      <label>% sustains:</label>
+      <input type="range" id="sustainProb" min="0" max="0.5" step="0.05" value="0.20">
+      <span class="display" id="sustainVal">20%</span>
+    </div>
+    <div class="help">Probabilidad de que una nota con gap ≥ 1/2 beat al siguiente se convierta en sustain.</div>
+
+    <div class="form-row" style="margin-top:14px">
+      <label>Charter:</label>
+      <input type="text" id="charter" value="Sincro AutoStepper">
+    </div>
+    <div class="form-row">
+      <label>Género:</label>
+      <input type="text" id="genre" placeholder="Rock / Pop / Electronic..." value="">
+    </div>
+  </div>
+
+  <!-- 3. PROCESS -->
+  <div class="card">
+    <h2>3 · Generar</h2>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <button class="action-btn" id="processBtn" onclick="processAll()" disabled>▶ Generar charts</button>
+      <button class="action-btn secondary" onclick="cancelProcessing()">⊘ Cancelar</button>
+      <button class="action-btn danger" onclick="clearQueue()">Vaciar cola</button>
+    </div>
+    <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <!-- 4. DOWNLOADS -->
+  <div class="card" id="downloadsCard" style="display:none">
+    <h2>4 · Descargar</h2>
+    <p class="help">Cada ZIP contiene <code>notes.chart</code> + <code>song.ini</code> + el audio. Para Clone Hero: extraer cada ZIP en una carpeta dentro de <code>/Songs/</code>.</p>
+    <div id="downloads" style="margin-top:10px"></div>
+    <button class="action-btn" id="downloadAllBtn" onclick="downloadAllZip()" style="margin-top:14px">⬇ Descargar TODO (un ZIP)</button>
+  </div>
+
+</div>
+
+<div class="footer-link">
+  Suite Sincro · <a href="autostepper.html">AutoStepper StepMania (.ssc/.sm)</a> ·
+  <a href="test-pad.html">Probar hardware</a>
+</div>
+
+<script src="stepmania-web/js/audio-pipeline.js"></script>
+<script>
+// ============================================================================
+//  GH AutoStepper — generador de charts Guitar Hero (.chart Clone Hero format)
+//
+//  Pipeline (igual que el SM autostepper salvo el output):
+//    decode → bass-emphasis → envelope → ODF → peaks ⊕ BPM ⊕ offset → notas
+//
+//  La asignación de trastes usa una caminata aleatoria con bias hacia trastes
+//  adyacentes (transiciones suaves) y prohibición de repetir traste consecutivo.
+//  Los chords (multi-fret simultáneo) se introducen en Hard/Expert según el
+//  slider chordProb. Los sustains se aplican cuando hay gap ≥ 1/2 beat hasta
+//  la siguiente nota, con probabilidad sustainProb.
+// ============================================================================
+
+const CHART_RESOLUTION = 192;  // ticks per quarter note (SM y CH usan ambos 192)
+
+const {
+  decodeFile, toMono, bassEmphasize,
+  computeEnergyEnvelope, computeODF,
+  pickPeaks, detectBPM, detectOffset,
+  ensureAudioContext
+} = window.AudioPipeline;
+
+// ---- Estado ----
+const queue = [];
+let queueIdCounter = 0;
+let analyzing = false;
+let cancelRequested = false;
+
+// ---- Presets ----
+const PRESETS = {
+  suave:  { sens: 2.4, subdiv: 4,  chordProb: 0.05, sustainProb: 0.30 },
+  normal: { sens: 1.7, subdiv: 8,  chordProb: 0.18, sustainProb: 0.20 },
+  intenso:{ sens: 1.3, subdiv: 16, chordProb: 0.40, sustainProb: 0.10 }
+};
+let activePreset = 'normal';
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activePreset = btn.dataset.preset;
+    document.querySelectorAll('.preset-btn').forEach(b =>
+      b.classList.toggle('active', b === btn));
+    if (activePreset !== 'custom') applyPreset(PRESETS[activePreset]);
+  });
+});
+function applyPreset(p) {
+  document.getElementById('sensitivity').value = p.sens;
+  document.getElementById('sensVal').textContent = p.sens.toFixed(1);
+  document.getElementById('subdiv').value = p.subdiv;
+  document.getElementById('chordProb').value = p.chordProb;
+  document.getElementById('chordVal').textContent = Math.round(p.chordProb*100) + '%';
+  document.getElementById('sustainProb').value = p.sustainProb;
+  document.getElementById('sustainVal').textContent = Math.round(p.sustainProb*100) + '%';
+}
+
+// Sliders → display
+document.getElementById('sensitivity').addEventListener('input', e =>
+  document.getElementById('sensVal').textContent = parseFloat(e.target.value).toFixed(1));
+document.getElementById('chordProb').addEventListener('input', e =>
+  document.getElementById('chordVal').textContent = Math.round(parseFloat(e.target.value)*100) + '%');
+document.getElementById('sustainProb').addEventListener('input', e =>
+  document.getElementById('sustainVal').textContent = Math.round(parseFloat(e.target.value)*100) + '%');
+
+// ---- Drop zone + file input ----
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  addFiles(Array.from(e.dataTransfer.files));
+});
+fileInput.addEventListener('change', e => addFiles(Array.from(e.target.files)));
+
+function addFiles(files) {
+  for (const f of files) {
+    if (!/\.(mp3|wav|ogg|m4a|flac)$/i.test(f.name)) continue;
+    const m = f.name.match(/^(.+?)\s*[-–]\s*(.+?)\.[^.]+$/);
+    let title = '', artist = '';
+    if (m) { artist = m[1].trim(); title = m[2].trim(); }
+    else { title = f.name.replace(/\.[^.]+$/, ''); }
+    queue.push({
+      id: ++queueIdCounter,
+      file: f,
+      title, artist,
+      bpmOverride: '',
+      status: 'pending',
+      result: null,
+      zipBlob: null,
+      error: null
+    });
+  }
+  renderQueue();
+  document.getElementById('processBtn').disabled = queue.length === 0;
+}
+
+function renderQueue() {
+  const el = document.getElementById('queue');
+  if (queue.length === 0) { el.innerHTML = ''; return; }
+  let html = `<div class="queue-row header">
+    <div>Canción</div><div>BPM</div><div>Notas</div><div>Estado</div><div>Override BPM</div><div>Acciones</div>
+  </div>`;
+  for (const q of queue) {
+    const bpmText = q.result ? q.result.bpm.toFixed(1) : '--';
+    const totalNotes = q.result ? q.result.charts.reduce((s, c) => s + c.notes.length, 0) : '--';
+    const titleArtist = q.artist
+      ? `<strong>${escHtml(q.title)}</strong><div style="font-size:0.85em;color:#aaa">${escHtml(q.artist)}</div>`
+      : `<strong>${escHtml(q.title)}</strong>`;
+    html += `<div class="queue-row" data-id="${q.id}">
+      <div class="name">${titleArtist}</div>
+      <div style="color:${q.result ? '#00ff64' : '#aaa'}">${bpmText}</div>
+      <div>${totalNotes}</div>
+      <div class="status"><span class="badge ${q.status}">${q.status}</span></div>
+      <div class="bpm">
+        <input type="number" placeholder="auto" min="40" max="240" step="0.1"
+          value="${q.bpmOverride}" oninput="setBpmOverride(${q.id}, this.value)" title="Forzar BPM">
+      </div>
+      <div class="actions">
+        <button class="icon-btn" onclick="moveItem(${q.id}, -1)">▲</button>
+        <button class="icon-btn" onclick="moveItem(${q.id}, 1)">▼</button>
+        <button class="icon-btn danger" onclick="removeItem(${q.id})">✕</button>
+      </div>
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+function escHtml(s) { return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+window.setBpmOverride = function(id, val) {
+  const q = queue.find(x => x.id === id);
+  if (q) q.bpmOverride = val;
+};
+window.moveItem = function(id, dir) {
+  const i = queue.findIndex(q => q.id === id);
+  if (i < 0) return;
+  const j = i + dir;
+  if (j < 0 || j >= queue.length) return;
+  [queue[i], queue[j]] = [queue[j], queue[i]];
+  renderQueue();
+};
+window.removeItem = function(id) {
+  const i = queue.findIndex(q => q.id === id);
+  if (i >= 0) queue.splice(i, 1);
+  renderQueue();
+  document.getElementById('processBtn').disabled = queue.length === 0;
+};
+function clearQueue() {
+  if (analyzing) return;
+  queue.length = 0;
+  renderQueue();
+  document.getElementById('downloadsCard').style.display = 'none';
+  document.getElementById('downloads').innerHTML = '';
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('processBtn').disabled = true;
+}
+
+// ---- Log ----
+function log(msg, cls='') {
+  const el = document.getElementById('log');
+  const ts = new Date().toTimeString().slice(0,8);
+  el.innerHTML += `<span class="${cls}">[${ts}] ${msg}</span>\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
+// ============================================================================
+//                          NOTE GENERATION (5 frets)
+// ============================================================================
+// Modelo de nota: { tick: int, frets: [int...], sustain: int }
+//   - frets: array de [0..4] (Verde/Rojo/Amarillo/Azul/Naranja). Más de uno = chord.
+//   - sustain: 0 = nota corta; >0 = duración del sustain en ticks (192 = una negra).
+// Usamos open notes (fret=7 en el formato .chart) para cada cierto número de
+// medidas a fin de simular bombo/notas graves, opcional.
+
+const FRET_GREEN = 0, FRET_RED = 1, FRET_YELLOW = 2, FRET_BLUE = 3, FRET_ORANGE = 4;
+
+// Configuración por dificultad: densidad (qué fracción de onsets se conservan),
+// rango de trastes permitidos, si se permiten chords, si se permiten sustains.
+const DIFFICULTIES = [
+  { name: 'Easy',       section: 'EasySingle',   density: 0.30, fretRange: [0, 2], allowChords: false, sustainsAllowed: true,  meter: 1 },
+  { name: 'Medium',     section: 'MediumSingle', density: 0.55, fretRange: [0, 3], allowChords: false, sustainsAllowed: true,  meter: 3 },
+  { name: 'Hard',       section: 'HardSingle',   density: 0.80, fretRange: [0, 4], allowChords: true,  sustainsAllowed: true,  meter: 5 },
+  { name: 'Expert',     section: 'ExpertSingle', density: 1.00, fretRange: [0, 4], allowChords: true,  sustainsAllowed: true,  meter: 7 }
+];
+
+// Devuelve un array de notas para la dificultad dada.
+//   onsetTicks: array de ticks (int) de cada onset detectado
+//   bpm: tempo en BPM (constante por toda la canción para MVP)
+function generateNotesForDifficulty(onsetTicks, diff, chordProb, sustainProb) {
+  if (onsetTicks.length === 0) return [];
+  const notes = [];
+  // Density filter: conservamos cada N-ésimo onset según density
+  const stride = Math.max(1, Math.round(1 / diff.density));
+  const filtered = [];
+  for (let i = 0; i < onsetTicks.length; i += stride) filtered.push(onsetTicks[i]);
+
+  let lastFret = -1;
+  for (let i = 0; i < filtered.length; i++) {
+    const tick = filtered[i];
+    const nextTick = filtered[i + 1];
+
+    // Decidir trastes: caminata aleatoria con bias hacia adyacentes,
+    // sin repetir el último.
+    const fret = pickNextFret(lastFret, diff.fretRange);
+    const fretsThisNote = [fret];
+
+    // Chord: añadir un fret adicional adyacente con probabilidad chordProb
+    if (diff.allowChords && Math.random() < chordProb) {
+      const adj = (Math.random() < 0.5 && fret > diff.fretRange[0]) ? fret - 1
+                : (fret < diff.fretRange[1] ? fret + 1 : fret - 1);
+      if (adj !== fret && adj >= diff.fretRange[0] && adj <= diff.fretRange[1]) {
+        fretsThisNote.push(adj);
+      }
+    }
+
+    // Sustain: si hay gap >= 1/2 beat (96 ticks) hasta el siguiente onset,
+    // con probabilidad sustainProb convertimos esto en sustain que cubre
+    // hasta el 80% de ese gap.
+    let sustain = 0;
+    if (diff.sustainsAllowed && nextTick !== undefined) {
+      const gap = nextTick - tick;
+      if (gap >= CHART_RESOLUTION / 2 && Math.random() < sustainProb) {
+        sustain = Math.floor(gap * 0.8);
+      }
+    }
+
+    notes.push({ tick, frets: fretsThisNote, sustain });
+    lastFret = fret;
+  }
+  return notes;
+}
+
+// Heurística: 65% adjacent, 25% jump 2, 10% random within range.
+function pickNextFret(last, range) {
+  const [lo, hi] = range;
+  if (last < 0) {
+    // Primera nota: bias hacia verde/rojo (más fácil empezar bajo)
+    return lo + Math.floor(Math.random() * Math.min(2, hi - lo + 1));
+  }
+  const r = Math.random();
+  let candidate;
+  if (r < 0.65) {
+    candidate = last + (Math.random() < 0.5 ? -1 : 1);
+  } else if (r < 0.90) {
+    candidate = last + (Math.random() < 0.5 ? -2 : 2);
+  } else {
+    candidate = lo + Math.floor(Math.random() * (hi - lo + 1));
+  }
+  // Wrap dentro del rango
+  if (candidate < lo) candidate = lo + (lo - candidate);
+  if (candidate > hi) candidate = hi - (candidate - hi);
+  if (candidate === last) {
+    candidate = (candidate < hi) ? candidate + 1 : candidate - 1;
+  }
+  candidate = Math.max(lo, Math.min(hi, candidate));
+  return candidate;
+}
+
+// ============================================================================
+//                          .CHART EXPORTER
+// ============================================================================
+// Formato Feedback / Clone Hero. Texto plano. Resolución 192 ticks/quarter.
+// Las notas se escriben como `<tick> = N <fret> <sustain>`.
+//   fret: 0=Green, 1=Red, 2=Yellow, 3=Blue, 4=Orange, 7=Open (sin traste)
+// Múltiples líneas en el mismo tick = chord. CH auto-detecta HOPOs por
+// proximidad al onset anterior (no marcamos forzados).
+
+function buildChartFile(meta, charts) {
+  const lines = [];
+
+  // [Song]
+  lines.push('[Song]');
+  lines.push('{');
+  lines.push(`  Name = "${escChartString(meta.name)}"`);
+  lines.push(`  Artist = "${escChartString(meta.artist)}"`);
+  lines.push(`  Charter = "${escChartString(meta.charter)}"`);
+  lines.push(`  Album = ""`);
+  lines.push(`  Year = ", ${new Date().getFullYear()}"`);
+  lines.push(`  Offset = 0`);
+  lines.push(`  Resolution = ${CHART_RESOLUTION}`);
+  lines.push(`  Player2 = bass`);
+  lines.push(`  Difficulty = 4`);
+  lines.push(`  PreviewStart = 0`);
+  lines.push(`  PreviewEnd = 0`);
+  lines.push(`  Genre = "${escChartString(meta.genre)}"`);
+  lines.push(`  MediaType = "cd"`);
+  lines.push(`  MusicStream = "${meta.audioFilename}"`);
+  lines.push('}');
+
+  // [SyncTrack] — para MVP solo un BPM constante. El offset musical lo
+  // metemos como Offset del Song header (en segundos), no en SyncTrack.
+  // CH usa milibeats: `B 120000` = 120.000 BPM. Multiplicar BPM por 1000.
+  lines.push('[SyncTrack]');
+  lines.push('{');
+  lines.push(`  0 = TS 4`);
+  lines.push(`  0 = B ${Math.round(meta.bpm * 1000)}`);
+  lines.push('}');
+
+  // [Events]
+  lines.push('[Events]');
+  lines.push('{');
+  lines.push('}');
+
+  // Una sección por dificultad
+  for (const c of charts) {
+    lines.push(`[${c.section}]`);
+    lines.push('{');
+    for (const n of c.notes) {
+      for (const f of n.frets) {
+        lines.push(`  ${n.tick} = N ${f} ${n.sustain}`);
+      }
+    }
+    lines.push('}');
+  }
+  return lines.join('\n');
+}
+function escChartString(s) {
+  return (s || '').replace(/"/g, '\\"');
+}
+
+// song.ini — metadata adicional para Clone Hero (no obligatoria pero sí útil
+// para que aparezca bonito en el menú).
+function buildSongIni(meta) {
+  return `[song]
+name = ${meta.name}
+artist = ${meta.artist}
+album =
+genre = ${meta.genre}
+year = ${new Date().getFullYear()}
+charter = ${meta.charter}
+diff_band = -1
+diff_guitar = ${meta.diffGuitar}
+diff_bass = -1
+diff_drums = -1
+diff_keys = -1
+delay = 0
+preview_start_time = 0
+song_length = ${Math.round(meta.duration * 1000)}
+`;
+}
+
+// ============================================================================
+//                     PROCESS — análisis + generación
+// ============================================================================
+async function processAll() {
+  if (analyzing) return;
+  analyzing = true;
+  cancelRequested = false;
+  document.getElementById('processBtn').disabled = true;
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('downloads').innerHTML = '';
+  document.getElementById('downloadsCard').style.display = 'none';
+
+  ensureAudioContext();
+  const charterName = document.getElementById('charter').value || 'Sincro';
+  const genre = document.getElementById('genre').value || '';
+  const sensitivity = parseFloat(document.getElementById('sensitivity').value);
+  const chordProb = parseFloat(document.getElementById('chordProb').value);
+  const sustainProb = parseFloat(document.getElementById('sustainProb').value);
+
+  const total = queue.length;
+  let done = 0;
+  for (const q of queue) {
+    if (cancelRequested) { log('Cancelado por el usuario', 'warn'); break; }
+    q.status = 'working';
+    renderQueue();
+    log(`Procesando: ${q.title}${q.artist ? ' — ' + q.artist : ''}`, 'info');
+    try {
+      await processOne(q, { sensitivity, chordProb, sustainProb, charter: charterName, genre });
+      q.status = 'done';
+    } catch (err) {
+      q.status = 'error';
+      q.error = err.message || String(err);
+      log(`ERROR: ${q.error}`, 'bad');
+      console.error(err);
+    }
+    done++;
+    document.getElementById('progressFill').style.width = (done / total * 100) + '%';
+    renderQueue();
+  }
+
+  analyzing = false;
+  document.getElementById('processBtn').disabled = queue.length === 0;
+  if (queue.some(q => q.status === 'done')) {
+    document.getElementById('downloadsCard').style.display = '';
+    renderDownloads();
+  }
+  log('Hecho.', 'ok');
+}
+
+function cancelProcessing() {
+  if (analyzing) {
+    cancelRequested = true;
+    log('Solicitando cancelación...', 'warn');
+  }
+}
+
+async function processOne(q, opts) {
+  // 1. Decode audio
+  const buffer = await decodeFile(q.file);
+  const sr = buffer.sampleRate;
+  log(`  decode OK · ${buffer.duration.toFixed(1)}s · ${sr} Hz · ${buffer.numberOfChannels} ch`);
+
+  // 2. Pipeline análisis (compartida)
+  const monoData = toMono(buffer);
+  const bassData = bassEmphasize(monoData, sr);
+  const { env, framesPerSec } = computeEnergyEnvelope(bassData, sr);
+  const odf = computeODF(env);
+  const peakFrames = pickPeaks(odf, framesPerSec, opts.sensitivity);
+
+  // 3. BPM + offset
+  let bpm;
+  if (q.bpmOverride && parseFloat(q.bpmOverride) > 0) {
+    bpm = parseFloat(q.bpmOverride);
+    log(`  BPM (override): ${bpm.toFixed(1)}`);
+  } else {
+    bpm = detectBPM(odf, framesPerSec);
+    log(`  BPM detectado: ${bpm.toFixed(1)}`);
+  }
+  const offsetSec = detectOffset(odf, framesPerSec, bpm);
+  log(`  Offset: ${offsetSec.toFixed(3)}s · ${peakFrames.length} onsets`);
+
+  // 4. Convertir onsets de frames → segundos → ticks
+  const beatSec = 60 / bpm;
+  const onsetTicks = [];
+  for (const f of peakFrames) {
+    const sec = f / framesPerSec - offsetSec;
+    if (sec < 0) continue;  // descartar onsets antes del primer beat
+    const beats = sec / beatSec;
+    const tick = Math.round(beats * CHART_RESOLUTION);
+    onsetTicks.push(tick);
+  }
+  if (onsetTicks.length === 0) {
+    throw new Error('No se detectaron onsets — ajusta sensibilidad o usa override BPM');
+  }
+
+  // 5. Quantizar a la subdivisión seleccionada (Expert) y generar 4 dificultades
+  const subdivTicks = CHART_RESOLUTION / parseInt(document.getElementById('subdiv').value);
+  const quantized = onsetTicks.map(t => Math.round(t / subdivTicks) * subdivTicks);
+  // Eliminar duplicados después de quantizar
+  const uniqueTicks = [...new Set(quantized)].sort((a, b) => a - b);
+
+  const charts = DIFFICULTIES.map(d => ({
+    name: d.name,
+    section: d.section,
+    notes: generateNotesForDifficulty(uniqueTicks, d, opts.chordProb, opts.sustainProb),
+    meter: d.meter
+  }));
+  for (const c of charts) {
+    log(`  ${c.name.padEnd(7)} · ${c.notes.length} notas`);
+  }
+
+  // 6. Build .chart text + song.ini
+  const audioExt = (q.file.name.match(/\.([^.]+)$/) || ['', 'mp3'])[1].toLowerCase();
+  const audioFilename = `song.${audioExt}`;
+  const meta = {
+    name: q.title || 'Untitled',
+    artist: q.artist || 'Unknown',
+    charter: opts.charter,
+    bpm,
+    duration: buffer.duration,
+    audioFilename,
+    genre: opts.genre,
+    diffGuitar: 4
+  };
+  const chartText = buildChartFile(meta, charts);
+  const iniText = buildSongIni(meta);
+
+  // 7. ZIP empaquetado: <slug>/{notes.chart, song.ini, song.<ext>}
+  const slug = slugify((q.artist ? q.artist + ' - ' : '') + q.title) || 'song';
+  const audioBytes = new Uint8Array(await q.file.arrayBuffer());
+  const zipFiles = [
+    { name: `${slug}/notes.chart`, data: new TextEncoder().encode(chartText) },
+    { name: `${slug}/song.ini`,    data: new TextEncoder().encode(iniText) },
+    { name: `${slug}/${audioFilename}`, data: audioBytes }
+  ];
+  const zipBytes = makeZip(zipFiles);
+  q.zipBlob = new Blob([zipBytes], { type: 'application/zip' });
+  q.zipFilename = `${slug}.zip`;
+  q.result = { bpm, offsetSec, charts, duration: buffer.duration };
+  log(`  ✓ ZIP listo: ${q.zipFilename} (${(q.zipBlob.size/1024/1024).toFixed(2)} MB)`, 'ok');
+}
+
+function slugify(s) {
+  return (s || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80);
+}
+
+// ---- Render de downloads por canción ----
+function renderDownloads() {
+  const el = document.getElementById('downloads');
+  el.innerHTML = '';
+  for (const q of queue) {
+    if (!q.zipBlob) continue;
+    const div = document.createElement('div');
+    div.className = 'difficulty-card';
+    const totalNotes = q.result.charts.reduce((s, c) => s + c.notes.length, 0);
+    div.innerHTML = `
+      <div>
+        <div class="name">${escHtml(q.title)}${q.artist ? ' — ' + escHtml(q.artist) : ''}</div>
+        <div class="meta">${q.result.bpm.toFixed(1)} BPM · ${totalNotes} notas (4 dificultades)</div>
+      </div>
+      <button class="action-btn" onclick="downloadOne(${q.id})">⬇ ZIP</button>
+    `;
+    el.appendChild(div);
+  }
+}
+window.downloadOne = function(id) {
+  const q = queue.find(x => x.id === id);
+  if (!q || !q.zipBlob) return;
+  const url = URL.createObjectURL(q.zipBlob);
+  const a = document.createElement('a');
+  a.href = url; a.download = q.zipFilename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+};
+async function downloadAllZip() {
+  // Empaqueta TODOS los charts en un único ZIP de ZIPs (mejor: en uno plano con
+  // subcarpetas por canción).
+  const allFiles = [];
+  for (const q of queue) {
+    if (!q.zipBlob) continue;
+    const audioExt = (q.file.name.match(/\.([^.]+)$/) || ['', 'mp3'])[1].toLowerCase();
+    const slug = slugify((q.artist ? q.artist + ' - ' : '') + q.title) || `song-${q.id}`;
+    const chartText = buildChartFile({
+      name: q.title, artist: q.artist, charter: document.getElementById('charter').value,
+      bpm: q.result.bpm, duration: q.result.duration,
+      audioFilename: `song.${audioExt}`, genre: document.getElementById('genre').value,
+      diffGuitar: 4
+    }, q.result.charts);
+    const iniText = buildSongIni({
+      name: q.title, artist: q.artist, charter: document.getElementById('charter').value,
+      bpm: q.result.bpm, duration: q.result.duration, genre: document.getElementById('genre').value,
+      diffGuitar: 4
+    });
+    const audioBytes = new Uint8Array(await q.file.arrayBuffer());
+    allFiles.push({ name: `${slug}/notes.chart`, data: new TextEncoder().encode(chartText) });
+    allFiles.push({ name: `${slug}/song.ini`,    data: new TextEncoder().encode(iniText) });
+    allFiles.push({ name: `${slug}/song.${audioExt}`, data: audioBytes });
+  }
+  if (allFiles.length === 0) return;
+  const zipBytes = makeZip(allFiles);
+  const blob = new Blob([zipBytes], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'sincro-gh-charts.zip';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+// ============================================================================
+//                          ZIP ENCODER (store-only, sin compresión)
+// ============================================================================
+// Idéntico al de autostepper.html. A futuro vale la pena extraerlo a
+// stepmania-web/js/zip-store.js y compartirlo, pero no es urgente.
+let CRC_TABLE = null;
+function makeCrcTable() {
+  CRC_TABLE = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    CRC_TABLE[n] = c;
+  }
+}
+function crc32(data) {
+  if (!CRC_TABLE) makeCrcTable();
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < data.length; i++) {
+    crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ data[i]) & 0xFF];
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+function makeZip(files) {
+  const enc = new TextEncoder();
+  const local = []; const central = [];
+  let offset = 0;
+  for (const f of files) {
+    const nameBytes = enc.encode(f.name);
+    const data = f.data instanceof Uint8Array ? f.data : new Uint8Array(f.data);
+    const crc = crc32(data); const size = data.length;
+    const lh = new Uint8Array(30 + nameBytes.length);
+    const lhv = new DataView(lh.buffer);
+    lhv.setUint32(0, 0x04034b50, true);
+    lhv.setUint16(4, 20, true); lhv.setUint16(6, 0, true);
+    lhv.setUint16(8, 0, true);   // method = store
+    lhv.setUint16(10, 0, true); lhv.setUint16(12, 0x0021, true);
+    lhv.setUint32(14, crc, true);
+    lhv.setUint32(18, size, true); lhv.setUint32(22, size, true);
+    lhv.setUint16(26, nameBytes.length, true); lhv.setUint16(28, 0, true);
+    lh.set(nameBytes, 30);
+    local.push(lh, data);
+    const ch = new Uint8Array(46 + nameBytes.length);
+    const chv = new DataView(ch.buffer);
+    chv.setUint32(0, 0x02014b50, true);
+    chv.setUint16(4, 20, true); chv.setUint16(6, 20, true);
+    chv.setUint16(8, 0, true); chv.setUint16(10, 0, true);
+    chv.setUint16(12, 0, true); chv.setUint16(14, 0x0021, true);
+    chv.setUint32(16, crc, true);
+    chv.setUint32(20, size, true); chv.setUint32(24, size, true);
+    chv.setUint16(28, nameBytes.length, true);
+    chv.setUint16(30, 0, true); chv.setUint16(32, 0, true);
+    chv.setUint16(34, 0, true); chv.setUint16(36, 0, true);
+    chv.setUint32(38, 0, true); chv.setUint32(42, offset, true);
+    ch.set(nameBytes, 46);
+    central.push(ch);
+    offset += lh.length + data.length;
+  }
+  const centralOffset = offset;
+  let centralSize = 0;
+  for (const c of central) centralSize += c.length;
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true); ev.setUint16(6, 0, true);
+  ev.setUint16(8, files.length, true); ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true); ev.setUint32(16, centralOffset, true);
+  ev.setUint16(20, 0, true);
+  let total = 0;
+  for (const p of local) total += p.length;
+  total += centralSize + 22;
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const p of local) { out.set(p, pos); pos += p.length; }
+  for (const c of central) { out.set(c, pos); pos += c.length; }
+  out.set(eocd, pos);
+  return out;
+}
+</script>
+</body>
+</html>

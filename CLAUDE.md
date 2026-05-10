@@ -18,7 +18,7 @@ Landing pública del producto **Sincro**. HTML semántico autocontenido (CSS emb
 - 8 referencias DOI verificadas (PubMed/Scholar Gateway): Singh 2025 BJSM, Yoong 2024, Chen 2021, Lavigne 2025, Benzing 2019, Gong 2016, Särkämö 2013, Bentley 2022, Pasinski 2016, Zaatar 2023.
 
 ### `play.html`
-Motor de juego (SPA con pantallas: Menú, Jugar, Crear, Probar hardware, Mis canciones, Calibración, Tutorial, Resultados). Carga módulos clásicos desde `stepmania-web/js/`: `core` → `parser` → `autostepper` → `library` → `backup` → `song-select` → `pad-test` → `calibration` → `game` → `app`. Estilos en `stepmania-web/css/styles.css`.
+Motor de juego **StepMania (DDR)** — SPA con pantallas: Menú, Jugar, Crear, Probar hardware, Mis canciones, Calibración, Tutorial, Resultados. Carga módulos clásicos desde `stepmania-web/js/`: `core` → `parser` → `autostepper` → `library` → `backup` → `song-select` → `pad-test` → `calibration` → `game` → `app`. Estilos en `stepmania-web/css/styles.css`.
 
 Funcionalidad end-to-end:
 - Parser `.ssc/.sm` con BPMs/STOPS/DELAYS/WARPS, OFFSET, NOTES.
@@ -26,7 +26,7 @@ Funcionalidad end-to-end:
 - 6 modifiers: mirror, left, right, shuffle, hidden, sudden + chartSpeed local (0.5–4x) y scrollSpeed global (0.5–3x).
 - Librería en IndexedDB con import individual (.ssc/.sm + audio), import packs SM (carpetas), backup ZIP completo (canciones + scores + ajustes), restore.
 - Modos de carriles: 4 (clásico DDR), 6 y 8 con redistribución de notas para alfombras de baile completas.
-- Soporte de input: alfombra USB, **guitarra Guitar Hero** (5 trastes + strum + whammy mapeados a carriles), teclado (← ↓ ↑ →).
+- Input: alfombra USB (con calibración por roles vía `mat-mapping` en localStorage) y teclado (← ↓ ↑ →). El soporte de guitarra Guitar Hero vive en `gh-play.html` aparte (no se mezcla aquí — game style fundamentalmente distinto, requiere strum + chord + HOPO).
 - Settings persistentes (localStorage): globalOffset, scrollSpeed, timingWindow, NoteSkin PNG personalizado, fondo procedural por título.
 - Calibración: pantalla con metrónomo + tap para medir offset real con sugerencia automática.
 
@@ -91,9 +91,11 @@ Constantes en `test-pad.html`:
 - La calibración multi-step (`detectCalibAxisCapture` + `captureCalib`) discrimina automáticamente: si durante el step de strum el usuario pulsa un botón, lo guarda como `number`; si en su lugar mueve un eje > 0.6 desde baseline, lo guarda como `{axis, dir}`.
 
 ### `autostepper.html`
-Generador automático de charts StepMania desde MP3/WAV. Equivalente al `phr00t/AutoStepper` (Java) pero en navegador.
+Generador automático de charts **StepMania (.ssc/.sm)** desde MP3/WAV. Equivalente al `phr00t/AutoStepper` (Java) pero en navegador.
 
-**Pipeline de detección (optimizado para música bailable: techno, dance, pop, rock):**
+**Pipeline de detección compartida** — vive en `stepmania-web/js/audio-pipeline.js`, expuesta como `window.AudioPipeline.{decodeFile, toMono, bassEmphasize, computeEnergyEnvelope, computeODF, pickPeaks, detectBPM, detectOffset, ensureAudioContext}`. La usan tanto `autostepper.html` (output `.ssc/.sm`) como `gh-autostepper.html` (output `.chart`). El análisis es agnóstico al juego — solo cambia cómo se traduce el resultado a notas.
+
+Algoritmo (optimizado para música bailable: techno, dance, pop, rock):
 1. `decodeAudioData` → mono Float32Array
 2. **Bass-emphasis** — IIR low-pass 2-polo cascado a ~200 Hz. Aísla el kick + bajo, descarta voces, hi-hats, guitarras distorsionadas. El kick domina el envelope.
 3. Energy envelope (ventanas 23ms, hop 5ms) sobre la señal bass-emphasized
@@ -125,6 +127,35 @@ Generador automático de charts StepMania desde MP3/WAV. Equivalente al `phr00t/
 **5 dificultades generadas por canción:** Beginner, Easy, Medium, Hard, Challenge.
 
 Implementa encoder ZIP propio (modo "store", sin compresión) — sin dependencias externas.
+
+### `gh-autostepper.html`
+Generador automático de charts **Guitar Hero (.chart Clone Hero / Feedback format)** desde MP3/WAV. Reusa `stepmania-web/js/audio-pipeline.js` (mismo análisis: bass-emphasis, ODF, BPM, offset). El output diverge: en vez de `.ssc/.sm` produce `notes.chart` + `song.ini` + audio en ZIP, listo para extraer en `Clone Hero/Songs/`.
+
+**Note generation (5 trastes, 4 dificultades):**
+- **Roles**: 0=Verde, 1=Rojo, 2=Amarillo, 3=Azul, 4=Naranja (índices del `.chart` format).
+- **Walk de trastes**: caminata aleatoria con bias 65% adyacente, 25% jump de 2, 10% random. Prohíbe repetir traste consecutivo. La primera nota de cada chart va a Verde/Rojo (más fácil empezar bajo).
+- **Density por dificultad**: Easy 0.30 (rango G-Y), Medium 0.55 (G-Az), Hard 0.80 (G-N), Expert 1.00 (G-N todo). Density se aplica vía `stride = round(1/density)` para conservar 1 de cada N onsets.
+- **Chords (Hard+)**: con probabilidad `chordProb` (slider 0-60%, default 18%) se añade un fret adyacente al actual. Easy/Medium nunca llevan chords.
+- **Sustains**: si hay gap ≥ 1/2 beat al siguiente onset, con prob. `sustainProb` se convierte en sustain del 80% del gap.
+- **HOPOs**: NO se marcan explícitamente. Clone Hero auto-detecta HOPOs por proximidad (regla estándar: <1/12 measure y diferente fret y no chord).
+
+**Formato `.chart` (Feedback / Clone Hero):** `Resolution = 192` ticks/quarter. Notas: `<tick> = N <fret> <sustain>`. Chord = múltiples líneas en mismo tick. BPM en SyncTrack como `0 = B <bpm*1000>` (milibeats). Solo 1 BPM constante en MVP — variable BPM queda como ampliación futura.
+
+**Output ZIP por canción:**
+- `<slug>/notes.chart` — todas las dificultades
+- `<slug>/song.ini` — metadata (name, artist, charter, diff_guitar, song_length, etc.)
+- `<slug>/song.<ext>` — audio sin tocar
+
+**Presets:**
+- 🌿 Suave: sens 2.4, 1/4 max, 5% chords, 30% sustains
+- ⚡ Normal: sens 1.7, 1/8 max, 18% chords, 20% sustains (recomendado)
+- 🔥 Intenso: sens 1.3, 1/16 max, 40% chords, 10% sustains
+
+**Pendiente / mejoras futuras:**
+- Pitch-aware fret assignment (FFT + mapping low→Verde, high→Naranja). Ahora es aleatorio con bias.
+- Tap notes (fret 6 en .chart) explícitos para Expert.
+- Open notes (fret 7) ocasionales para simular bombos.
+- Variable BPM si la canción cambia de tempo.
 
 ### Scripts Python (`test_pad*.py`, `detectar-guitarra.py`)
 Tests vía WinMM `joyGetPosEx` (DirectInput equivalent). Útiles si la Gamepad API del navegador no detecta el dispositivo. Usan solo `ctypes`, sin pygame.
