@@ -16,7 +16,11 @@
 
   if (supportsSW) {
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      // Path relativo al document base (cada HTML está en raíz, así que
+      // resuelve a /sw.js cuando se sirve desde host). En file:// el SW no se
+      // registra (filtrado por supportsSW arriba) — el bootstrap solo es útil
+      // ahí para la detección de in-shell y el patch de Routes relativas.
+      navigator.serviceWorker.register('sw.js')
         .then(function (reg) {
           reg.addEventListener('updatefound', function () {
             var nw = reg.installing;

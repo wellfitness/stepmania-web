@@ -2,7 +2,7 @@
   "name": "Sincro — Suite rítmica",
   "short_name": "Sincro",
   "description": "Pisa el ritmo, entrena tu cerebro. Suite de juego rítmico para alfombra de baile y guitarra Guitar Hero.",
-  "start_url": "/app.html#/play",
+  "start_url": "app.html#/play",
   "scope": "/",
   "id": "/app.html",
   "display": "standalone",
@@ -32,28 +32,28 @@
       "name": "Jugar StepMania",
       "short_name": "Jugar",
       "description": "Abrir el motor de DDR directamente",
-      "url": "/app.html#/play",
+      "url": "app.html#/play",
       "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
       "name": "Guitar Hero",
       "short_name": "GH",
       "description": "Simulador Guitar Hero",
-      "url": "/app.html#/gh-play",
+      "url": "app.html#/gh-play",
       "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
       "name": "Crear chart (DDR)",
       "short_name": "AutoStepper",
       "description": "Generar coreografías desde MP3",
-      "url": "/app.html#/autostepper",
+      "url": "app.html#/autostepper",
       "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     },
     {
       "name": "Probar hardware",
       "short_name": "Test",
       "description": "Diagnóstico de alfombra y guitarra",
-      "url": "/app.html#/test-pad",
+      "url": "app.html#/test-pad",
       "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     }
   ]

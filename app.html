@@ -7,10 +7,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Sincro: suite de juego rítmico para alfombra de baile y guitarra Guitar Hero. Juega, crea coreografías y prueba tu hardware.">
 <link rel="canonical" href="https://play.movimientofuncional.app/app.html">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
-<link rel="apple-touch-icon" href="/icons/icon.svg">
-<script src="/stepmania-web/js/pwa-bootstrap.js"></script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<script src="stepmania-web/js/pwa-bootstrap.js"></script>
 <style>
   :root {
     --shell-bg: #0f172a;
@@ -208,13 +208,17 @@
   // las features delegadas al iframe.
   (function () {
     'use strict';
+    // Targets RELATIVOS al app.html (no absolutos con "/"). Esto permite que
+    // el shell funcione tanto en file:// (doble click sobre index.html) como
+    // en http(s):// — los paths absolutos "/foo.html" resolverían a la raíz
+    // del disco bajo file://, que no contiene los HTML.
     var ROUTES = {
-      '/play':           '/play.html',
-      '/gh-play':        '/gh-play.html',
-      '/autostepper':    '/autostepper.html',
-      '/gh-autostepper': '/gh-autostepper.html',
-      '/test-pad':       '/test-pad.html',
-      '/about':          '/index.html'
+      '/play':           'play.html',
+      '/gh-play':        'gh-play.html',
+      '/autostepper':    'autostepper.html',
+      '/gh-autostepper': 'gh-autostepper.html',
+      '/test-pad':       'test-pad.html',
+      '/about':          'index.html'
     };
     var DEFAULT_ROUTE = '/play';
 
