@@ -1,0 +1,60 @@
+{
+  "name": "Sincro — Suite rítmica",
+  "short_name": "Sincro",
+  "description": "Pisa el ritmo, entrena tu cerebro. Suite de juego rítmico para alfombra de baile y guitarra Guitar Hero.",
+  "start_url": "/play.html",
+  "scope": "/",
+  "id": "/play.html",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#00bec8",
+  "categories": ["games", "fitness", "education"],
+  "lang": "es",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Jugar StepMania",
+      "short_name": "Jugar",
+      "description": "Abrir el motor de DDR directamente",
+      "url": "/play.html",
+      "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Guitar Hero",
+      "short_name": "GH",
+      "description": "Simulador Guitar Hero",
+      "url": "/gh-play.html",
+      "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Crear chart (DDR)",
+      "short_name": "AutoStepper",
+      "description": "Generar coreografías desde MP3",
+      "url": "/autostepper.html",
+      "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Probar hardware",
+      "short_name": "Test",
+      "description": "Diagnóstico de alfombra y guitarra",
+      "url": "/test-pad.html",
+      "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

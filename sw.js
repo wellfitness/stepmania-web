@@ -1,0 +1,139 @@
+// Service Worker de Sincro
+// =========================
+// Estrategia de cache mixta intencionalmente:
+//  - install: precache del shell estático (HTMLs principales + CSS + JS modules
+//    + iconos + manifest). Si alguno falla la instalación entera aborta —
+//    Promise.all del addAll().
+//  - fetch HTML navigation: network-first con fallback a precache (para que un
+//    deploy nuevo se note sin necesidad de "vaciar caché"). Cuando hay red, se
+//    refresca el RUNTIME para futuros offline.
+//  - fetch CSS/JS/iconos same-origin: cache-first con runtime fallback. Es el
+//    shell que arranca instantáneo offline.
+//  - Google Fonts: stale-while-revalidate. Sirve lo cacheado y refresca en BG.
+//  - Resto cross-origin: passthrough sin tocar (no queremos cachear blobs de
+//    audio que pesan MB y que el usuario carga ad-hoc por File API; viven en
+//    IndexedDB de todas formas).
+//
+// Cuando cambien los assets cacheados, bumpear CACHE_VERSION.
+// Aviso: NO interceptamos requests POST ni con header Range (audio range
+// requests del motor son delicados — los dejamos pasar a network).
+
+const CACHE_VERSION = 'sincro-v1';
+const PRECACHE      = `${CACHE_VERSION}-shell`;
+const RUNTIME       = `${CACHE_VERSION}-runtime`;
+
+const PRECACHE_URLS = [
+  '/',
+  '/index.html',
+  '/play.html',
+  '/gh-play.html',
+  '/autostepper.html',
+  '/gh-autostepper.html',
+  '/test-pad.html',
+  '/manifest.webmanifest',
+  '/icons/icon.svg',
+  '/icons/icon-maskable.svg',
+  '/stepmania-web/css/styles.css',
+  '/stepmania-web/js/pwa-bootstrap.js',
+  '/stepmania-web/js/core.js',
+  '/stepmania-web/js/parser.js',
+  '/stepmania-web/js/audio-pipeline.js',
+  '/stepmania-web/js/difficulty-tiers.js',
+  '/stepmania-web/js/autostepper.js',
+  '/stepmania-web/js/library.js',
+  '/stepmania-web/js/backup.js',
+  '/stepmania-web/js/song-select.js',
+  '/stepmania-web/js/pad-test.js',
+  '/stepmania-web/js/calibration.js',
+  '/stepmania-web/js/game.js',
+  '/stepmania-web/js/gh-db.js',
+  '/stepmania-web/js/app.js'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(PRECACHE)
+      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then(() => self.skipWaiting())
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(
+        keys
+          .filter((k) => k.startsWith('sincro-') && k !== PRECACHE && k !== RUNTIME)
+          .map((k) => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  // Range requests (audio del motor pidiendo segmentos) → passthrough.
+  if (req.headers.has('range')) return;
+
+  const url = new URL(req.url);
+  const sameOrigin = url.origin === self.location.origin;
+
+  // Google Fonts → stale-while-revalidate
+  if (url.host.endsWith('fonts.googleapis.com') || url.host.endsWith('fonts.gstatic.com')) {
+    event.respondWith(staleWhileRevalidate(req));
+    return;
+  }
+
+  if (!sameOrigin) return;
+
+  // Navigation HTML → network-first con fallback a cache
+  if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
+    event.respondWith(networkFirst(req));
+    return;
+  }
+
+  // Resto same-origin → cache-first con runtime fallback
+  event.respondWith(cacheFirst(req));
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+function networkFirst(req) {
+  return fetch(req)
+    .then((res) => {
+      if (res && res.ok) {
+        const copy = res.clone();
+        caches.open(RUNTIME).then((c) => c.put(req, copy));
+      }
+      return res;
+    })
+    .catch(() => caches.match(req).then((m) => m || caches.match('/index.html')));
+}
+
+function cacheFirst(req) {
+  return caches.match(req).then((cached) => {
+    if (cached) return cached;
+    return fetch(req).then((res) => {
+      if (res && res.ok && res.type !== 'opaque') {
+        const copy = res.clone();
+        caches.open(RUNTIME).then((c) => c.put(req, copy));
+      }
+      return res;
+    });
+  });
+}
+
+function staleWhileRevalidate(req) {
+  return caches.open(RUNTIME).then((cache) => {
+    return cache.match(req).then((cached) => {
+      const fetchPromise = fetch(req).then((res) => {
+        if (res && res.ok) cache.put(req, res.clone());
+        return res;
+      }).catch(() => cached);
+      return cached || fetchPromise;
+    });
+  });
+}

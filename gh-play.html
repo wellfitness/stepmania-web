@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <title>GH Play — Simulador Guitar Hero · Sincro</title>
+<meta name="theme-color" content="#00bec8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="/icons/icon.svg">
+<link rel="apple-touch-icon" href="/icons/icon.svg">
+<script src="/stepmania-web/js/pwa-bootstrap.js" defer></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=ABeeZee&family=Righteous&display=swap');
 
@@ -743,32 +749,79 @@
   /* Banner pequeño de calibración para el menú GH (más compacto que en Tocar) */
   #gh-menu-screen .calib-banner { font-size: 0.85em; padding: 10px 14px; }
 
+  /* Tarjeta del selector de dificultad: refuerza la jerarquía visual con
+     un acento naranja sutil en el borde superior. La densidad y el dropdown
+     se sienten parte del mismo control compuesto. */
+  .gh-diff-card {
+    background: linear-gradient(180deg, rgba(249,115,22,0.05), rgba(0,0,0,0));
+  }
+
+  /* Etiqueta tipográfica de los controles dentro de la diff-card. */
+  .gh-diff-card .field-label {
+    color: var(--gris-400);
+    font-size: 0.78em;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+
+  /* Select de dificultad: dark bg, borde con tinte naranja, custom arrow
+     en SVG embebido (mismo color que --gh-accent) — el browser default no
+     encajaba con el tema y rompía la cohesión visual de la página. */
+  select.gh-styled {
+    background-color: rgba(0,0,0,0.5);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23f97316' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    border: 1px solid rgba(249,115,22,0.4);
+    color: #fff;
+    padding: 9px 36px 9px 12px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.95em;
+    font-weight: 600;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    transition: border-color 0.18s, box-shadow 0.18s, background-color 0.18s;
+  }
+  select.gh-styled:hover { border-color: rgba(249,115,22,0.7); }
+  select.gh-styled:focus-visible {
+    outline: none;
+    border-color: var(--gh-accent);
+    box-shadow: 0 0 0 3px rgba(249,115,22,0.18);
+  }
+  select.gh-styled option { background: #0a0a14; color: #fff; }
+
   /* Comparador de densidad por dificultad GH: 4 barras de altura creciente
      reflejando los caps NPS de difficulty-tiers.js (1.4/2.5/4.5/7.5). Mismo
      lenguaje visual que play.html (SM) pero acentuado en naranja GH. */
   .diff-density-bars {
     display: inline-flex;
     align-items: flex-end;
-    gap: 4px;
-    height: 28px;
-    padding: 2px 6px;
-    background: rgba(0,0,0,0.35);
-    border: 1px solid rgba(249,115,22,0.18);
-    border-radius: 6px;
+    gap: 5px;
+    height: 38px;
+    padding: 4px 10px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.55), rgba(0,0,0,0.35));
+    border: 1px solid rgba(249,115,22,0.22);
+    border-radius: 8px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
   }
   .diff-density-bars .db-bar {
-    width: 7px;
-    background: rgba(255,255,255,0.18);
+    width: 8px;
+    background: rgba(255,255,255,0.16);
     border-radius: 2px 2px 0 0;
-    transition: background 0.2s, box-shadow 0.2s;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.2s;
   }
   .diff-density-bars .db-bar[data-tier="EasySingle"]   { height: 28%; }
   .diff-density-bars .db-bar[data-tier="MediumSingle"] { height: 50%; }
   .diff-density-bars .db-bar[data-tier="HardSingle"]   { height: 72%; }
   .diff-density-bars .db-bar[data-tier="ExpertSingle"] { height: 100%; }
   .diff-density-bars .db-bar.on {
-    background: linear-gradient(180deg, #fbbf24, var(--gh-accent));
-    box-shadow: 0 0 8px rgba(249,115,22,0.6);
+    background: linear-gradient(180deg, #fde047, #fbbf24 45%, var(--gh-accent));
+    box-shadow: 0 0 12px rgba(249,115,22,0.7);
+    transform: scaleY(1.02);
   }
 </style>
 </head>
@@ -802,11 +855,11 @@
 
   <!-- Selector de dificultad común — el ajuste más "por canción" queda visible
        aquí; todo lo demás (speed, offset, HOPO) vive en el modal ⚙. -->
-  <div class="card">
-    <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end">
-      <div style="display:flex;flex-direction:column;gap:4px;min-width:160px">
-        <label for="difficulty" style="color:var(--gris-400);font-size:0.82em">Dificultad común</label>
-        <select id="difficulty" onchange="onGHDiffChange()" style="min-width:160px">
+  <div class="card gh-diff-card">
+    <div style="display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end">
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:160px">
+        <label for="difficulty" class="field-label">Dificultad común</label>
+        <select id="difficulty" class="gh-styled" onchange="onGHDiffChange()" style="min-width:160px">
           <option value="EasySingle">Easy</option>
           <option value="MediumSingle" selected>Medium</option>
           <option value="HardSingle">Hard</option>
@@ -814,20 +867,20 @@
         </select>
       </div>
       <div style="flex:1;min-width:240px;display:flex;flex-direction:column;gap:6px">
-        <span style="color:var(--gris-400);font-size:0.82em">Densidad de notas</span>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span class="field-label">Densidad de notas</span>
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
           <div id="ghDiffDensityBars" class="diff-density-bars" role="img" aria-label="Comparativa de densidad entre las 4 dificultades">
             <div class="db-bar" data-tier="EasySingle"   title="Easy · ~1-1.5 notas/seg"></div>
             <div class="db-bar" data-tier="MediumSingle" title="Medium · ~2-3 notas/seg"></div>
             <div class="db-bar" data-tier="HardSingle"   title="Hard · ~4-5 notas/seg"></div>
             <div class="db-bar" data-tier="ExpertSingle" title="Expert · hasta 7-8 notas/seg"></div>
           </div>
-          <span id="ghDiffDensityText" style="color:var(--gh-accent);font-size:0.85em;line-height:1.3">—</span>
+          <span id="ghDiffDensityText" style="color:#fcd34d;font-size:0.88em;line-height:1.35;font-weight:500">—</span>
         </div>
       </div>
-      <button class="action-btn secondary" onclick="openGHConfig()" style="font-size:0.85em;padding:8px 14px">⚙ Ajustes</button>
+      <button class="action-btn secondary" onclick="openGHConfig()" style="font-size:0.85em;padding:9px 16px">⚙ Ajustes</button>
     </div>
-    <p style="margin:10px 0 0;font-size:0.82em;color:var(--gris-500)">Si la canción no tiene esta dificultad, se usa la más cercana.</p>
+    <p style="margin:12px 0 0;font-size:0.8em;color:var(--gris-500);font-style:italic">Si la canción no tiene esta dificultad, se usa la más cercana.</p>
   </div>
 
   <!-- Barra "Crear partida" sticky-top. Activa al marcar ≥1 partitura. -->

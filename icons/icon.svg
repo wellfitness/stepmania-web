@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Sincro">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="55%" stop-color="#00bec8"/>
+      <stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#00bec8" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#00bec8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" ry="96" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="200" fill="url(#glow)"/>
+  <g fill="url(#arrow)">
+    <polygon points="256,72 336,160 296,160 296,212 216,212 216,160 176,160"/>
+    <polygon points="256,440 176,352 216,352 216,300 296,300 296,352 336,352"/>
+    <polygon points="72,256 160,176 160,216 212,216 212,296 160,296 160,336"/>
+    <polygon points="440,256 352,336 352,296 300,296 300,216 352,216 352,176"/>
+  </g>
+  <circle cx="256" cy="256" r="22" fill="#fbbf24"/>
+</svg>
