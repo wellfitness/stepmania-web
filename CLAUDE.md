@@ -369,6 +369,7 @@ Cada HTML clásico (`index.html`, `play.html`, `gh-play.html`, `autostepper.html
 - **Credenciales FTP del host:** en `.env.local` (raíz del proyecto). **Nunca commitear** — el archivo está ignorado por `.gitignore` (regla `.env.*`).
 - Para futuros agentes: si necesitas las claves de despliegue, léelas de `.env.local`. No las muevas a archivos versionados.
 - **Estructura desplegada:** subir todos los `.html` de la raíz (incluido `app.html`), `manifest.webmanifest`, `sw.js`, `icons/`, carpeta `stepmania-web/` (CSS + JS). Los `.py` no se despliegan (solo herramientas locales).
+- **Script de deploy:** `scripts/deploy.sh` (bash + curl, cero deps). Lee credenciales de `.env.local`, sube **26 archivos** con lista de inclusión EXPLÍCITA (intencional — evita filtrar README/CLAUDE/tests/package.json a producción si mañana añades algo a la raíz). Uso: `bash scripts/deploy.sh` desde la raíz del repo. El script hace `cd "$(dirname "$0")/.."` al inicio, así también funciona invocado desde otro cwd. Usa `--ssl-allow-beast -k` en curl para sortear el SChannel-strict OCSP de Windows. Falla con SKIP claro si un archivo de la lista no existe en local (cazaría typos como "indez.html").
 - **Headers HTTP recomendados** (configurar en host):
   - `sw.js`: `Cache-Control: no-cache` (para que el navegador siempre revise si hay versión nueva del SW; el SW controla su propio cache versionado).
   - `manifest.webmanifest`: `Content-Type: application/manifest+json`.

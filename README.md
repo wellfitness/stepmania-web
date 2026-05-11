@@ -96,11 +96,13 @@ if (typeof module !== 'undefined' && module.exports) {
 
 ## Despliegue
 
-Despliegue por FTP a `play.movimientofuncional.app`. Credenciales en `.env.local` (no versionado). Subir:
+Despliegue por FTP a `play.movimientofuncional.app`. Credenciales en `.env.local` (no versionado, formato: `FTP_HOST`, `FTP_USER`, `FTP_PASS`, `FTP_REMOTE_DIR`).
 
-- Todos los `.html` de la raíz (incluido `app.html`).
-- `manifest.webmanifest`, `sw.js`, `icons/`.
-- Carpeta `stepmania-web/` completa (CSS + JS).
+```bash
+bash scripts/deploy.sh
+```
+
+El script sube **26 archivos** del shell (HTML + sw.js + manifest + iconos + carpeta `stepmania-web/`) con una lista de inclusión explícita — eso evita que archivos como `README.md`, `package.json`, `tests/` o `.env.local` se filtren accidentalmente a producción. Cero dependencias (solo `bash` + `curl`).
 
 **Importante:** después de cualquier cambio en archivos del precache, bumpear `CACHE_VERSION` en `sw.js` (p.ej. `sincro-v3` → `sincro-v4`) para que los clientes con SW antiguo detecten la nueva versión.
 
@@ -148,6 +150,8 @@ sincro/
 ├── tests/                        Tests Vitest (algoritmos puros)
 │   ├── parser.test.mjs
 │   └── difficulty-tiers.test.mjs
+├── scripts/
+│   └── deploy.sh                 Deploy FTP a Hostinger (bash + curl)
 ├── package.json                  Scripts pnpm + Vitest
 ├── vitest.config.mjs             Config de tests
 ├── CLAUDE.md                     Documentación técnica profunda (interno)
