@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#00bec8">
 
-<title>Sincro — Pisa, toca, entrena tu cerebro</title>
-<meta name="description" content="Sincro: el espacio de juego rítmico de Movimiento Funcional. Juega con tu alfombra de baile o guitarra de Guitar Hero, convierte cualquier canción en una coreografía y comprueba que tu equipo responde bien. Lo respalda la mayor revisión científica publicada hasta hoy sobre ejercicio y mente.">
+<title>Sincro — Sincroniza cuerpo, pulso y mente</title>
+<meta name="description" content="Sincro, la suite rítmica de Movimiento Funcional. Convierte tus canciones favoritas en una coreografía o una partitura: báilala en tu alfombra de baile o tócala con tu guitarra. Gratis, sin registro, sin instalación. Respaldado por la mayor revisión científica publicada hasta hoy sobre ejercicio y cognición.">
 <meta name="author" content="Movimiento Funcional">
 <meta name="keywords" content="Sincro, sincronización auditivo-motora, exergaming, dance dance revolution, guitar hero, cardio cognitivo, neurociencia ejercicio, ritmo coordinación, movimiento funcional">
 
@@ -19,8 +19,8 @@
 
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://play.movimientofuncional.app/">
-<meta property="og:title" content="Sincro — Pisa, toca, entrena tu cerebro">
-<meta property="og:description" content="Cardio, música y cognición en una sola actividad. La suite rítmica de Movimiento Funcional con base científica revisada por pares.">
+<meta property="og:title" content="Sincro — Sincroniza cuerpo, pulso y mente">
+<meta property="og:description" content="Convierte tus canciones favoritas en una coreografía o una partitura: báilala en tu alfombra de baile o tócala con tu guitarra. Gratis, sin registro, sin instalación. Avalado por la mayor revisión científica sobre ejercicio y cognición.">
 <meta property="og:locale" content="es_ES">
 <meta property="og:site_name" content="Sincro">
 <meta property="og:image" content="https://play.movimientofuncional.app/play-hero.webp">
@@ -30,8 +30,8 @@
 <meta property="og:image:alt" content="Sincro — Sincroniza cuerpo, pulso y mente al ritmo de tu música favorita. Ilustración neón con runner, highway de guitarra y alfombra DDR.">
 
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Sincro — Pisa, toca, entrena tu cerebro">
-<meta name="twitter:description" content="Cardio, música y cognición en una sola actividad. Avalado por la mayor revisión sistemática de ejercicio y cognición.">
+<meta name="twitter:title" content="Sincro — Sincroniza cuerpo, pulso y mente">
+<meta name="twitter:description" content="Convierte tus canciones en coreografías o partituras: báilalas en tu alfombra o tócalas con tu guitarra. Gratis, sin registro. Avalado por la mayor revisión científica de ejercicio y cognición.">
 <meta name="twitter:image" content="https://play.movimientofuncional.app/play-hero.webp">
 <meta name="twitter:image:alt" content="Sincro — Sincroniza cuerpo, pulso y mente al ritmo de tu música favorita.">
 
@@ -47,7 +47,7 @@
   "applicationCategory": "GameApplication",
   "operatingSystem": "Any (browser-based)",
   "url": "https://play.movimientofuncional.app/",
-  "description": "Sincro: espacio de juego rítmico en navegador de Movimiento Funcional. Juego, generador automático de coreografías a partir de canciones (AutoStepper) y herramienta para comprobar el equipo (alfombra de baile y guitarra). Funciona sin instalar nada. Acepta canciones en formato StepMania (.ssc / .sm).",
+  "description": "Sincro, la suite rítmica de Movimiento Funcional. Convierte tus canciones favoritas en una coreografía o partitura: báilala en tu alfombra de baile o tócala con tu guitarra. Incluye juego, generador automático de coreografías (AutoStepper) y herramienta para comprobar el equipo. Funciona en el navegador, sin instalación. Compatible con StepMania (.ssc / .sm) y Clone Hero (.chart).",
   "browserRequirements": "Requires JavaScript. HTML5 Web Audio + Canvas + Gamepad API.",
   "inLanguage": "es",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
@@ -122,10 +122,26 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   z-index: 100; backdrop-filter: blur(10px);
 }
 .topbar .brand {
-  font-family: var(--font-display); font-size: 1.15em;
-  background: linear-gradient(90deg, var(--turquesa-600), var(--turquesa-400), var(--tulip-tree-500));
-  -webkit-background-clip: text; background-clip: text;
-  color: transparent;
+  display: inline-flex; align-items: center; gap: 12px;
+  height: 46px; line-height: 1;
+  text-decoration: none;
+}
+.topbar .brand img {
+  height: 100%; width: auto; display: block;
+  filter: drop-shadow(0 0 4px rgba(0, 190, 200, 0.35)) drop-shadow(0 0 6px rgba(250, 204, 21, 0.25));
+}
+.topbar .brand .wordmark {
+  font-family: var(--font-display);
+  font-size: 31px;
+  line-height: 1;
+  color: #fff;
+  letter-spacing: 1.5px;
+  -webkit-text-stroke: 1px var(--rosa-neon);
+  text-shadow:
+    0 0 4px #fff,
+    0 0 8px var(--rosa-neon),
+    0 0 18px var(--rosa-neon),
+    0 0 28px rgba(255, 45, 146, 0.6);
 }
 .topbar .primary-nav { margin-left: auto; }
 .topbar .primary-nav ul {
@@ -147,7 +163,7 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
 
 /* HERO */
 .hero {
-  min-height: 100vh; padding: 120px 24px 80px;
+  min-height: 100vh; padding: 160px 24px 80px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   position: relative; overflow: hidden;
   background: radial-gradient(ellipse at top, #0a1626 0%, #000 60%);
@@ -220,7 +236,46 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   display: flex; flex-direction: column; align-items: flex-start;
   text-align: left;
 }
-.hero-text { max-width: 620px; }
+.hero-text { max-width: 720px; }
+
+/* Hero badge — base desktop (la ul se renderiza como pill horizontal con bullets).
+   Es hijo directo del .hero y flota arriba del todo, justo debajo del topbar fijo (56px). */
+.hero-badge {
+  position: absolute;
+  top: calc(56px + 28px);
+  left: max(24px, calc((100% - 1280px) / 2 + 24px));
+  z-index: 3;
+  display: inline-flex; align-items: center; flex-wrap: wrap; justify-content: center;
+  gap: 0 10px;
+  padding: 8px 20px;
+  margin: 0;
+  list-style: none;
+  background: rgba(234,179,8,0.12);
+  border: 1px solid rgba(234,179,8,0.4);
+  color: var(--tulip-tree-400);
+  border-radius: 999px; font-size: 0.85em; letter-spacing: 1px;
+  font-family: var(--font-mono); text-transform: uppercase;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+/* Desktop: cada chip se reduce a "icono · texto", separados por bullets discretos.
+   El layout queda visualmente idéntico al <p>...⚡ Cardio · Música · ... </p> original. */
+.hero-badge .badge-chip {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  position: relative;
+}
+.hero-badge .badge-chip + .badge-chip::before {
+  content: '·';
+  position: absolute; left: -8px; top: 0;
+  color: var(--tulip-tree-400); opacity: 0.7;
+}
+.hero-badge .badge-icon {
+  display: inline-block;
+  font-size: 1em; line-height: 1;
+}
+
+/* Banda móvil de chips: por defecto NO se muestra (solo en móvil dentro del @media) */
+.hero-badge-band { display: none; }
 
 /* MÓVIL: imagen full-bleed, texto superpuesto justo debajo del header */
 @media (max-width: 860px) {
@@ -237,24 +292,71 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
       linear-gradient(180deg, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.88) 22%, rgba(0,0,0,0.74) 42%, rgba(0,0,0,0.50) 58%, rgba(0,0,0,0.20) 74%, transparent 88%);
   }
   .hero-content {
-    position: static;
+    position: relative;
+    z-index: 3;
     padding-top: 24px;
     max-width: 100%;
     align-items: stretch;
   }
   .hero-text { max-width: 100%; }
-  /* Badge anclado al fondo del hero, encima de la alfombra DDR de la imagen */
-  .hero-badge {
-    position: absolute;
-    bottom: 28px; left: 50%; transform: translateX(-50%);
-    z-index: 4;
-    margin: 0;
-    max-width: calc(100% - 32px);
-    text-align: center;
-    background: rgba(0,0,0,0.88);
-    border-color: rgba(234,179,8,0.7);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+  /* En móvil, el badge dentro del hero se OCULTA: aparece duplicado como
+     banda independiente DEBAJO del hero (.hero-badge-band) para no pelear
+     con la alfombra DDR de la imagen full-bleed. */
+  .hero > .hero-badge { display: none !important; }
+
+  .hero-badge-band {
+    display: block;
+    padding: 24px 20px 28px;
+    background: linear-gradient(180deg, #000 0%, #0a1626 100%);
+    border-bottom: 1px solid rgba(0, 190, 200, 0.18);
+  }
+  .hero-badge-band .hero-badge {
+    position: static;
+    top: auto; left: auto; transform: none;
+    margin: 0 auto;
+    padding: 10px;
+    width: 100%;
+    max-width: 380px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    list-style: none;
+    background: rgba(0,0,0,0.82);
+    border: 1px solid rgba(234,179,8,0.55);
+    border-radius: 14px;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.78em;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+  }
+  .hero-badge-band .hero-badge .badge-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: rgba(234,179,8,0.08);
+    border: 1px solid rgba(234,179,8,0.22);
+    border-radius: 10px;
+    color: var(--tulip-tree-400);
+    font-family: var(--font-display);
+    font-size: 0.95em;
+    line-height: 1.15;
+    letter-spacing: 0.3px;
+    min-height: 44px;
+  }
+  .hero-badge-band .hero-badge .badge-chip::before { content: none; }
+  .hero-badge-band .hero-badge .badge-icon {
+    flex-shrink: 0;
+    font-size: 1.25em;
+    line-height: 1;
+  }
+  .hero-badge-band .hero-badge .badge-chip:nth-child(1) .badge-icon { filter: drop-shadow(0 0 6px rgba(255,45,146,0.55)); }
+  .hero-badge-band .hero-badge .badge-chip:nth-child(2) .badge-icon { filter: drop-shadow(0 0 6px rgba(24,248,246,0.55)); }
+  .hero-badge-band .hero-badge .badge-chip:nth-child(3) .badge-icon { filter: drop-shadow(0 0 6px rgba(234,179,8,0.55)); }
+  .hero-badge-band .hero-badge .badge-chip:nth-child(4) .badge-icon { filter: drop-shadow(0 0 6px rgba(255,45,146,0.55)); }
+  @media (max-width: 380px) {
+    .hero-badge-band .hero-badge { font-size: 0.74em; padding: 8px; gap: 5px; }
+    .hero-badge-band .hero-badge .badge-chip { padding: 7px 8px; gap: 6px; min-height: 42px; }
   }
   .hero .cta-row { display: none; }
   .scroll-hint { display: none; }
@@ -270,15 +372,6 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   }
 }
 
-.hero-badge {
-  display: inline-block; padding: 6px 16px;
-  background: rgba(234,179,8,0.12);
-  border: 1px solid rgba(234,179,8,0.4);
-  color: var(--tulip-tree-400);
-  border-radius: 999px; font-size: 0.85em; letter-spacing: 1px;
-  font-family: var(--font-mono); text-transform: uppercase;
-  margin-bottom: 24px;
-}
 .hero h1 {
   font-family: var(--font-display);
   font-size: clamp(1.8em, 4.4vw, 3.2em);
@@ -290,10 +383,7 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   filter: drop-shadow(0 4px 24px rgba(24,248,246,0.18));
   text-wrap: balance;
 }
-.hero h1 .hero-h1-line { display: block; white-space: nowrap; }
-@media (max-width: 640px) {
-  .hero h1 .hero-h1-line { white-space: normal; }
-}
+.hero h1 .hero-h1-line { display: block; }
 .pulse {
   display: inline-block;
   background: linear-gradient(90deg, var(--rosa-neon) 0%, #ff6ab0 100%);
@@ -807,6 +897,8 @@ section { padding: 80px 24px; position: relative; }
 
 @media (max-width: 768px) {
   .topbar { padding: 0 16px; }
+  .topbar .brand { height: 34px; gap: 8px; }
+  .topbar .brand .wordmark { font-size: 24px; }
   .topbar .primary-nav a:not(.cta-mini) { display: none; }
   .arrow-rain { opacity: 0.18; }
   section { padding: 60px 20px; }
@@ -821,7 +913,10 @@ section { padding: 80px 24px; position: relative; }
 <a class="skip-link" href="#contenido">Saltar al contenido principal</a>
 
 <header class="topbar" role="banner">
-  <a href="#hero" class="brand" aria-label="Sincro — inicio de la página">⚡ Sincro</a>
+  <a href="#hero" class="brand" aria-label="Sincro — inicio de la página">
+    <img src="sincro-logo-img-transp.webp" alt="" width="852" height="402" decoding="async" aria-hidden="true">
+    <span class="wordmark">Sincro</span>
+  </a>
   <nav class="primary-nav" aria-label="Navegación principal">
     <ul>
       <li><a href="#beneficios">Beneficios</a></li>
@@ -851,9 +946,15 @@ section { padding: 80px 24px; position: relative; }
     </div>
     <div class="hero-overlay" aria-hidden="true"></div>
 
+    <ul class="hero-badge" aria-label="Cuatro dimensiones que entrena Sincro">
+      <li class="badge-chip"><span class="badge-icon" aria-hidden="true">💓</span>Cardio</li>
+      <li class="badge-chip"><span class="badge-icon" aria-hidden="true">🎵</span>Música</li>
+      <li class="badge-chip"><span class="badge-icon" aria-hidden="true">🧠</span>Atención y memoria</li>
+      <li class="badge-chip"><span class="badge-icon" aria-hidden="true">⚖️</span>Coordinación y equilibrio</li>
+    </ul>
+
     <div class="hero-content">
       <div class="hero-text">
-        <p class="hero-badge">⚡ Cardio · Música · Atención y memoria · Coordinación y equilibrio</p>
         <h1 id="hero-title"><span class="hero-h1-line">Sincroniza cuerpo, <span class="pulse">pulso</span> y mente</span><span class="hero-h1-line">al ritmo de tu música favorita.</span></h1>
         <p class="tagline">
           Convierte tus canciones favoritas en una coreografía o una partitura:
@@ -868,6 +969,15 @@ section { padding: 80px 24px; position: relative; }
 
     <p class="scroll-hint" aria-hidden="true">▼ La ciencia que lo respalda ▼</p>
   </section>
+
+  <aside class="hero-badge-band" aria-hidden="true">
+    <ul class="hero-badge">
+      <li class="badge-chip"><span class="badge-icon" aria-hidden="true">💓</span>Cardio</li>
+      <li class="badge-chip"><span class="badge-icon" aria-hidden="true">🎵</span>Música</li>
+      <li class="badge-chip"><span class="badge-icon" aria-hidden="true">🧠</span>Atención y memoria</li>
+      <li class="badge-chip"><span class="badge-icon" aria-hidden="true">⚖️</span>Coordinación y equilibrio</li>
+    </ul>
+  </aside>
 
   <aside class="claim-block" aria-label="Cita destacada">
     <blockquote cite="https://doi.org/10.1136/bjsports-2024-108589">

@@ -10,6 +10,9 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="apple-touch-icon" href="icons/icon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" rel="stylesheet">
 <script src="stepmania-web/js/pwa-bootstrap.js"></script>
 <style>
   :root {
@@ -22,6 +25,7 @@
     --shell-accent-2: #fbbf24;
     --shell-active: rgba(0, 190, 200, 0.22);
     --shell-h: 56px;
+    --rosa-neon: #ff2d92;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
@@ -49,20 +53,30 @@
   .shell-brand {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-family: 'Righteous', system-ui, sans-serif;
-    font-size: 22px;
-    font-weight: 400;
+    gap: 12px;
+    height: 46px;
     text-decoration: none;
-    background: linear-gradient(135deg, var(--shell-accent) 0%, var(--shell-accent-2) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
-    letter-spacing: 0.5px;
-    white-space: nowrap;
+    line-height: 1;
   }
-  .shell-brand::before { content: '⚡'; -webkit-text-fill-color: var(--shell-accent); color: var(--shell-accent); }
+  .shell-brand img {
+    height: 100%;
+    width: auto;
+    display: block;
+    filter: drop-shadow(0 0 4px rgba(0, 190, 200, 0.35)) drop-shadow(0 0 6px rgba(250, 204, 21, 0.25));
+  }
+  .shell-brand .wordmark {
+    font-family: 'Righteous', system-ui, sans-serif;
+    font-size: 31px;
+    line-height: 1;
+    color: #fff;
+    letter-spacing: 1.5px;
+    -webkit-text-stroke: 1px var(--rosa-neon);
+    text-shadow:
+      0 0 4px #fff,
+      0 0 8px var(--rosa-neon),
+      0 0 18px var(--rosa-neon),
+      0 0 28px rgba(255, 45, 146, 0.6);
+  }
 
   .shell-byline {
     display: inline-flex;
@@ -185,7 +199,8 @@
   /* Mobile: encoge brand y oculta texto en links salvo el activo */
   @media (max-width: 640px) {
     .shell-topbar { gap: 6px; padding: 0 8px; }
-    .shell-brand { font-size: 18px; margin-right: auto; }
+    .shell-brand { height: 34px; gap: 8px; margin-right: auto; }
+    .shell-brand .wordmark { font-size: 24px; }
     .shell-byline { display: none; }
     .shell-nav a { padding: 8px 10px; font-size: 13px; }
     .shell-install { padding: 6px 10px; font-size: 12px; }
@@ -204,7 +219,10 @@
 </head>
 <body>
   <header class="shell-topbar" role="banner">
-    <a class="shell-brand" href="#/play" aria-label="Sincro · Inicio">Sincro</a>
+    <a class="shell-brand" href="#/play" aria-label="Sincro · Inicio">
+      <img src="sincro-logo-img-transp.webp" alt="" width="852" height="402" decoding="async" aria-hidden="true">
+      <span class="wordmark">Sincro</span>
+    </a>
     <a class="shell-byline" href="https://movimientofuncional.com" target="_blank" rel="noopener" aria-label="Movimiento Funcional — web principal"><em>by</em> <strong>Movimiento Funcional</strong></a>
     <nav class="shell-nav" aria-label="Navegación principal">
       <a href="#/play"           data-route="/play">⌂ Inicio</a>
