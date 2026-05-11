@@ -64,8 +64,38 @@
   }
   .shell-brand::before { content: '⚡'; -webkit-text-fill-color: var(--shell-accent); color: var(--shell-accent); }
 
+  .shell-byline {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    margin-right: auto;
+    margin-left: -4px;
+    padding-left: 10px;
+    border-left: 1px solid var(--shell-border);
+    font-family: 'ABeeZee', system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--shell-muted);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color 120ms ease;
+  }
+  .shell-byline em {
+    font-style: normal;
+    font-weight: 400;
+    letter-spacing: 0.8px;
+    color: var(--shell-muted);
+    opacity: 0.75;
+  }
+  .shell-byline strong {
+    font-weight: 700;
+    color: var(--shell-fg);
+  }
+  .shell-byline:hover strong { color: var(--shell-accent); }
+
   .shell-nav {
-    flex: 1;
     display: flex;
     gap: 4px;
     overflow-x: auto;
@@ -155,7 +185,8 @@
   /* Mobile: encoge brand y oculta texto en links salvo el activo */
   @media (max-width: 640px) {
     .shell-topbar { gap: 6px; padding: 0 8px; }
-    .shell-brand { font-size: 18px; }
+    .shell-brand { font-size: 18px; margin-right: auto; }
+    .shell-byline { display: none; }
     .shell-nav a { padding: 8px 10px; font-size: 13px; }
     .shell-install { padding: 6px 10px; font-size: 12px; }
   }
@@ -167,21 +198,20 @@
       padding-right: calc(100vw - env(titlebar-area-width, 100vw) - env(titlebar-area-x, 0px) + 16px);
       app-region: drag;
     }
-    .shell-brand, .shell-nav, .shell-actions { app-region: no-drag; }
+    .shell-brand, .shell-byline, .shell-nav, .shell-actions { app-region: no-drag; }
   }
 </style>
 </head>
 <body>
   <header class="shell-topbar" role="banner">
     <a class="shell-brand" href="#/play" aria-label="Sincro · Inicio">Sincro</a>
+    <a class="shell-byline" href="https://movimientofuncional.com" target="_blank" rel="noopener" aria-label="Movimiento Funcional — web principal"><em>by</em> <strong>Movimiento Funcional</strong></a>
     <nav class="shell-nav" aria-label="Navegación principal">
       <a href="#/play"           data-route="/play">⌂ Inicio</a>
       <a href="#/stepmania-play" data-route="/stepmania-play">🦶 Bailar</a>
       <a href="#/gh-play"        data-route="/gh-play">🎸 Tocar</a>
-      <a href="#/autostepper"    data-route="/autostepper">🪄 Crear DDR</a>
-      <a href="#/gh-autostepper" data-route="/gh-autostepper">🎼 Crear GH</a>
       <a href="#/test-pad"       data-route="/test-pad">🛠️ Equipo</a>
-      <a href="#/about"          data-route="/about">ℹ️ Sincro</a>
+      <a href="#/tutorial"       data-route="/tutorial">ℹ️ Ayuda</a>
     </nav>
     <div class="shell-actions">
       <button id="installBtn" class="shell-install" hidden type="button">Instalar app</button>
@@ -265,6 +295,29 @@
     });
 
     window.addEventListener('hashchange', navigate);
+
+    // Click handler explícito para los links del nav.
+    //
+    // Por qué no basta con el default action de <a href="#/foo">:
+    // cuando el iframe tiene el foco (juego activo, modal abierto, fullscreen
+    // invocado por la herramienta) el navegador a veces consume el primer
+    // click del topbar solo para devolver foco al parent — el <a> se queda
+    // sin disparar la navegación. Interceptar manualmente con preventDefault
+    // + window.focus() + asignación directa de location.hash garantiza que
+    // el segundo paso (navegación) ocurra siempre, no solo cuando el parent
+    // ya tenía foco.
+    navLinks.forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        var route = a.dataset.route;
+        window.focus();
+        if (location.hash === '#' + route) {
+          navigate();
+        } else {
+          location.hash = '#' + route;
+        }
+      });
+    });
 
     // Asegura que haya hash al entrar — start_url=/app.html sin hash debe
     // resolver a la ruta default (/play).

@@ -1,6 +1,11 @@
 // ============================================================================
 //  LIBRARY UI — list/delete songs from IndexedDB, import .ssc/.sm + audio
 //  pairs (best-effort name pairing). Uses parseSscOrSm from parser.js.
+//
+//  Render unificado con gh-play.html: filas `.lib-row` con checkbox de
+//  selección múltiple + banner sticky `playlist-bar` para borrado masivo +
+//  drop-zones (drag-and-drop) en la card de importar. Estilo turquesa
+//  (StepMania); el patrón es idéntico al de la biblioteca GH (naranja).
 // ============================================================================
 
 // `navigator.storage.estimate()` aggregates IndexedDB + localStorage + caches
@@ -17,40 +22,147 @@ async function getStorageInfo() {
   } catch (e) { return null; }
 }
 
+// ----- Selección múltiple (mismo patrón que selectedManageIds de gh-play) ----
+const selectedLibraryIds = new Set();
+let _visibleLibraryIds = [];
+
 async function refreshLibrary() {
   const c = document.getElementById('libraryContainer');
+  const countEl = document.getElementById('libraryCount');
   c.innerHTML = 'Cargando...';
   const [songs, info] = await Promise.all([dbAll(), getStorageInfo()]);
   const storageBar = info
     ? `<div style="margin-bottom:14px;padding:10px 14px;background:rgba(0,190,200,0.08);border:1px solid rgba(0,190,200,0.2);border-radius:8px;font-size:0.85em;color:var(--gris-300)">
          💾 Librería ocupa <strong style="color:var(--turquesa-400)">${info.usedMB} MB</strong> de ${info.quotaMB} MB disponibles (${info.pct}%)
        </div>` : '';
+
+  if (countEl) countEl.textContent = songs.length ? `(${songs.length})` : '';
+
   if (!songs.length) {
-    c.innerHTML = storageBar + '<p style="color:var(--gris-400);text-align:center;padding:30px">Tu librería está vacía. <a href="#" onclick="goto(\'create\')" style="color:var(--turquesa-600)">Crea tu primer chart</a> o <button class="icon-btn" onclick="document.getElementById(\'importInput\').click()">importa archivos</button>.</p>';
+    selectedLibraryIds.clear();
+    _visibleLibraryIds = [];
+    c.innerHTML = storageBar + '<p style="color:var(--gris-400);text-align:center;padding:30px">Tu biblioteca está vacía. Importa archivos abajo o <a href="autostepper.html" style="color:var(--turquesa-400)">crea tu primer chart</a>.</p>';
+    updateLibraryManageBar();
     return;
   }
-  let html = storageBar + `<div class="queue"><div class="queue-row header"><div>Canción</div><div>BPM</div><div>Duración</div><div>Charts</div><div>Acciones</div></div>`;
+
+  // Sort: más recientes primero (igual que GH)
+  songs.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  _visibleLibraryIds = songs.map(s => s.id);
+  // Limpiar selección de ids que ya no existen
+  for (const id of [...selectedLibraryIds]) {
+    if (!_visibleLibraryIds.includes(id)) selectedLibraryIds.delete(id);
+  }
+
+  let html = storageBar + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:8px">
+      <input type="checkbox" class="playlist-checkbox" id="selectAllVisibleLibrary" onchange="toggleAllVisibleLibrary()" aria-label="Seleccionar todas las canciones visibles">
+      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca varias canciones con la casilla para eliminarlas a la vez</span>
+    </div>`;
+
   for (const s of songs) {
-    html += `<div class="queue-row">
-      <div class="name"><div style="font-weight:600">${escapeHtml(s.title)}</div><div style="color:#888;font-size:0.78em">${escapeHtml(s.artist)}</div></div>
-      <div>${s.bpm.toFixed(1)}</div>
-      <div>${formatTime(s.duration)}</div>
-      <div>${s.charts.length}</div>
-      <div style="display:flex;gap:4px">
-        <button class="icon-btn" onclick="playSong(${s.id})">▶</button>
-        <button class="icon-btn danger" onclick="deleteSong(${s.id})">×</button>
+    const dur = s.duration ? formatTime(s.duration) : '?';
+    const isMarked = selectedLibraryIds.has(s.id);
+    const chartCount = (s.charts || []).length;
+    html += `<div class="lib-row${isMarked ? ' in-playlist' : ''}">
+      <input type="checkbox" class="playlist-checkbox" ${isMarked ? 'checked' : ''}
+        onchange="togglePlaylistSelectionLibrary(${s.id})" title="Marcar para eliminar en grupo"
+        aria-label="Marcar ${escapeHtml(s.title || 'canción')}">
+      <div style="flex:1;min-width:0">
+        <div style="color:#fff;font-weight:600">${escapeHtml(s.title || 'Sin título')}</div>
+        <div style="color:var(--gris-400);font-size:0.85em">${escapeHtml(s.artist || 'Unknown')} · ${s.bpm ? s.bpm.toFixed(1) + ' BPM' : '? BPM'} · ${dur} · ${chartCount} chart${chartCount === 1 ? '' : 's'}</div>
+      </div>
+      <div class="lib-row-actions">
+        <button class="action-btn" style="padding:8px 16px;font-size:0.95em" onclick="playSong(${s.id})">▶ Tocar</button>
+        <button class="icon-btn danger" style="padding:8px 12px" onclick="deleteSong(${s.id})" title="Eliminar esta canción">🗑</button>
       </div>
     </div>`;
   }
-  html += '</div>';
+
   c.innerHTML = html;
+  updateLibraryManageBar();
+}
+
+// Toggle individual: añade/quita un id del Set y re-renderiza.
+function togglePlaylistSelectionLibrary(id) {
+  if (selectedLibraryIds.has(id)) selectedLibraryIds.delete(id);
+  else selectedLibraryIds.add(id);
+  refreshLibrary();
+}
+
+// Limpia toda la selección.
+function clearLibraryManageSelection() {
+  selectedLibraryIds.clear();
+  refreshLibrary();
+}
+
+// Checkbox maestro tri-state: vacío / indeterminate / todo. Si el usuario
+// marca el master con todas seleccionadas, las desmarca; en cualquier otro
+// caso, las marca todas.
+function toggleAllVisibleLibrary() {
+  if (_visibleLibraryIds.length === 0) return;
+  const allMarked = _visibleLibraryIds.every(id => selectedLibraryIds.has(id));
+  if (allMarked) for (const id of _visibleLibraryIds) selectedLibraryIds.delete(id);
+  else for (const id of _visibleLibraryIds) selectedLibraryIds.add(id);
+  refreshLibrary();
+}
+
+// Actualiza el header inline de la card (contador + estado de los botones)
+// y propaga el estado tri-state al checkbox maestro (indeterminate es
+// propiedad JS pura — se reaplica tras cada innerHTML).
+function updateLibraryManageBar() {
+  const count = document.getElementById('libraryManageCount');
+  const clearBtn = document.getElementById('libraryManageClearBtn');
+  const delBtn = document.getElementById('libraryManageDeleteBtn');
+  const n = selectedLibraryIds.size;
+  if (n === 0) {
+    if (count) count.textContent = '';
+    if (clearBtn) clearBtn.disabled = true;
+    if (delBtn) { delBtn.disabled = true; delBtn.textContent = '🗑 Eliminar seleccionadas'; }
+  } else {
+    if (count) count.textContent = `${n} ${n === 1 ? 'seleccionada' : 'seleccionadas'}`;
+    if (clearBtn) clearBtn.disabled = false;
+    if (delBtn) { delBtn.disabled = false; delBtn.textContent = `🗑 Eliminar (${n})`; }
+  }
+  // Tri-state del checkbox maestro
+  const cb = document.getElementById('selectAllVisibleLibrary');
+  if (cb) {
+    const total = _visibleLibraryIds.length;
+    if (total === 0) {
+      cb.checked = false; cb.indeterminate = false; cb.disabled = true;
+    } else {
+      cb.disabled = false;
+      const marked = _visibleLibraryIds.filter(id => selectedLibraryIds.has(id)).length;
+      if (marked === 0) { cb.checked = false; cb.indeterminate = false; }
+      else if (marked === total) { cb.checked = true; cb.indeterminate = false; }
+      else { cb.checked = false; cb.indeterminate = true; }
+    }
+  }
+}
+
+async function bulkDeleteFromLibrary() {
+  const ids = [...selectedLibraryIds];
+  if (!ids.length) return;
+  const msg = ids.length === 1
+    ? '¿Eliminar 1 canción de la biblioteca?'
+    : `¿Eliminar ${ids.length} canciones de la biblioteca? Esta acción no se puede deshacer.`;
+  if (!confirm(msg)) return;
+  for (const id of ids) {
+    await dbDelete(id);
+  }
+  selectedLibraryIds.clear();
+  refreshLibrary();
 }
 
 async function deleteSong(id) {
-  if (!confirm('¿Eliminar canción de la librería?')) return;
+  if (!confirm('¿Eliminar canción de la biblioteca?')) return;
   await dbDelete(id);
+  selectedLibraryIds.delete(id);
   refreshLibrary();
 }
+
+// ----------------------------------------------------------------------------
+//  IMPORT — paquete completo (carpeta) + archivos sueltos (.ssc/.sm + audio)
+// ----------------------------------------------------------------------------
 
 // ----- Recursive SM pack import ---------------------------------------------
 // Uses <input webkitdirectory>: each File carries webkitRelativePath (e.g.
@@ -61,6 +173,8 @@ document.getElementById('importPackInput').addEventListener('change', async e =>
   const files = [...e.target.files];
   if (!files.length) return;
   const status = document.getElementById('backupStatus');
+  const packName = document.getElementById('packDropName');
+  if (packName) packName.textContent = `${files.length} archivos`;
   status.textContent = `Analizando ${files.length} archivos...`;
 
   // Group by parent folder
@@ -143,13 +257,15 @@ document.getElementById('importPackInput').addEventListener('change', async e =>
   if (quotaHit) {
     const info = await getStorageInfo();
     const used = info ? `${info.usedMB} MB` : 'la cuota disponible';
-    status.innerHTML = `<span style="color:var(--color-warning)">⚠️ Almacenamiento lleno tras importar ${imported} canciones. Tu navegador limita la librería a ${used}. Elimina canciones antiguas o haz un backup ZIP y libera espacio antes de seguir.</span>`;
+    status.innerHTML = `<span style="color:var(--color-warning)">⚠️ Almacenamiento lleno tras importar ${imported} canciones. Tu navegador limita la biblioteca a ${used}. Elimina canciones antiguas o haz un backup ZIP y libera espacio antes de seguir.</span>`;
   } else {
     const reasonsText = errorReasons.size
       ? ' (' + [...errorReasons.entries()].map(([k,v]) => `${v}× ${k}`).join(', ') + ')'
       : '';
     status.innerHTML = `<span style="color:var(--color-success)">✓ ${imported} canciones importadas${skipped ? ` · ${skipped} omitidas${reasonsText}` : ''}</span>`;
   }
+  // Marcamos visualmente la drop-zone como "loaded" tras un import correcto.
+  if (imported > 0) document.getElementById('packDrop')?.classList.add('loaded');
   refreshLibrary();
   e.target.value = '';
 });
@@ -158,10 +274,14 @@ document.getElementById('importInput').addEventListener('change', async e => {
   const files = [...e.target.files];
   const audioFiles = files.filter(f => f.type.startsWith('audio/'));
   const sscFiles = files.filter(f => f.name.endsWith('.ssc') || f.name.endsWith('.sm'));
+  const filesName = document.getElementById('filesDropName');
   if (sscFiles.length === 0 || audioFiles.length === 0) {
     alert('Selecciona al menos un .ssc/.sm y un audio juntos.');
+    if (filesName) filesName.textContent = '';
+    e.target.value = '';
     return;
   }
+  if (filesName) filesName.textContent = `${sscFiles.length} chart${sscFiles.length === 1 ? '' : 's'} + ${audioFiles.length} audio${audioFiles.length === 1 ? '' : 's'}`;
   // Pair them by name (best effort)
   let imported = 0;
   let quotaHit = false;
@@ -214,12 +334,57 @@ document.getElementById('importInput').addEventListener('change', async e => {
   if (quotaHit) {
     const info = await getStorageInfo();
     const used = info ? `${info.usedMB} MB` : 'la cuota disponible';
-    alert(`Almacenamiento lleno tras importar ${imported} canciones.\n\nTu navegador limita la librería a ${used}. Elimina canciones antiguas o haz un backup ZIP antes de seguir.`);
+    alert(`Almacenamiento lleno tras importar ${imported} canciones.\n\nTu navegador limita la biblioteca a ${used}. Elimina canciones antiguas o haz un backup ZIP antes de seguir.`);
   } else if (lastError) {
     alert(`${imported} canción(es) importada(s).\nAlgunas fallaron: ${lastError.name || 'error'}.`);
-  } else {
-    alert(imported + ' canción(es) importada(s).');
+  } else if (imported) {
+    document.getElementById('filesDrop')?.classList.add('loaded');
   }
   refreshLibrary();
   e.target.value = '';
+});
+
+// ----------------------------------------------------------------------------
+//  DRAG-AND-DROP sobre las drop-zones (visual feedback + arrastrar archivos
+//  directamente a cualquier zona dispara el input correspondiente). Patrón
+//  idéntico al de gh-play.html — los listeners viven en el módulo, no en el
+//  HTML, así que se atan solo si los elementos existen (la pantalla library
+//  vive en stepmania-play.html; en otros HTMLs que carguen library.js no
+//  hay drop-zones y los listeners simplemente no se atan).
+// ----------------------------------------------------------------------------
+function wireDropZone(dropId, inputId) {
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(inputId);
+  if (!drop || !input) return;
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+  drop.addEventListener('drop', e => {
+    e.preventDefault();
+    drop.classList.remove('dragover');
+    if (!e.dataTransfer || !e.dataTransfer.files.length) return;
+    // Asignar los archivos al input y disparar el change para reusar la
+    // lógica de import existente.
+    try {
+      const dt = new DataTransfer();
+      for (const f of e.dataTransfer.files) dt.items.add(f);
+      input.files = dt.files;
+      input.dispatchEvent(new Event('change'));
+    } catch (err) {
+      // DataTransfer no soportado: fallback intentando llamar al handler manualmente
+      console.warn('Drop fallback:', err);
+    }
+  });
+}
+wireDropZone('filesDrop', 'importInput');
+wireDropZone('packDrop', 'importPackInput');
+wireDropZone('restoreDrop', 'backupRestoreInput');
+
+// El input backupRestoreInput ya tiene su listener en backup.js. Solo
+// añadimos aquí el feedback visual del "loaded" tras seleccionar archivo.
+document.getElementById('backupRestoreInput')?.addEventListener('change', e => {
+  const name = document.getElementById('restoreDropName');
+  if (e.target.files && e.target.files[0]) {
+    if (name) name.textContent = e.target.files[0].name;
+    document.getElementById('restoreDrop')?.classList.add('loaded');
+  }
 });

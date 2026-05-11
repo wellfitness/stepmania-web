@@ -116,17 +116,32 @@ function ghExtractChartMeta(chartText) {
     const bpmLine = syncMatch[1].match(/0\s*=\s*B\s+(\d+)/);
     if (bpmLine) meta.bpm = parseInt(bpmLine[1]) / 1000;
   }
-  // Difficulties + total notas
+  // Difficulties + total notas + breakdown por dificultad.
+  // Agrupamos por tick para que un chord (varias líneas N con mismo tick) cuente
+  // como UNA nota — alineado con `parseChart` en gh-play.html que también agrupa
+  // por tick. Sin esto, `totalNotes` mostraba un número inflado vs lo que el HUD
+  // del motor enseña al jugar, y los acordes hacían que el resumen final pareciera
+  // "perder" notas (e.g., setup decía 58, el juego terminaba en 56-57).
+  // Solo cuenta frets 0..4 (los 5/6 son flags forceHopo/Tap, 7 es open note y
+  // tampoco genera nota propia salvo para el counting puro — lo dejamos fuera
+  // porque parseChart actual descarta open notes en gh-play).
   const diffs = ['EasySingle','MediumSingle','HardSingle','ExpertSingle'];
+  meta.notesByDiff = {};
   for (const d of diffs) {
     const re = new RegExp('\\[' + d + '\\]\\s*\\{([\\s\\S]*?)\\}', 'm');
     const m = chartText.match(re);
     if (m) {
       meta.diffs.push(d);
-      const noteLines = m[1].match(/^\s*\d+\s*=\s*N\s+\d+\s+\d+/gm) || [];
-      // Cada línea N es un fret-press; chord = múltiples líneas mismo tick.
-      // Como métrica simple sumamos todas (overcounta chords pero es ok para UI).
-      meta.totalNotes += noteLines.length;
+      const ticks = new Set();
+      const lineRe = /^\s*(\d+)\s*=\s*N\s+(\d+)\s+\d+/gm;
+      let lm;
+      while ((lm = lineRe.exec(m[1])) !== null) {
+        const fret = parseInt(lm[2]);
+        if (fret > 4) continue; // 5/6 son flags, 7 es open — no son notas jugables
+        ticks.add(lm[1]);
+      }
+      meta.notesByDiff[d] = ticks.size;
+      meta.totalNotes += ticks.size;
     }
   }
   return meta;

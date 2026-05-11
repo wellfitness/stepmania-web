@@ -109,29 +109,39 @@ let gameState = null;
 const canvas = document.getElementById('gameCanvas');
 const ctx2d = canvas.getContext('2d');
 let canvasW = 0, canvasH = 0;
-// Sizing del playfield. Antes ARROW_SIZE/laneWidth eran constantes pensadas
-// para 1280×720 → en laptop FHD el playfield ocupaba <20% del ancho.
+// Sizing del playfield. Modelo "lane-width-first": cada carril intenta tener
+// un ancho ideal CONSTANTE (~220 px), y el playfield total crece con
+// numLanes. Así un chart Full (8 carriles) ocupa el doble de ancho que un
+// chart clásico (4 carriles) pero cada flecha conserva su tamaño en pantalla.
 //
-// Modelo nuevo (espejo del highway de gh-play.html):
-//   playfieldW = clamp(540, canvasW × 0.5, 1040)
-//   laneWidth  = playfieldW / numLanes   (4/6/8 según el chart)
-//   ARROW_SIZE = laneWidth × 0.78        (deja ~22% de respiro entre lanes)
+//   target     = numLanes × LANE_WIDTH_IDEAL
+//   maxPlayfield = canvasW × 0.92        (deja margen para no tocar bordes)
+//   minPlayfield = 540                    (mínimo legible incluso en 4 lanes)
+//   playfieldW = clamp(minPlayfield, target, maxPlayfield)
+//   laneWidth  = playfieldW / numLanes
+//   ARROW_SIZE = laneWidth × 0.78         (deja ~22% de respiro entre lanes)
 //
-// Beneficio: en 4 carriles las flechas son grandes (≈186 px en FHD), pero
-// cuando un chart de 6 u 8 carriles entra, el playfield NO se ensancha —
-// los lanes simplemente se reparten dentro de los mismos ~960 px, así que
-// las 8 flechas siguen cabiendo cómodas (≈94 px cada una en FHD) sin que
-// el HUD lateral se solape.
+// Histórico: antes el playfield era FIJO (clamp 540..1040 sin tocar numLanes)
+// para evitar solapar el HUD lateral. El HUD se reubicó a footer hace tiempo
+// y esa restricción desapareció, así que el modo Solo/Full ya no necesita
+// "comprimir" las flechas.
+//
+// En portátiles estrechos o tablets, el target puede exceder maxPlayfield;
+// el clamp superior reduce proporcionalmente pero el resultado SIGUE siendo
+// más grande que el modelo viejo (que estaba clampeado a canvasW × 0.5).
 //
 // uiScale se mantiene solo para receptorY (margen superior — no afecta a
 // la geometría de los lanes).
+const LANE_WIDTH_IDEAL = 220;
 let uiScale = 1;
 let playfieldW = 540;
 let ARROW_SIZE = 56;
 function recomputePlayfieldSize() {
   uiScale = Math.max(1, Math.min(1.6, canvasW / 1100));
-  playfieldW = Math.max(540, Math.min(canvasW * 0.5, 1040));
   const numLanes = (gameState && gameState.laneConfig) ? gameState.laneConfig.lanes : 4;
+  const target = numLanes * LANE_WIDTH_IDEAL;
+  const maxPlayfield = canvasW * 0.92;
+  playfieldW = Math.max(540, Math.min(target, maxPlayfield));
   ARROW_SIZE = Math.round((playfieldW / numLanes) * 0.78);
   buildArrowSprites();
 }
@@ -413,10 +423,11 @@ async function startGame() {
     laneConfig,
     nativeLanes,
   };
-  // El playfield es FIJO en ancho (clamp 540-1040 px). ARROW_SIZE depende
-  // de cuántos lanes reparten ese ancho, así que se recomputa ahora que
-  // gameState.laneConfig.lanes ya está fijado para este chart. Sin esto,
-  // un chart de 8 lanes renderiza sprites pre-cacheados al tamaño de 4 lanes.
+  // El playfield CRECE con numLanes (target = numLanes × LANE_WIDTH_IDEAL,
+  // clamp en canvasW × 0.92). Recomputamos aquí porque gameState.laneConfig
+  // acaba de fijarse, así que la fórmula necesita el numLanes correcto. Sin
+  // esta llamada, un chart de 8 lanes renderiza sprites pre-cacheados al
+  // tamaño de 4 lanes y el playfield queda anchísimo con flechas pequeñas.
   recomputePlayfieldSize();
   document.getElementById('hudSongInfo').textContent = gameState.songInfo;
   document.getElementById('hudScore').textContent = '0';
@@ -851,22 +862,29 @@ const JUDGMENT_LABELS = {
 };
 
 function showJudgment(judg) {
-  // FALLO no se muestra como texto: ya hay X+contracción del anillo sobre el
-  // receptor (render() líneas 935-947) + combo break visible. Repetir "FALLO"
-  // centrado solo añade ruido sobre el highway.
-  if (judg === 'miss') return;
+  // TODOS los juicios se muestran (incluido FALLO) porque el usuario necesita
+  // saber qué pasó al pulsar — sin canal "verbal" se confunde "no llegué a
+  // tiempo" con "no se registró mi input". La X + contracción del receptor
+  // (animación visual en render()) sigue ocurriendo Y AHORA además se imprime
+  // el texto, redundancia intencional para clavar el feedback.
   const el = document.getElementById('hudJudgment');
   if (!el) return;
   el.textContent = JUDGMENT_LABELS[judg] || judg.toUpperCase();
   // Re-trigger CSS animation: limpiamos la clase un frame y la re-aplicamos.
-  // Sin esto, dos PERFECTOs consecutivos no re-disparan el pop animation.
+  // Sin esto, dos juicios consecutivos del mismo tier no re-disparan el pop.
   el.className = 'judgment';
   // Force reflow para que el navegador "vea" el cambio de clase antes del show.
   void el.offsetWidth;
   el.className = 'judgment show ' + judg;
-  // Posición la fija el CSS (top:24% del viewport) — antes este JS sobrescribía
-  // a top:60px fijo que en algunos viewports caía detrás de los receptores SM.
-  // 700ms de hold + 180ms fade = ~880ms visible total. Suficiente para leer.
+  // Posición JUSTO ENCIMA del receptor. receptorY = 110 × uiScale (~110-176px).
+  // Restamos 90px para que el centro del texto (transform translateY -50%)
+  // quede claramente arriba del círculo del receptor. Clamp 40px protege
+  // pantallas muy pequeñas para no invadir el topbar. Antes el CSS fijaba
+  // top:24% del viewport, que en pantallas grandes (1080p) caía a ~260px,
+  // SOBRE los receptores en uiScale 1.6 — confusión visual señalada por el
+  // usuario ("aparecen sobre los círculos").
+  const receptorY = Math.round(110 * uiScale);
+  el.style.top = Math.max(40, receptorY - 90) + 'px';
   setTimeout(() => { if (el.classList) el.classList.remove('show'); }, 700);
 }
 

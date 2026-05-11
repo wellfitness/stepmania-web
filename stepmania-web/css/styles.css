@@ -337,8 +337,39 @@ h1 {
 .drop-zone:hover, .drop-zone.dragover {
   border-color: var(--turquesa-400); background: rgba(0,190,200,0.12);
 }
-.drop-zone .big-icon { font-size: 2.6em; margin-bottom: 8px; }
+.drop-zone.loaded {
+  border-style: solid; border-color: var(--color-success);
+  background: rgba(16,185,129,0.08);
+}
+.drop-zone .big-icon, .drop-zone .icon { font-size: 2.6em; margin-bottom: 8px; }
+.drop-zone .filename { color: var(--color-success); font-family: var(--font-mono); margin-top: 4px; font-size: 0.85em; word-break: break-all; }
+.drop-zone p { margin: 4px 0; }
 input[type="file"] { display: none; }
+
+/* Files grid: 2 cols desktop, 1 col mobile. Usado en la card de "Importar" */
+.files-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 12px;
+}
+@media (max-width: 700px) { .files-grid { grid-template-columns: 1fr; } }
+
+/* Lib-row: fila flex (no tabla) para la biblioteca de canciones. Patrón
+   compartido entre StepMania y Guitar Hero. Cada fila lleva un checkbox de
+   selección múltiple + nombre/meta + botones de acción individuales. El
+   accent (turquesa) lo override gh-play.html en naranja localmente. */
+.lib-row {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 10px; padding: 12px 14px;
+  background: rgba(0,0,0,0.3);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  border-left: 3px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.lib-row.in-playlist {
+  background: rgba(0,190,200,0.10);
+  border-left-color: var(--turquesa-600);
+}
+.lib-row .lib-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
 /* PRESETS */
 .preset-grid {
@@ -419,13 +450,14 @@ input[type="file"] { display: none; }
 .gameHUD .score { font-size: 1.5em; color: #ffbe0b; line-height: 1; }
 .gameHUD .combo { font-size: 1.2em; color: #00ff64; line-height: 1; }
 /* Judgment text — vive como hijo de #play-screen (NO de .gameHUD) para no
-   heredar el stacking context z-index:20 del HUD. Posición fija al ~24% del
-   viewport: justo debajo de la zona de receptores SM (top ~110px en chart
-   normal, ~176px en pantalla grande) — donde el ojo del jugador ya está
-   mirando para anticipar las flechas que se acercan. z-index 1000 garantiza
-   que NUNCA quede tapado por canvas, HUD o cualquier capa de notas. */
+   heredar el stacking context z-index:20 del HUD. La posición vertical (top)
+   la calcula showJudgment() en JS proporcional a receptorY × uiScale, así
+   queda CLARAMENTE encima del receptor sin importar la resolución. Antes era
+   `top:24%` fijo del CSS, que en algunos viewports caía sobre los receptores.
+   z-index 1000 garantiza que NUNCA quede tapado por canvas, HUD o capas de
+   notas; el `top:0` inicial es solo placeholder antes del primer hit. */
 .judgment {
-  position: fixed; left: 50%; top: 24%;
+  position: fixed; left: 50%; top: 0;
   transform: translate(-50%, -50%);
   font-family: var(--font-display); font-size: 2.6em; font-weight: 800;
   opacity: 0; pointer-events: none; z-index: 1000;

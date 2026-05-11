@@ -953,20 +953,20 @@
   <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
     <h1 style="margin:0">📚 Mis canciones</h1>
   </div>
-  
-  <!-- Barra "Eliminar seleccionados" sticky-top. Se activa al marcar ≥1 partitura. -->
-  <div class="playlist-bar" id="manageBar">
-    <div class="count">
-      <span id="manageSelCount">Marca canciones con la casilla para eliminar varias a la vez</span>
-      <small>O usa el 🗑 Eliminar individual de cada fila si solo quieres borrar una</small>
-    </div>
-    <button class="action-btn secondary" id="manageClearBtn" onclick="clearManageSelection()" disabled>Limpiar</button>
-    <button class="action-btn" id="manageDeleteBtn" onclick="bulkDeleteFromManage()" disabled style="background:linear-gradient(90deg,var(--color-error),#9f1239)">🗑 Eliminar seleccionadas</button>
-  </div>
 
   <div class="card">
-    <h2>Canciones en biblioteca <span id="manageCount" style="font-size:0.55em;color:var(--gris-500);font-weight:400;font-family:var(--font-sans)"></span></h2>
-    <p style="margin-bottom:10px">Marca con la casilla para eliminar varias a la vez, o pulsa 🗑 Eliminar en una fila para borrarla.</p>
+    <!-- Header inline: título + botones de gestión a la derecha. Los botones
+         existen siempre (disabled cuando no hay selección) para que el usuario
+         sepa que pueden aparecer; al marcar ≥1 partitura se activan y el botón
+         de borrado muestra el conteo "🗑 Eliminar (N)". -->
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+      <h2 style="margin:0">Canciones en biblioteca <span id="manageCount" style="font-size:0.55em;color:var(--gris-500);font-weight:400;font-family:var(--font-sans)"></span></h2>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span id="manageSelCount" style="color:var(--gris-400);font-size:0.85em"></span>
+        <button class="action-btn secondary" id="manageClearBtn" onclick="clearManageSelection()" disabled style="padding:8px 14px;font-size:0.9em">Limpiar</button>
+        <button class="action-btn" id="manageDeleteBtn" onclick="bulkDeleteFromManage()" disabled style="padding:8px 14px;font-size:0.9em;background:linear-gradient(90deg,var(--color-error),#9f1239)">🗑 Eliminar seleccionadas</button>
+      </div>
+    </div>
     <div id="manageList"></div>
   </div>
 
@@ -1002,9 +1002,29 @@
     <div id="songInfo" class="info-grid" style="display:none"></div>
   </div>
 
+  <div class="card">
+    <h2>💾 Copia de seguridad</h2>
+    <p>Descarga un ZIP con todas tus partituras, audio y la calibración de la guitarra. Útil antes de cambiar de dispositivo o vaciar la caché del navegador.</p>
+    <div id="ghBackupStatus" style="margin:10px 0;font-size:0.85em;color:var(--gris-400)"></div>
+    <div class="files-grid">
+      <label class="drop-zone" id="ghRestoreDrop" title="Restaurar desde un ZIP de copia de seguridad">
+        <div class="icon">📦</div>
+        <p><strong>Restaurar desde ZIP</strong></p>
+        <p style="font-size:0.8em;color:var(--gris-500)">Arrastra aquí un backup previo</p>
+        <div class="filename" id="ghRestoreDropName"></div>
+        <input type="file" id="ghBackupRestoreInput" accept=".zip">
+      </label>
+      <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;padding:20px">
+        <button class="action-btn" onclick="exportGHBackupZip()" style="width:100%">💾 Descargar copia de seguridad</button>
+        <p style="font-size:0.8em;color:var(--gris-500);text-align:center;margin:0">Genera un ZIP con todo el contenido de la biblioteca</p>
+      </div>
+    </div>
+  </div>
+
   <div style="text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
     <button class="action-btn" onclick="goto('songs')">▶ Ir a Tocar</button>
     <button class="action-btn secondary" onclick="window.location.href='test-pad.html'">🎸 Calibrar guitarra</button>
+    <button class="action-btn secondary" onclick="refreshManageList()">↻ Recargar</button>
   </div>
 </div>
 
@@ -1077,6 +1097,7 @@
 
 <script src="stepmania-web/js/audio-pipeline.js"></script>
 <script src="stepmania-web/js/gh-db.js"></script>
+<script src="stepmania-web/js/gh-backup.js"></script>
 <script>
 // ============================================================================
 //                          GH PLAY — Simulador Guitar Hero
@@ -1762,14 +1783,20 @@ function renderSongInfo() {
   const el = document.getElementById('songInfo');
   el.style.display = '';
   const dur = song.audioBuffer.duration;
-  const totalNotes = Object.values(song.charts).reduce((s, arr) => s + arr.length, 0);
+  // Conteo de notas POR dificultad — coincide con `runtimeNotes.length` y por
+  // tanto con el HUD del motor durante la partida. Sumar todas las diffs era
+  // engañoso (el usuario veía "58" pero solo jugaba una diff con menos notas)
+  // y los acordes ya están agrupados por tick en `parseChart`, así que estos
+  // números son las notas-jugables reales, no líneas crudas del .chart.
+  const diffBreakdown = Object.entries(song.charts)
+    .map(([k, arr]) => `${ghDiffLabel(k)} ${arr.length}`)
+    .join(' · ');
   el.innerHTML = `
     <div class="info-item"><div class="key">Título</div><div class="val">${escHtml(song.meta.Name || '?')}</div></div>
     <div class="info-item"><div class="key">Artista</div><div class="val">${escHtml(song.meta.Artist || '?')}</div></div>
     <div class="info-item"><div class="key">BPM</div><div class="val">${song.bpm.toFixed(1)}</div></div>
     <div class="info-item"><div class="key">Duración</div><div class="val">${Math.floor(dur/60)}:${('0'+Math.floor(dur%60)).slice(-2)}</div></div>
-    <div class="info-item"><div class="key">Dificultades</div><div class="val">${Object.keys(song.charts).map(ghDiffLabel).join(' · ')}</div></div>
-    <div class="info-item"><div class="key">Notas totales</div><div class="val">${totalNotes}</div></div>
+    <div class="info-item"><div class="key">Notas por dificultad</div><div class="val">${diffBreakdown}</div></div>
   `;
   // El dropdown del config-card NO se repuebla con las dificultades de la
   // canción — siempre muestra Easy/Medium/Hard/Expert (config global). Si
@@ -3006,14 +3033,32 @@ window.addEventListener('keydown', e => {
 const selectedManageIds = new Set();
 let _visibleManageIds = [];
 
+// `navigator.storage.estimate()` agrega IndexedDB + localStorage + caches.
+// Duplicado mínimo del helper que vive en library.js para no acoplar este
+// archivo a core.js — son 8 líneas autocontenidas, no merece extracción.
+async function getGHStorageInfo() {
+  if (!navigator.storage || !navigator.storage.estimate) return null;
+  try {
+    const { usage, quota } = await navigator.storage.estimate();
+    const usedMB = (usage / 1024 / 1024).toFixed(1);
+    const quotaMB = (quota / 1024 / 1024).toFixed(0);
+    const pct = quota ? ((usage / quota) * 100).toFixed(1) : '?';
+    return { usedMB, quotaMB, pct };
+  } catch (e) { return null; }
+}
+
 async function refreshManageList() {
   const el = document.getElementById('manageList');
   const countEl = document.getElementById('manageCount');
   if (!el || !window.GHLibrary) return;
-  const entries = await window.GHLibrary.all();
+  const [entries, info] = await Promise.all([window.GHLibrary.all(), getGHStorageInfo()]);
   if (countEl) countEl.textContent = entries.length ? `(${entries.length})` : '';
+  const storageBar = info
+    ? `<div style="margin-bottom:14px;padding:10px 14px;background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);border-radius:8px;font-size:0.85em;color:var(--gris-300)">
+         💾 Biblioteca ocupa <strong style="color:var(--gh-accent)">${info.usedMB} MB</strong> de ${info.quotaMB} MB disponibles (${info.pct}%)
+       </div>` : '';
   if (!entries.length) {
-    el.innerHTML = '<p style="color:var(--gris-500)">Tu biblioteca está vacía. Importa un ZIP arriba o genera partituras en <a href="gh-autostepper.html" style="color:var(--gh-accent)">Crear partituras</a>.</p>';
+    el.innerHTML = storageBar + '<p style="color:var(--gris-500)">Tu biblioteca está vacía. Importa un ZIP abajo o genera partituras en <a href="gh-autostepper.html" style="color:var(--gh-accent)">Crear partituras</a>.</p>';
     _visibleManageIds = [];
     selectedManageIds.clear();
     updateManageBar();
@@ -3025,10 +3070,12 @@ async function refreshManageList() {
   for (const id of [...selectedManageIds]) {
     if (!_visibleManageIds.includes(id)) selectedManageIds.delete(id);
   }
-  // Cabecera con "Seleccionar todos" (tri-state).
-  let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:8px">
+  // Cabecera con "Seleccionar todos" (tri-state) — única pista de UX para
+  // selección múltiple (los botones de bulk-delete viven en el header de la
+  // card, a la derecha del h2).
+  let html = storageBar + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:8px">
       <input type="checkbox" class="playlist-checkbox" id="selectAllManage" onchange="toggleAllVisibleManage()" aria-label="Seleccionar todos los charts">
-      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca charts y usa la barra de arriba para eliminar varios a la vez</span>
+      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca varios charts para eliminarlos a la vez</span>
     </div>`;
   for (const e of entries) {
     const dur = e.duration ? `${Math.floor(e.duration/60)}:${('0'+Math.floor(e.duration%60)).slice(-2)}` : '?';
@@ -3070,22 +3117,18 @@ function toggleAllVisibleManage() {
 }
 
 function updateManageBar() {
-  const bar = document.getElementById('manageBar');
   const count = document.getElementById('manageSelCount');
   const clearBtn = document.getElementById('manageClearBtn');
   const delBtn = document.getElementById('manageDeleteBtn');
-  if (!bar || !count) return;
   const n = selectedManageIds.size;
   if (n === 0) {
-    bar.classList.remove('has-selection');
-    count.textContent = 'Marca charts con la casilla para eliminar varios a la vez';
+    if (count) count.textContent = '';
     if (clearBtn) clearBtn.disabled = true;
-    if (delBtn)   { delBtn.disabled = true; delBtn.textContent = '🗑 Eliminar seleccionados'; }
+    if (delBtn)   { delBtn.disabled = true; delBtn.textContent = '🗑 Eliminar seleccionadas'; }
   } else {
-    bar.classList.add('has-selection');
-    count.textContent = `${n} ${n === 1 ? 'chart marcado' : 'charts marcados'} para eliminar`;
+    if (count) count.textContent = `${n} ${n === 1 ? 'seleccionado' : 'seleccionados'}`;
     if (clearBtn) clearBtn.disabled = false;
-    if (delBtn)   { delBtn.disabled = false; delBtn.textContent = `🗑 Eliminar ${n}`; }
+    if (delBtn)   { delBtn.disabled = false; delBtn.textContent = `🗑 Eliminar (${n})`; }
   }
   // Tri-state del checkbox maestro (se reaplica tras innerHTML).
   const cb = document.getElementById('selectAllManage');

@@ -126,32 +126,79 @@
   </div>
 </div>
 
-<!-- LIBRARY -->
+<!-- LIBRARY — estructura unificada con gh-library-screen:
+     h1 + manageBar sticky (selección múltiple) + card "Canciones en biblioteca"
+     + card "📥 Importar canciones" con drop-zones + card "💾 Copia de seguridad"
+     + CTAs finales. Mismo patrón de botones/secciones que la biblioteca GH. -->
 <div class="screen hidden" id="library-screen">
   <div class="container">
-    <h1>Mis canciones</h1>
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <h1 style="margin:0">📚 Mis canciones</h1>
+    </div>
     <p class="subtitle">Tu biblioteca personal (guardada en este navegador)</p>
 
     <div class="card">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-        <button class="action-btn" onclick="window.location.href='autostepper.html'">🎵 Crear nueva</button>
-        <label class="action-btn secondary" style="cursor:pointer">
-          📥 Importar archivos
-          <input type="file" id="importInput" accept=".sm,.ssc,audio/*" multiple style="display:none">
-        </label>
-        <label class="action-btn secondary" style="cursor:pointer" title="Importa un paquete completo de StepMania (una carpeta con subcarpetas que contienen .ssc + audio)">
-          📁 Importar paquete
-          <input type="file" id="importPackInput" webkitdirectory directory multiple style="display:none">
-        </label>
-        <button class="action-btn secondary" onclick="refreshLibrary()">↻ Recargar</button>
-        <button class="action-btn secondary" onclick="exportBackupZip()" title="Descarga toda tu biblioteca (canciones, puntuaciones y ajustes) en un ZIP">💾 Copia de seguridad</button>
-        <label class="action-btn secondary" style="cursor:pointer" title="Restaurar desde un ZIP de copia de seguridad">
-          📦 Restaurar
-          <input type="file" id="backupRestoreInput" accept=".zip" style="display:none">
-        </label>
+      <!-- Header inline: título + botones de gestión a la derecha. Los
+           botones existen siempre (disabled si no hay selección); al marcar
+           ≥1 canción se activan y el de borrado muestra el conteo
+           "🗑 Eliminar (N)". -->
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+        <h2 style="margin:0">Canciones en biblioteca <span id="libraryCount" style="font-size:0.55em;color:var(--gris-500);font-weight:400;font-family:var(--font-sans)"></span></h2>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span id="libraryManageCount" style="color:var(--gris-400);font-size:0.85em"></span>
+          <button class="action-btn secondary" id="libraryManageClearBtn" onclick="clearLibraryManageSelection()" disabled style="padding:8px 14px;font-size:0.9em">Limpiar</button>
+          <button class="action-btn" id="libraryManageDeleteBtn" onclick="bulkDeleteFromLibrary()" disabled style="padding:8px 14px;font-size:0.9em;background:linear-gradient(90deg,var(--color-error),#9f1239)">🗑 Eliminar seleccionadas</button>
+        </div>
       </div>
       <div id="backupStatus" style="margin-bottom:10px;font-size:0.85em;color:var(--gris-400)"></div>
       <div id="libraryContainer">Cargando...</div>
+    </div>
+
+    <div class="card">
+      <h2>📥 Importar canciones</h2>
+      <p>Arrastra los archivos sobre el cuadro correspondiente o haz click para seleccionar. Tras importar, las canciones aparecen en <a href="#" onclick="goto('songs');return false" style="color:var(--turquesa-400)">🦶 Bailar</a> listas para jugar.</p>
+
+      <div class="files-grid">
+        <label class="drop-zone" id="filesDrop">
+          <div class="icon">📄</div>
+          <p><strong>.ssc/.sm + audio</strong></p>
+          <p style="font-size:0.8em;color:var(--gris-500)">Selecciona el chart y su audio juntos</p>
+          <div class="filename" id="filesDropName"></div>
+          <input type="file" id="importInput" accept=".sm,.ssc,audio/*" multiple>
+        </label>
+
+        <label class="drop-zone" id="packDrop" title="Importa un paquete completo de StepMania (una carpeta con subcarpetas que contienen .ssc + audio)">
+          <div class="icon">📁</div>
+          <p><strong>Paquete StepMania</strong></p>
+          <p style="font-size:0.8em;color:var(--gris-500)">Carpeta con subcarpetas (.ssc + audio)</p>
+          <div class="filename" id="packDropName"></div>
+          <input type="file" id="importPackInput" webkitdirectory directory multiple>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>💾 Copia de seguridad</h2>
+      <p>Descarga un ZIP con todas tus canciones, puntuaciones y ajustes. Útil antes de cambiar de dispositivo o vaciar la caché del navegador.</p>
+      <div class="files-grid">
+        <label class="drop-zone" id="restoreDrop" title="Restaurar desde un ZIP de copia de seguridad">
+          <div class="icon">📦</div>
+          <p><strong>Restaurar desde ZIP</strong></p>
+          <p style="font-size:0.8em;color:var(--gris-500)">Arrastra aquí un backup previo</p>
+          <div class="filename" id="restoreDropName"></div>
+          <input type="file" id="backupRestoreInput" accept=".zip">
+        </label>
+        <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;gap:10px;padding:20px">
+          <button class="action-btn" onclick="exportBackupZip()" style="width:100%">💾 Descargar copia de seguridad</button>
+          <p style="font-size:0.8em;color:var(--gris-500);text-align:center;margin:0">Genera un ZIP con todo el contenido de la biblioteca</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="action-btn" onclick="goto('songs')">▶ Ir a Bailar</button>
+      <button class="action-btn secondary" onclick="window.location.href='autostepper.html'">🎵 Crear nueva coreografía</button>
+      <button class="action-btn secondary" onclick="refreshLibrary()">↻ Recargar</button>
     </div>
   </div>
 </div>

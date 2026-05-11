@@ -199,13 +199,18 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
 }
 .hero h1 {
   font-family: var(--font-display);
-  font-size: clamp(2.4em, 6.5vw, 4.6em);
-  line-height: 1.05;
+  font-size: clamp(1.8em, 4.4vw, 3.2em);
+  line-height: 1.1;
   background: linear-gradient(90deg, var(--turquesa-600) 0%, var(--turquesa-400) 40%, var(--tulip-tree-500) 100%);
   -webkit-background-clip: text; background-clip: text;
   color: transparent;
   margin-bottom: 18px;
   filter: drop-shadow(0 4px 24px rgba(24,248,246,0.18));
+  text-wrap: balance;
+}
+.hero h1 .hero-h1-line { display: block; white-space: nowrap; }
+@media (max-width: 640px) {
+  .hero h1 .hero-h1-line { white-space: normal; }
 }
 .pulse {
   display: inline-block;
@@ -222,6 +227,7 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   font-size: clamp(1.05em, 1.8vw, 1.3em);
   color: var(--gris-300);
   max-width: 720px; margin: 0 auto 36px;
+  text-align: left;
 }
 .tagline strong { color: var(--turquesa-400); }
 
@@ -300,6 +306,7 @@ section { padding: 80px 24px; position: relative; }
   max-width: 900px; margin: 0 auto;
   line-height: 1.3; color: #fff;
   font-style: normal;
+  text-align: left;
 }
 .claim-block blockquote em {
   font-style: normal;
@@ -309,9 +316,11 @@ section { padding: 80px 24px; position: relative; }
 }
 .claim-block cite {
   display: block; margin-top: 18px;
+  max-width: 900px; margin-left: auto; margin-right: auto;
   color: var(--gris-500);
   font-family: var(--font-mono); font-size: 0.85em;
   font-style: normal;
+  text-align: left;
 }
 
 /* PILLARS */
@@ -545,6 +554,7 @@ section { padding: 80px 24px; position: relative; }
 .tool-card h3 { font-family: var(--font-display); color: var(--turquesa-400); font-size: 1.4em; margin-bottom: 8px; }
 .tool-lede { color: var(--gris-400); font-size: 0.85em; font-family: var(--font-mono); margin-bottom: 14px; }
 .tool-card p { color: var(--gris-300); margin-bottom: 18px; flex: 1; }
+.tool-card p:last-child { margin-bottom: 0; }
 .tool-card .btn { align-self: flex-start; padding: 10px 20px; font-size: 0.85em; }
 .tool-card.featured {
   background: linear-gradient(160deg, rgba(234,179,8,0.06) 0%, rgba(0,0,0,0.5) 100%);
@@ -733,19 +743,15 @@ section { padding: 80px 24px; position: relative; }
     </div>
 
     <div class="hero-content">
-      <p class="hero-badge">⚡ Cardio · Música · Atención y memoria · en una sola actividad</p>
-      <h1 id="hero-title">Pisa el ritmo,<br>entrena <span class="pulse">3 cerebros</span> a la vez</h1>
+      <p class="hero-badge">⚡ Cardio · Música · Atención y memoria · Coordinación y equilibrio</p>
+      <h1 id="hero-title"><span class="hero-h1-line">Sincroniza cuerpo, <span class="pulse">pulso</span> y mente</span><span class="hero-h1-line">al ritmo de tu música favorita.</span></h1>
       <p class="tagline">
-        <strong>Sincro</strong> es el espacio de juego rítmico de Movimiento Funcional.
-        Juega con tu alfombra de baile o tu guitarra, convierte cualquier canción en una
-        coreografía y comprueba que tu equipo responde bien — todo en el navegador,
-        sin instalar nada. Lo respalda la mayor revisión científica publicada hasta hoy
-        sobre ejercicio y mente.
+        Convierte tus canciones favoritas en una coreografía o una partitura:
+        báilala en tu alfombra de baile o tócala con tu guitarra.
+        <strong>Gratis, sin registro, sin instalación.</strong>
       </p>
-      <div class="cta-row" role="group" aria-label="Acciones principales">
-        <a href="app.html#/stepmania-play" class="btn primary">▶ Jugar ahora</a>
-        <a href="app.html#/autostepper" class="btn gold">🎵 Crear una coreografía</a>
-        <a href="app.html#/test-pad" class="btn secondary">🦶 Probar el equipo</a>
+      <div class="cta-row" role="group" aria-label="Acción principal">
+        <a href="app.html#/play" class="btn primary">▶ Iniciar partida</a>
       </div>
     </div>
 
@@ -1133,7 +1139,6 @@ section { padding: 80px 24px; position: relative; }
             alfombra de baile USB, guitarra de Guitar Hero y teclado. Acepta canciones
             en formato StepMania (.ssc / .sm).
           </p>
-          <a href="app.html#/stepmania-play" class="btn primary">▶ Empezar a jugar</a>
         </article>
 
         <article class="tool-card" aria-labelledby="t-auto">
@@ -1146,7 +1151,6 @@ section { padding: 80px 24px; position: relative; }
             ritmo de forma automática siguiendo el bombo y el bajo, y te ofrece tres
             ajustes por defecto: suave, normal e intenso.
           </p>
-          <a href="app.html#/autostepper" class="btn gold">🎵 Crear coreografías</a>
         </article>
 
         <article class="tool-card" aria-labelledby="t-pad">
@@ -1159,7 +1163,6 @@ section { padding: 80px 24px; position: relative; }
             valida saltos y combinaciones, prueba el rasgueo y la palanca de la
             guitarra, y sincroniza tu equipo con el sonido.
           </p>
-          <a href="app.html#/test-pad" class="btn secondary">🦶 Comprobar</a>
         </article>
 
       </div>
@@ -1168,13 +1171,13 @@ section { padding: 80px 24px; position: relative; }
 
   <section class="final-cta" aria-labelledby="final-title">
     <div class="container">
-      <h2 id="final-title">Pisa la primera flecha</h2>
+      <h2 id="final-title">¿Jugamos ahora?</h2>
       <p>
         Pincha y empieza. Sin registrarte, sin instalar nada, sin pasar por ningún servidor.
         Tu navegador, tu música, tu alfombra (o tu teclado, o tu guitarra).
       </p>
       <div class="cta-row" style="justify-content:center" role="group" aria-label="Acciones finales">
-        <a href="app.html#/stepmania-play" class="btn primary">▶ Jugar ahora</a>
+        <a href="app.html#/play" class="btn primary">▶ Jugar ahora</a>
         <a href="#beneficios" class="btn secondary">Volver a los beneficios</a>
       </div>
     </div>
