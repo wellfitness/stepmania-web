@@ -234,7 +234,7 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   .hero-art { object-position: center bottom; }
   .hero-overlay {
     background:
-      linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.78) 18%, rgba(0,0,0,0.45) 38%, rgba(0,0,0,0.05) 58%, transparent 75%);
+      linear-gradient(180deg, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.88) 22%, rgba(0,0,0,0.74) 42%, rgba(0,0,0,0.50) 58%, rgba(0,0,0,0.20) 74%, transparent 88%);
   }
   .hero-content {
     position: static;
@@ -259,6 +259,17 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   .hero .cta-row { display: none; }
   .scroll-hint { display: none; }
 }
+
+/* TABLET PORTRAIT (iPad Pro 12.9" y similares): mantiene layout horizontal pero refuerza el overlay
+   porque el corredor sigue compitiendo con el copy en la zona del tagline. */
+@media (min-width: 861px) and (max-width: 1024px) and (orientation: portrait) {
+  .hero-overlay {
+    background:
+      linear-gradient(90deg, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.70) 32%, rgba(0,0,0,0.40) 55%, rgba(0,0,0,0.10) 75%, transparent 90%),
+      linear-gradient(180deg, transparent 0%, transparent 60%, rgba(0,0,0,0.55) 100%);
+  }
+}
+
 .hero-badge {
   display: inline-block; padding: 6px 16px;
   background: rgba(234,179,8,0.12);
