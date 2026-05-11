@@ -23,10 +23,17 @@
 <meta property="og:description" content="Cardio, música y cognición en una sola actividad. La suite rítmica de Movimiento Funcional con base científica revisada por pares.">
 <meta property="og:locale" content="es_ES">
 <meta property="og:site_name" content="Sincro">
+<meta property="og:image" content="https://play.movimientofuncional.app/play-hero.webp">
+<meta property="og:image:type" content="image/webp">
+<meta property="og:image:width" content="2752">
+<meta property="og:image:height" content="1536">
+<meta property="og:image:alt" content="Sincro — Sincroniza cuerpo, pulso y mente al ritmo de tu música favorita. Ilustración neón con runner, highway de guitarra y alfombra DDR.">
 
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Sincro — Pisa, toca, entrena tu cerebro">
 <meta name="twitter:description" content="Cardio, música y cognición en una sola actividad. Avalado por la mayor revisión sistemática de ejercicio y cognición.">
+<meta name="twitter:image" content="https://play.movimientofuncional.app/play-hero.webp">
+<meta name="twitter:image:alt" content="Sincro — Sincroniza cuerpo, pulso y mente al ritmo de tu música favorita.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -60,6 +67,8 @@
   --turquesa-700: #088b96;
   --rosa-500: #e11d48;
   --rosa-600: #be123c;
+  --rosa-neon: #ff2d92;
+  --rosa-neon-glow: rgba(255,45,146,0.55);
   --tulip-tree-400: #facc15;
   --tulip-tree-500: #eab308;
   --tulip-tree-600: #ca8a04;
@@ -159,10 +168,11 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
           mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
 }
+/* Lluvia animada de flechas DDR — se usa en el final-cta como cierre visual */
 .arrow-rain {
   position: absolute; inset: 0; pointer-events: none;
   display: flex; justify-content: space-around;
-  opacity: 0.35;
+  opacity: 0.28;
 }
 .arrow-lane { width: 60px; height: 100%; position: relative; }
 .arrow-lane span {
@@ -177,7 +187,7 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   10%, 90% { opacity: 1; }
   to { bottom: 110%; opacity: 0; }
 }
-.lane-1 span { color: #ff3366; animation-delay: 0s; }
+.lane-1 span { color: var(--rosa-neon); animation-delay: 0s; }
 .lane-2 span { color: var(--tulip-tree-500); animation-delay: 1.2s; }
 .lane-3 span { color: var(--turquesa-400); animation-delay: 2.4s; }
 .lane-4 span { color: #a78bfa; animation-delay: 3.6s; }
@@ -187,7 +197,68 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   html { scroll-behavior: auto; }
 }
 
-.hero-content { position: relative; z-index: 2; text-align: center; max-width: 980px; }
+/* DESKTOP: imagen full-bleed como background, copy superpuesto a la izquierda con overlay oscuro */
+.hero-art-wrap {
+  position: absolute; inset: 0; z-index: 1;
+  overflow: hidden;
+}
+.hero-art {
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center center;
+  display: block;
+}
+.hero-overlay {
+  position: absolute; inset: 0; z-index: 2;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.55) 32%, rgba(0,0,0,0.15) 55%, transparent 75%),
+    linear-gradient(180deg, transparent 0%, transparent 70%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+}
+.hero-content {
+  position: relative; z-index: 3;
+  max-width: 1280px; width: 100%;
+  display: flex; flex-direction: column; align-items: flex-start;
+  text-align: left;
+}
+.hero-text { max-width: 620px; }
+
+/* MÓVIL: imagen full-bleed, texto superpuesto justo debajo del header */
+@media (max-width: 860px) {
+  .hero {
+    padding: 56px 20px 32px;
+    min-height: 100vh;
+    justify-content: flex-start;
+  }
+  .hero-grid { display: none; }
+  .hero::before { display: none; }
+  .hero-art { object-position: center bottom; }
+  .hero-overlay {
+    background:
+      linear-gradient(180deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.78) 18%, rgba(0,0,0,0.45) 38%, rgba(0,0,0,0.05) 58%, transparent 75%);
+  }
+  .hero-content {
+    position: static;
+    padding-top: 24px;
+    max-width: 100%;
+    align-items: stretch;
+  }
+  .hero-text { max-width: 100%; }
+  /* Badge anclado al fondo del hero, encima de la alfombra DDR de la imagen */
+  .hero-badge {
+    position: absolute;
+    bottom: 28px; left: 50%; transform: translateX(-50%);
+    z-index: 4;
+    margin: 0;
+    max-width: calc(100% - 32px);
+    text-align: center;
+    background: rgba(0,0,0,0.88);
+    border-color: rgba(234,179,8,0.7);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .hero .cta-row { display: none; }
+  .scroll-hint { display: none; }
+}
 .hero-badge {
   display: inline-block; padding: 6px 16px;
   background: rgba(234,179,8,0.12);
@@ -214,14 +285,14 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
 }
 .pulse {
   display: inline-block;
-  background: linear-gradient(90deg, var(--tulip-tree-500), var(--turquesa-400));
+  background: linear-gradient(90deg, var(--rosa-neon) 0%, #ff6ab0 100%);
   -webkit-background-clip: text; background-clip: text;
   color: transparent;
   animation: pulseShadow 1.6s ease-in-out infinite;
 }
 @keyframes pulseShadow {
-  0%,100% { filter: drop-shadow(0 0 6px rgba(234,179,8,0.3)); }
-  50%     { filter: drop-shadow(0 0 18px rgba(234,179,8,0.7)); }
+  0%,100% { filter: drop-shadow(0 0 6px rgba(255,45,146,0.4)); }
+  50%     { filter: drop-shadow(0 0 22px rgba(255,45,146,0.85)); }
 }
 .tagline {
   font-size: clamp(1.05em, 1.8vw, 1.3em);
@@ -229,9 +300,19 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
   max-width: 720px; margin: 0 auto 36px;
   text-align: left;
 }
-.tagline strong { color: var(--turquesa-400); }
+.tagline strong {
+  color: var(--rosa-neon);
+  text-shadow: 0 0 6px var(--rosa-neon-glow), 0 0 18px rgba(255,45,146,0.35);
+}
+
+/* Acento rosa neón reutilizable para destacar claims puntuales */
+.neon-rosa {
+  color: var(--rosa-neon);
+  text-shadow: 0 0 6px var(--rosa-neon-glow), 0 0 16px rgba(255,45,146,0.3);
+}
 
 .cta-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+.hero .cta-row { justify-content: flex-start; }
 .btn {
   display: inline-flex; align-items: center; gap: 10px;
   padding: 14px 28px; border-radius: 10px;
@@ -267,8 +348,9 @@ a:hover, a:focus-visible { color: var(--tulip-tree-500); }
 
 .scroll-hint {
   position: absolute; bottom: 32px; left: 50%; transform: translateX(-50%);
-  color: var(--gris-500); font-size: 0.85em;
+  color: var(--rosa-neon); font-size: 0.85em;
   font-family: var(--font-mono);
+  text-shadow: 0 0 8px var(--rosa-neon-glow);
   animation: bounce 2s infinite;
 }
 @keyframes bounce { 0%,100%{transform:translate(-50%,0)} 50%{transform:translate(-50%,-8px)} }
@@ -527,7 +609,11 @@ section { padding: 80px 24px; position: relative; }
   font-weight: 400; letter-spacing: 0.5px;
 }
 .compare-table td:first-child { color: var(--gris-300); font-weight: 600; }
-.winner { color: var(--tulip-tree-400); font-weight: 700; font-family: var(--font-mono); }
+.winner {
+  color: var(--rosa-neon);
+  font-weight: 700; font-family: var(--font-mono);
+  text-shadow: 0 0 8px rgba(255,45,146,0.45);
+}
 .loser  { color: var(--gris-500); font-family: var(--font-mono); }
 .compare-table tbody tr:hover { background: rgba(0,190,200,0.04); }
 .compare-foot { margin-top: 16px; font-size: 0.82em; color: var(--gris-500); font-family: var(--font-mono); line-height: 1.6; }
@@ -563,14 +649,20 @@ section { padding: 80px 24px; position: relative; }
 .tool-card.featured h3 { color: var(--tulip-tree-400); }
 
 /* FINAL CTA */
-.final-cta { text-align: center; padding: 100px 24px; background: radial-gradient(ellipse at center, rgba(0,190,200,0.08) 0%, #000 70%); }
+.final-cta {
+  text-align: center; padding: 100px 24px;
+  background: radial-gradient(ellipse at center, rgba(0,190,200,0.08) 0%, #000 70%);
+  position: relative; overflow: hidden;
+}
+.final-cta .container { position: relative; z-index: 2; }
 .final-cta h2 {
   font-family: var(--font-display);
   font-size: clamp(1.8em, 4vw, 2.8em);
-  background: linear-gradient(90deg, var(--turquesa-400), var(--tulip-tree-500));
+  background: linear-gradient(90deg, var(--turquesa-400) 0%, var(--rosa-neon) 55%, var(--tulip-tree-500) 100%);
   -webkit-background-clip: text; background-clip: text;
   color: transparent;
   margin-bottom: 18px;
+  filter: drop-shadow(0 4px 24px rgba(255,45,146,0.25));
 }
 .final-cta p { color: var(--gris-300); max-width: 600px; margin: 0 auto 32px; font-size: 1.05em; }
 
@@ -705,7 +797,6 @@ section { padding: 80px 24px; position: relative; }
 @media (max-width: 768px) {
   .topbar { padding: 0 16px; }
   .topbar .primary-nav a:not(.cta-mini) { display: none; }
-  .hero { padding: 100px 20px 60px; min-height: auto; }
   .arrow-rain { opacity: 0.18; }
   section { padding: 60px 20px; }
   .brain-layout { grid-template-columns: 1fr; gap: 32px; }
@@ -735,21 +826,30 @@ section { padding: 80px 24px; position: relative; }
 
   <section id="hero" class="hero" aria-labelledby="hero-title">
     <div class="hero-grid" aria-hidden="true"></div>
-    <div class="arrow-rain" aria-hidden="true">
-      <div class="arrow-lane lane-1"><span>←</span></div>
-      <div class="arrow-lane lane-2"><span>↓</span></div>
-      <div class="arrow-lane lane-3"><span>↑</span></div>
-      <div class="arrow-lane lane-4"><span>→</span></div>
+
+    <div class="hero-art-wrap" aria-hidden="true">
+      <picture>
+        <source media="(min-width: 861px)" srcset="hero-clean.webp" type="image/webp" width="2748" height="1536">
+        <img class="hero-art"
+             src="hero-clean-movil.webp"
+             alt=""
+             width="1536" height="2752"
+             fetchpriority="high"
+             decoding="async">
+      </picture>
     </div>
+    <div class="hero-overlay" aria-hidden="true"></div>
 
     <div class="hero-content">
-      <p class="hero-badge">⚡ Cardio · Música · Atención y memoria · Coordinación y equilibrio</p>
-      <h1 id="hero-title"><span class="hero-h1-line">Sincroniza cuerpo, <span class="pulse">pulso</span> y mente</span><span class="hero-h1-line">al ritmo de tu música favorita.</span></h1>
-      <p class="tagline">
-        Convierte tus canciones favoritas en una coreografía o una partitura:
-        báilala en tu alfombra de baile o tócala con tu guitarra.
-        <strong>Gratis, sin registro, sin instalación.</strong>
-      </p>
+      <div class="hero-text">
+        <p class="hero-badge">⚡ Cardio · Música · Atención y memoria · Coordinación y equilibrio</p>
+        <h1 id="hero-title"><span class="hero-h1-line">Sincroniza cuerpo, <span class="pulse">pulso</span> y mente</span><span class="hero-h1-line">al ritmo de tu música favorita.</span></h1>
+        <p class="tagline">
+          Convierte tus canciones favoritas en una coreografía o una partitura:
+          báilala en tu alfombra de baile o tócala con tu guitarra.
+          <strong>Gratis, sin registro, sin instalación.</strong>
+        </p>
+      </div>
       <div class="cta-row" role="group" aria-label="Acción principal">
         <a href="app.html#/play" class="btn primary">▶ Iniciar partida</a>
       </div>
@@ -789,7 +889,7 @@ section { padding: 80px 24px; position: relative; }
           <h3 id="p-fisico">Físico</h3>
           <p class="stat">Mejor que el entrenamiento tradicional</p>
           <p>
-            Bailar con la alfombra <strong>supera al ejercicio convencional</strong> en
+            Bailar con la alfombra <strong class="neon-rosa">supera al ejercicio convencional</strong> en
             estabilidad, equilibrio mientras te mueves y prevención de caídas.
           </p>
           <ul>
@@ -812,7 +912,7 @@ section { padding: 80px 24px; position: relative; }
           <h3 id="p-mental">Mental (la música)</h3>
           <p class="stat">El cerebro entero se activa</p>
           <p>
-            Escuchar y moverse al ritmo de la música <strong>no usa una sola zona del cerebro: las usa todas</strong>
+            Escuchar y moverse al ritmo de la música <strong class="neon-rosa">no usa una sola zona del cerebro: las usa todas</strong>
             — la del oído, la del movimiento, la del razonamiento, la de las emociones y el cerebelo, todas a la vez.
           </p>
           <ul>
@@ -1002,7 +1102,7 @@ section { padding: 80px 24px; position: relative; }
           <p class="gp-icon" aria-hidden="true">✋✋</p>
           <h4>Coordinar las dos manos</h4>
           <p>
-            Tocar música <strong>cambia la estructura del cerebro</strong> en las zonas
+            Tocar música <strong class="neon-rosa">cambia la estructura del cerebro</strong> en las zonas
             que coordinan las dos manos. Apretar trastes con una mano mientras rasgueas
             con la otra obliga al cerebro a sincronizar ambos lados con una precisión
             que pocas otras actividades exigen.
@@ -1170,6 +1270,12 @@ section { padding: 80px 24px; position: relative; }
   </section>
 
   <section class="final-cta" aria-labelledby="final-title">
+    <div class="arrow-rain" aria-hidden="true">
+      <div class="arrow-lane lane-1"><span>←</span></div>
+      <div class="arrow-lane lane-2"><span>↓</span></div>
+      <div class="arrow-lane lane-3"><span>↑</span></div>
+      <div class="arrow-lane lane-4"><span>→</span></div>
+    </div>
     <div class="container">
       <h2 id="final-title">¿Jugamos ahora?</h2>
       <p>
