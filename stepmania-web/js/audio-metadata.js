@@ -315,12 +315,60 @@
     return parseFromFilename(file.name);
   }
 
+  // Recorre un store de IndexedDB ('songs' o 'gh-songs'), vuelve a parsear los
+  // tags ID3 del audioBlob de cada entry, y actualiza title/artist en disco.
+  // Útil después de un bug del parser para limpiar datos corruptos en biblioteca
+  // sin perder las canciones. NO toca entries sin audioBlob ni los que ya tienen
+  // tags vacíos (ahí no podemos hacer nada distinto).
+  //
+  // Devuelve { total, fixed, unchanged, errors, changes:[{id, oldTitle, newTitle, oldArtist, newArtist}] }
+  async function refreshStoredTags(db, storeName) {
+    const songs = await new Promise((res, rej) => {
+      const tx = db.transaction(storeName, 'readonly');
+      const r = tx.objectStore(storeName).getAll();
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    const changes = [];
+    let errors = 0;
+    for (const s of songs) {
+      if (!s.audioBlob) continue;
+      try {
+        const meta = await extractMetadata(s.audioBlob);
+        const newTitle = meta.title || s.title;
+        const newArtist = meta.artist || s.artist;
+        if (newTitle === s.title && newArtist === s.artist) continue;
+        const oldTitle = s.title;
+        const oldArtist = s.artist;
+        s.title = newTitle;
+        s.artist = newArtist;
+        await new Promise((res, rej) => {
+          const tx = db.transaction(storeName, 'readwrite');
+          const r = tx.objectStore(storeName).put(s);
+          r.onsuccess = () => res();
+          r.onerror = () => rej(r.error);
+        });
+        changes.push({ id: s.id, oldTitle, newTitle, oldArtist, newArtist });
+      } catch (e) {
+        errors++;
+      }
+    }
+    return {
+      total: songs.length,
+      fixed: changes.length,
+      unchanged: songs.length - changes.length - errors,
+      errors,
+      changes
+    };
+  }
+
   const api = {
     extractMetadata,
     parseID3v2,
     parseID3v1,
     parseFLAC,
-    parseFromFilename
+    parseFromFilename,
+    refreshStoredTags
   };
 
   if (typeof window !== 'undefined') window.AudioMetadata = api;

@@ -103,6 +103,7 @@ function renderLibraryFromCache() {
   let html = storageBar + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:8px">
       <input type="checkbox" class="playlist-checkbox" id="selectAllVisibleLibrary" onchange="toggleAllVisibleLibrary()" aria-label="Seleccionar todas las canciones visibles">
       <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca varias canciones con la casilla para eliminarlas a la vez${(qTitle || qArtist) ? ` · <strong>${songs.length}/${allSongs.length}</strong> tras filtros` : ''}</span>
+      <button class="icon-btn" onclick="refreshLibraryTags(event)" title="Releer los tags ID3 del audio de cada canción y actualizar título/artista">🔄 Refrescar metadatos</button>
     </div>`;
 
   for (const s of songs) {
@@ -170,6 +171,41 @@ function toggleAllVisibleLibrary() {
   if (allMarked) for (const id of _visibleLibraryIds) selectedLibraryIds.delete(id);
   else for (const id of _visibleLibraryIds) selectedLibraryIds.add(id);
   renderLibraryFromCache();
+}
+
+// Re-lee los tags ID3 de cada audioBlob guardado en `songs` y actualiza
+// title/artist en IndexedDB. Útil tras un bug del parser (ej: el de
+// 2026-05-12 con UTF-16 que dejaba `�` al final) para limpiar datos
+// corruptos sin perder las canciones. Si `audio-metadata.js` no está
+// cargado (deploy intermedio sin actualizar el HTML), el botón queda
+// inerte con aviso al usuario.
+async function refreshLibraryTags(evt) {
+  if (!window.AudioMetadata || !window.AudioMetadata.refreshStoredTags) {
+    alert('El módulo de metadatos no está cargado. Recarga la página con Ctrl+F5.');
+    return;
+  }
+  const btn = evt && evt.target;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Releyendo tags...'; }
+  try {
+    const db = await openDB();
+    const result = await window.AudioMetadata.refreshStoredTags(db, 'songs');
+    _libraryCache = await dbAll();
+    // Invalidar también el cache de song-select (pantalla "Bailar") si existe,
+    // para que cuando el usuario navegue allí vea los datos limpios sin
+    // necesidad de re-cargar la página.
+    if (typeof _allSongsCache !== 'undefined') _allSongsCache = _libraryCache;
+    renderLibraryFromCache();
+    if (result.fixed > 0) {
+      alert(`Refrescado: ${result.fixed} canciones actualizadas de ${result.total} (${result.unchanged} ya estaban OK${result.errors ? `, ${result.errors} con errores` : ''}).`);
+    } else {
+      alert(`Sin cambios: las ${result.total} canciones ya tenían sus tags al día.`);
+    }
+  } catch (err) {
+    console.error('[refreshLibraryTags]', err);
+    alert('Error al refrescar metadatos: ' + (err.message || String(err)));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Refrescar metadatos'; }
+  }
 }
 
 // Limpia los filtros de texto y re-renderiza. Lo expone el "Sin resultados"
