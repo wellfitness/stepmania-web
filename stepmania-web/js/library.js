@@ -124,9 +124,6 @@ function renderLibraryFromCache() {
         <span class="champ-score">${(champ.score || 0).toLocaleString()}</span>
       </div>`;
     }
-    const scoresBtn = songRuns.length > 0
-      ? `<button class="icon-btn" style="padding:8px 12px" onclick="openSongScoresModal(${s.id})" title="Ver todas las puntuaciones">🏆</button>`
-      : '';
     html += `<div class="lib-row${isMarked ? ' in-playlist' : ''}"
       onmouseenter="scheduleSongPreview(${s.id})"
       onmouseleave="cancelSongPreview()">
@@ -140,7 +137,6 @@ function renderLibraryFromCache() {
       </div>
       <div class="lib-row-actions">
         <button class="action-btn" style="padding:8px 16px;font-size:0.95em" onclick="playSong(${s.id})">▶ Tocar</button>
-        ${scoresBtn}
         <button class="icon-btn danger" style="padding:8px 12px" onclick="deleteSong(${s.id})" title="Eliminar esta canción">🗑</button>
       </div>
     </div>`;
