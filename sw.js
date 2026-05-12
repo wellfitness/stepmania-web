@@ -18,7 +18,7 @@
 // Aviso: NO interceptamos requests POST ni con header Range (audio range
 // requests del motor son delicados — los dejamos pasar a network).
 
-const CACHE_VERSION = 'sincro-v34';
+const CACHE_VERSION = 'sincro-v35';
 const PRECACHE      = `${CACHE_VERSION}-shell`;
 const RUNTIME       = `${CACHE_VERSION}-runtime`;
 

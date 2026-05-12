@@ -49,15 +49,25 @@ Sincro convierte cualquier alfombra de baile USB y/o guitarra Guitar Hero en una
 
 ---
 
-## Recalibración de curva de dificultad (2026-05-12)
+## Recalibración de curva de dificultad (2026-05-12, dos pasadas)
 
-La curva Easy → Medium → Hard se rebalanceó tras feedback de sesión real. Los caps anteriores estaban por encima del techo de los rangos oficiales (DDR Stream formula, GH `diff_guitar` guidelines) y el salto Easy → Medium se sentía como entrar a otro juego.
+La curva Easy → Medium → Hard se rebalanceó tras feedback de sesión real. Los caps originales estaban por encima del techo de los rangos oficiales (DDR Stream formula, GH `diff_guitar` guidelines) y el salto Easy → Medium se sentía como entrar a otro juego.
 
-**SM:** Medium 0.30s/3.5 NPS → **0.42s/2.6 NPS** (+ mismo grid rítmico que Easy). Hard 0.18s/5.5 → **0.24s/4.2**. Challenge 0.10s/9.0 → **0.10s/7.5**.
+**Pasada 1** (commit `52cb36f`): alineación inicial con rangos oficiales. Ratio Easy → Medium SM 1.75x → 1.30x. SM Medium subió `minRhythmPriority` de 2 a 3 (igual que Easy), eliminando el escalón cualitativo "Easy solo beats / Medium ya corcheas offbeat".
 
-**GH:** Medium 0.40s/2.5 NPS → **0.55s/1.9**. Hard 0.22s/4.5 → **0.30s/3.5**. Expert 0.13s/7.5 → **0.17s/6.0**.
+**Pasada 2** (commit posterior, solo SM): tras jugar partidas reales, Medium SM aún se sentía denso. Bajada adicional.
 
-**Ratio Easy → Medium:** 1.75x → **1.30x**, alineado con la progresión geométrica 1.33x que YARG usa en `NoteSpeedScale` (`Assets/Script/Helpers/Extensions/DifficultyExtensions.cs:55-72`). La calibración antigua sigue accesible vía preset Intenso (×1.30). Los charts ya generados conservan su dificultad — el filtro se aplica solo en generación.
+Valores actuales:
+
+| Tier | SM | GH |
+|---|---|---|
+| Beginner / — | 1.00s · 1.0 NPS · prio 4 | — |
+| Easy / Easy | 0.50s · 2.0 NPS · prio 3 | 0.70s · 1.4 NPS · prio 4 |
+| Medium | **0.45s · 2.2 NPS · prio 3** | 0.55s · 1.9 NPS · prio 3 |
+| Hard | **0.28s · 3.5 NPS · prio 2** | 0.30s · 3.5 NPS · prio 2 |
+| Challenge / Expert | **0.12s · 7.0 NPS · prio 0** | 0.17s · 6.0 NPS · prio 0 |
+
+**Ratio Easy → Medium final:** SM 1.10x, GH 1.36x (este último alineado con la progresión geométrica 1.33x que YARG usa en `NoteSpeedScale`, `DifficultyExtensions.cs:55-72`). La calibración previa sigue accesible vía preset Intenso (×1.30). Los charts ya generados conservan su dificultad — el filtro se aplica solo en generación.
 
 ---
 
@@ -224,6 +234,7 @@ stepmania-web/
 
 Cambios significativos desde la creación del README:
 
+- **2026-05-12** — Segunda pasada de afinado en tiers SM (Medium 2.2 NPS, Hard 3.5, Challenge 7.0). Ratio Easy→Medium SM 1.30x → 1.10x.
 - **2026-05-12** — Curva de dificultad suavizada en autosteppers SM + GH (commit `52cb36f`).
 - **2026-05-12** — Restaurar desde ZIP acepta exports del autostepper (`bef865b`).
 - **2026-05-11** — Form de guardar puntuación coherente con el resto del diseño (`2b32a28`).

@@ -27,17 +27,21 @@
 //    Stream value oficial → NPS = Stream * 7
 //    DDR Beginner:  Stream <0.15      → NPS <1.0    (cap nuestro: 1.0 — top del rango)
 //    DDR Easy:      Stream 0.10-0.25  → NPS 0.7-1.75 (cap: 2.0 — un pelo por encima a propósito)
-//    DDR Medium:    Stream 0.20-0.45  → NPS 1.4-3.15 (cap: 2.6 — dentro del rango)
-//    DDR Hard:      Stream 0.40-0.70  → NPS 2.8-4.9  (cap: 4.2 — dentro del rango)
-//    DDR Challenge: Stream 0.65+      → NPS 4.5+     (cap: 7.5 — Challenge accesible)
+//    DDR Medium:    Stream 0.20-0.45  → NPS 1.4-3.15 (cap: 2.2 — parte baja del rango)
+//    DDR Hard:      Stream 0.40-0.70  → NPS 2.8-4.9  (cap: 3.5 — parte media-baja)
+//    DDR Challenge: Stream 0.65+      → NPS 4.5+     (cap: 7.0 — Challenge accesible)
 //
-//  Recalibración 2026-05-12: los caps anteriores (Medium 3.5, Hard 5.5, Challenge 9.0)
-//  estaban por encima del techo de los rangos oficiales. La razón: el autostepper
-//  coloca nota en cada onset detectado SIN respiros coreográficos, así que la
-//  misma cifra de NPS se siente más densa en chart auto que en chart humano.
-//  Los nuevos caps caen dentro del rango oficial y el ratio Easy→Medium pasa de
-//  1.75x a 1.30x — alineado con la progresión geométrica natural ~1.33x que YARG
-//  asume entre tiers (NoteSpeedScale 0.422→0.5625→0.75→1.0).
+//  Recalibración 2026-05-12 (dos pasadas):
+//   - Pasada 1 (commit 52cb36f): caps anteriores (Medium 3.5, Hard 5.5, Challenge 9.0)
+//     estaban por encima del techo de los rangos oficiales DDR. Bajados a 2.6/4.2/7.5
+//     para alinear con el rango y reducir ratio Easy→Medium de 1.75x a 1.30x.
+//   - Pasada 2 (commit posterior): tras sesión real, Medium aún se sentía denso. Bajada
+//     adicional a 2.2/3.5/7.0 NPS. Ratio Easy→Medium queda en 1.10x — Medium se vive
+//     como "Easy con un pelín más de densidad". La razón: el autostepper coloca nota
+//     en cada onset detectado SIN respiros coreográficos, así que la misma cifra de
+//     NPS se siente más densa en chart auto que en chart humano. Los caps siguen
+//     dentro del rango oficial DDR y el preset Intenso (×1.30) restaura algo de
+//     densidad para quien quiera más caña.
 //
 //  Para Voltage SM5 usa ventana fija de 8 BEATS (no segundos), formula:
 //    Voltage = (max_notes_in_8_beats / 8) * avg_bps / 10
@@ -48,12 +52,12 @@
 //    pMeter = 0.775 + 10.1*Stream + 5.27*Voltage - 0.905*Air - 1.10*Freeze
 //           + 2.86*Chaos + DifficultyCoeff - 6.35*(Stream*Voltage) - 2.58*Chaos²
 //    DifficultyCoeff = {-0.877, -0.877, 0, 0.722, 0.722, 0}  // Beg,Easy,Med,Hard,Ch,Edit
-//  Verificación con los caps nuevos:
+//  Verificación con los caps nuevos (pasada 2):
 //    Beginner (Stream=0.10, Voltage=0.20): pMeter ≈ 1.8  → meter ~2 ✓
 //    Easy     (Stream=0.20, Voltage=0.30): pMeter ≈ 3.1  → meter ~3 ✓
-//    Medium   (Stream=0.37, Voltage=0.45): pMeter ≈ 5.4  → meter ~5 ✓
-//    Hard     (Stream=0.60, Voltage=0.65): pMeter ≈ 8.3  → meter ~8 ✓
-//    Chall.   (Stream=1.07, Voltage=0.85): pMeter ≈ 11   → meter ~11 (sin coreografía humana
+//    Medium   (Stream=0.31, Voltage=0.40): pMeter ≈ 4.7  → meter ~4-5
+//    Hard     (Stream=0.50, Voltage=0.55): pMeter ≈ 7.0  → meter ~7
+//    Chall.   (Stream=1.00, Voltage=0.80): pMeter ≈ 10   → meter ~10 (sin coreografía humana
 //                                                                     no se alcanza el meter 13-14
 //                                                                     típico de Challenge oficial)
 //
@@ -81,9 +85,9 @@
     sm: {
       beginner:  { minGapSec: 1.00, targetMaxNps: 1.0, minRhythmPriority: 4 },
       easy:      { minGapSec: 0.50, targetMaxNps: 2.0, minRhythmPriority: 3 },
-      medium:    { minGapSec: 0.42, targetMaxNps: 2.6, minRhythmPriority: 3 },
-      hard:      { minGapSec: 0.24, targetMaxNps: 4.2, minRhythmPriority: 2 },
-      challenge: { minGapSec: 0.10, targetMaxNps: 7.5, minRhythmPriority: 0 }
+      medium:    { minGapSec: 0.45, targetMaxNps: 2.2, minRhythmPriority: 3 },
+      hard:      { minGapSec: 0.28, targetMaxNps: 3.5, minRhythmPriority: 2 },
+      challenge: { minGapSec: 0.12, targetMaxNps: 7.0, minRhythmPriority: 0 }
     },
     gh: {
       easy:   { minGapSec: 0.70, targetMaxNps: 1.4, minRhythmPriority: 4 },

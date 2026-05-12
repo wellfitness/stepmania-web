@@ -190,28 +190,36 @@ Algoritmo (optimizado para música bailable: techno, dance, pop, rock):
 Tabla calibrada (tier → minGap / NPS max / minRhythmPriority):
 - SM Beginner: 1.00s / 1.0 / 4 (solo downbeats y mitades de compás)
 - SM Easy: 0.50s / 2.0 / 3 (hasta beat completo)
-- SM Medium: 0.42s / 2.6 / 3 (mismo grid rítmico que Easy, más denso)
-- SM Hard: 0.24s / 4.2 / 2 (entra a corcheas offbeat)
-- SM Challenge: 0.10s / 7.5 / 0 (todo)
+- SM Medium: 0.45s / 2.2 / 3 (Easy con un pelín más de densidad)
+- SM Hard: 0.28s / 3.5 / 2 (entra a corcheas offbeat)
+- SM Challenge: 0.12s / 7.0 / 0 (todo)
 - GH Easy: 0.70s / 1.4 / 4
 - GH Medium: 0.55s / 1.9 / 3
 - GH Hard: 0.30s / 3.5 / 2
 - GH Expert: 0.17s / 6.0 / 0
 
-Recalibración 2026-05-12: los valores anteriores (SM Medium 0.30/3.5/2,
+Recalibración 2026-05-12, en dos pasadas tras sesión de prueba real:
+
+Pasada 1 (commit 52cb36f): los valores anteriores (SM Medium 0.30/3.5/2,
 Hard 0.18/5.5/1, Challenge 0.10/9.0/0; GH Medium 0.40/2.5/3, Hard 0.22/4.5/1,
 Expert 0.13/7.5/0) estaban por encima del techo de los rangos oficiales DDR
-(Medium oficial cap 3.15 NPS, Hard 4.9, GH Hard 4.0). Bajados para alinear con
-los rangos `diff_guitar` 0-6 documentados (customsongscentral) y la progresión
-geométrica ~1.33x entre tiers que YARG usa para NoteSpeedScale
+(Medium oficial cap 3.15 NPS, Hard 4.9, GH Hard 4.0). Bajados a SM Medium
+0.42/2.6/3, Hard 0.24/4.2/2, Challenge 0.10/7.5/0 (y GH análogo) para alinear
+con los rangos `diff_guitar` 0-6 documentados (customsongscentral) y la
+progresión geométrica ~1.33x entre tiers que YARG usa para NoteSpeedScale
 (`Assets/Script/Helpers/Extensions/DifficultyExtensions.cs:55-72` en repo local
 `YARG-master/`, ignorado por `.gitignore` junto a `stepmania-5_1-new/`). Ratio
-Easy→Medium: pasa de 1.75x a 1.30x — el "salto que se sentía como entrar a otro
-juego" desaparece. Además, SM Medium ahora mantiene `minRhythmPriority: 3`
+Easy→Medium: 1.75x → 1.30x. Además, SM Medium subió `minRhythmPriority` de 2 a 3
 (igual que Easy), eliminando el cambio cualitativo "Easy solo beats / Medium
-ya corcheas offbeat" — la entrada a corcheas offbeat ocurre ahora en Hard. La
-calibración antigua sigue accesible vía preset "Intenso" (multiplica caps × 1.30,
-divide minGap / 1.30).
+ya corcheas offbeat" — la entrada a corcheas offbeat ocurre ahora en Hard.
+
+Pasada 2 (commit posterior, solo SM): tras jugar partidas reales, Medium SM
+aún se sentía denso. Bajada adicional a SM Medium 0.45/2.2/3, Hard 0.28/3.5/2,
+Challenge 0.12/7.0/0. Ratio Easy→Medium queda en 1.10x — Medium se vive como
+"Easy con un pelín más de densidad". GH NO se tocó en esta pasada (la usuaria
+reportó que GH Medium ya estaba bien tras la pasada 1). La calibración previa
+sigue accesible vía preset "Intenso" (multiplica caps × 1.30, divide minGap /
+1.30).
 
 Los presets (suave/normal/intenso) se traducen a multiplicadores globales (×0.7/×1.0/×1.3) que escalan minGap y NPS target uniformemente.
 
