@@ -26,10 +26,17 @@ async function getStorageInfo() {
 const selectedLibraryIds = new Set();
 let _visibleLibraryIds = [];
 
+// Caché para que los filtros de texto no peguen a IndexedDB en cada keystroke.
+// `refreshLibrary()` hace fetch + render; `renderLibraryFromCache()` solo
+// re-renderiza con los filtros aplicados. Los listeners de los inputs llaman
+// SOLO al segundo (delete/import siguen usando refreshLibrary para invalidar).
+let _libraryCache = [];
+let _libraryRunsBySong = new Map();
+let _libraryStorageInfo = null;
+
 async function refreshLibrary() {
   const c = document.getElementById('libraryContainer');
-  const countEl = document.getElementById('libraryCount');
-  c.innerHTML = 'Cargando...';
+  if (c) c.innerHTML = 'Cargando...';
   // Una sola lectura de runs para toda la biblioteca — agrupamos en memoria.
   // Alternativa N+1 (dbRunsForSong por cada fila) lanzaría 1 transacción de
   // IndexedDB por canción y en bibliotecas de 50+ canciones es notablemente
@@ -38,19 +45,34 @@ async function refreshLibrary() {
   // de `songs` y `gh-songs` son autoincrement independientes.
   const [songs, info, allRunsRaw] = await Promise.all([dbAll(), getStorageInfo(), dbRunsAll()]);
   const allRuns = filterRunsByGame(allRunsRaw, 'sm');
-  const runsBySong = new Map();
+  _libraryRunsBySong = new Map();
   for (const r of allRuns) {
-    if (!runsBySong.has(r.songId)) runsBySong.set(r.songId, []);
-    runsBySong.get(r.songId).push(r);
+    if (!_libraryRunsBySong.has(r.songId)) _libraryRunsBySong.set(r.songId, []);
+    _libraryRunsBySong.get(r.songId).push(r);
   }
+  _libraryStorageInfo = info;
+  // Sort UNA vez aquí (más recientes primero); el render solo filtra y pinta.
+  songs.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  _libraryCache = songs;
+  renderLibraryFromCache();
+}
+
+function renderLibraryFromCache() {
+  const c = document.getElementById('libraryContainer');
+  const countEl = document.getElementById('libraryCount');
+  if (!c) return;
+  const info = _libraryStorageInfo;
+  const runsBySong = _libraryRunsBySong;
+  const allSongs = _libraryCache;
+
   const storageBar = info
     ? `<div style="margin-bottom:14px;padding:10px 14px;background:rgba(0,190,200,0.08);border:1px solid rgba(0,190,200,0.2);border-radius:8px;font-size:0.85em;color:var(--gris-300)">
          💾 Librería ocupa <strong style="color:var(--turquesa-400)">${info.usedMB} MB</strong> de ${info.quotaMB} MB disponibles (${info.pct}%)
        </div>` : '';
 
-  if (countEl) countEl.textContent = songs.length ? `(${songs.length})` : '';
+  if (countEl) countEl.textContent = allSongs.length ? `(${allSongs.length})` : '';
 
-  if (!songs.length) {
+  if (!allSongs.length) {
     selectedLibraryIds.clear();
     _visibleLibraryIds = [];
     c.innerHTML = storageBar + '<p style="color:var(--gris-400);text-align:center;padding:30px">Tu biblioteca está vacía. Importa archivos abajo o <a href="autostepper.html" style="color:var(--turquesa-400)">crea tu primer chart</a>.</p>';
@@ -58,17 +80,29 @@ async function refreshLibrary() {
     return;
   }
 
-  // Sort: más recientes primero (igual que GH)
-  songs.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  // Filtros de texto (AND entre ambos campos; vacío = cualquiera).
+  const qTitle  = (document.getElementById('librarySearchTitle')?.value || '').toLowerCase().trim();
+  const qArtist = (document.getElementById('librarySearchArtist')?.value || '').toLowerCase().trim();
+  const songs = allSongs.filter(s =>
+    (!qTitle  || (s.title  || '').toLowerCase().includes(qTitle)) &&
+    (!qArtist || (s.artist || '').toLowerCase().includes(qArtist))
+  );
+
   _visibleLibraryIds = songs.map(s => s.id);
-  // Limpiar selección de ids que ya no existen
+  // Limpiar selección de ids que ya no están visibles tras el filtro
   for (const id of [...selectedLibraryIds]) {
     if (!_visibleLibraryIds.includes(id)) selectedLibraryIds.delete(id);
   }
 
+  if (!songs.length) {
+    c.innerHTML = storageBar + `<p style="color:var(--gris-400);text-align:center;padding:24px">Sin resultados para los filtros actuales. <button class="icon-btn" onclick="clearLibrarySearch()" style="margin-left:6px">Limpiar filtros</button></p>`;
+    updateLibraryManageBar();
+    return;
+  }
+
   let html = storageBar + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:8px">
       <input type="checkbox" class="playlist-checkbox" id="selectAllVisibleLibrary" onchange="toggleAllVisibleLibrary()" aria-label="Seleccionar todas las canciones visibles">
-      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca varias canciones con la casilla para eliminarlas a la vez</span>
+      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca varias canciones con la casilla para eliminarlas a la vez${(qTitle || qArtist) ? ` · <strong>${songs.length}/${allSongs.length}</strong> tras filtros` : ''}</span>
     </div>`;
 
   for (const s of songs) {
@@ -118,17 +152,19 @@ async function refreshLibrary() {
   updateLibraryManageBar();
 }
 
-// Toggle individual: añade/quita un id del Set y re-renderiza.
+// Toggle individual: añade/quita un id del Set y re-renderiza desde caché
+// (los toggles de selección no cambian la lista de canciones, así que no
+// hace falta volver a IndexedDB — evita el flash de "Cargando..." al marcar).
 function togglePlaylistSelectionLibrary(id) {
   if (selectedLibraryIds.has(id)) selectedLibraryIds.delete(id);
   else selectedLibraryIds.add(id);
-  refreshLibrary();
+  renderLibraryFromCache();
 }
 
 // Limpia toda la selección.
 function clearLibraryManageSelection() {
   selectedLibraryIds.clear();
-  refreshLibrary();
+  renderLibraryFromCache();
 }
 
 // Checkbox maestro tri-state: vacío / indeterminate / todo. Si el usuario
@@ -139,8 +175,30 @@ function toggleAllVisibleLibrary() {
   const allMarked = _visibleLibraryIds.every(id => selectedLibraryIds.has(id));
   if (allMarked) for (const id of _visibleLibraryIds) selectedLibraryIds.delete(id);
   else for (const id of _visibleLibraryIds) selectedLibraryIds.add(id);
-  refreshLibrary();
+  renderLibraryFromCache();
 }
+
+// Limpia los filtros de texto y re-renderiza. Lo expone el "Sin resultados"
+// inline para que el usuario tenga una salida rápida cuando se ha pasado
+// con un filtro.
+function clearLibrarySearch() {
+  const t = document.getElementById('librarySearchTitle');
+  const a = document.getElementById('librarySearchArtist');
+  if (t) t.value = '';
+  if (a) a.value = '';
+  renderLibraryFromCache();
+}
+
+// Listeners de los filtros de texto. La pantalla library-screen vive en
+// stepmania-play.html (no en otros HTMLs que carguen library.js), así que
+// los inputs pueden no existir — `?.` cubre el caso.
+(function bindLibrarySearch() {
+  const t = document.getElementById('librarySearchTitle');
+  const a = document.getElementById('librarySearchArtist');
+  if (!t && !a) return;
+  t?.addEventListener('input', renderLibraryFromCache);
+  a?.addEventListener('input', renderLibraryFromCache);
+})();
 
 // Actualiza el header inline de la card (contador + estado de los botones)
 // y propaga el estado tri-state al checkbox maestro (indeterminate es

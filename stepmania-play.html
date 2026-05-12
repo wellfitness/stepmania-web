@@ -151,6 +151,10 @@
         </div>
       </div>
       <div id="backupStatus" style="margin-bottom:10px;font-size:0.85em;color:var(--gris-400)"></div>
+      <div class="toolbar" style="margin-bottom:10px">
+        <input type="text" id="librarySearchTitle" placeholder="🔍 Título..." autocomplete="off" style="flex:1;min-width:140px">
+        <input type="text" id="librarySearchArtist" placeholder="🎤 Artista..." autocomplete="off" style="flex:1;min-width:140px">
+      </div>
       <div id="libraryContainer">Cargando...</div>
     </div>
 
@@ -297,7 +301,8 @@
     </div>
     <div class="card">
       <div class="toolbar">
-        <input type="text" id="songSearch" placeholder="🔍 Buscar por título o artista..." autocomplete="off">
+        <input type="text" id="songSearchTitle" placeholder="🔍 Título..." autocomplete="off" style="flex:1;min-width:140px">
+        <input type="text" id="songSearchArtist" placeholder="🎤 Artista..." autocomplete="off" style="flex:1;min-width:140px">
         <select id="songSort">
           <option value="addedAt-desc">Recién añadidas</option>
           <option value="title-asc">Título A→Z</option>

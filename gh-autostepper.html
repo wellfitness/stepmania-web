@@ -637,11 +637,11 @@
     </div>
 
     <div class="form-row">
-      <label>% chords (Difícil+):</label>
+      <label>% colores juntos (Difícil+):</label>
       <input type="range" id="chordProb" min="0" max="0.6" step="0.05" value="0.18">
       <span class="display" id="chordVal">18%</span>
     </div>
-    <div class="help">Probabilidad de que una nota se convierta en acorde de 2 trastes. Fácil e Intermedio nunca tienen chords.</div>
+    <div class="help">Probabilidad de que una nota suene con un color adyacente simultáneo. Fácil e Intermedio nunca tienen colores simultáneos.</div>
 
     <div class="form-row">
       <label>% sustains:</label>
@@ -952,9 +952,14 @@ const FRET_GREEN = 0, FRET_RED = 1, FRET_YELLOW = 2, FRET_BLUE = 3, FRET_ORANGE 
 // minGap absoluto en segundos), no con un stride uniforme — esto desacopla la
 // dificultad del BPM y la percusividad del audio. La key 'tier' alimenta
 // directamente DifficultyTiers.filterTicks(...).
+// Política unificada: TODAS las dificultades usan los 5 colores [0..4] como
+// chart maestro único (equivalente a dance-double 8 carriles en SM). El motor
+// de gh-play.html decide en runtime cuántos colores se muestran al jugador
+// (3 / 4 / 5 / 5+Tilt) y hace el remap proporcional. Esto desacopla la autoría
+// del playback: una sola partitura sirve para todos los modos del mismo juego.
 const DIFFICULTIES = [
-  { name: 'Easy',   section: 'EasySingle',   tier: 'easy',   fretRange: [0, 2], allowChords: false, sustainsAllowed: true,  meter: 1 },
-  { name: 'Medium', section: 'MediumSingle', tier: 'medium', fretRange: [0, 3], allowChords: false, sustainsAllowed: true,  meter: 3 },
+  { name: 'Easy',   section: 'EasySingle',   tier: 'easy',   fretRange: [0, 4], allowChords: false, sustainsAllowed: true,  meter: 1 },
+  { name: 'Medium', section: 'MediumSingle', tier: 'medium', fretRange: [0, 4], allowChords: false, sustainsAllowed: true,  meter: 3 },
   { name: 'Hard',   section: 'HardSingle',   tier: 'hard',   fretRange: [0, 4], allowChords: true,  sustainsAllowed: true,  meter: 5 },
   { name: 'Expert', section: 'ExpertSingle', tier: 'expert', fretRange: [0, 4], allowChords: true,  sustainsAllowed: true,  meter: 7 }
 ];
@@ -968,9 +973,6 @@ function generateNotesForDifficulty(onsetTicks, diff, chordProb, sustainProb, bp
   if (onsetTicks.length === 0) return [];
   const notes = [];
 
-  // Filtro principal por dificultad — NPS objetivo + minGap absoluto.
-  // La función trabaja en segundos internamente y devuelve ticks de los onsets
-  // que sobreviven (en la misma resolución de entrada).
   const filtered = window.DifficultyTiers
     ? window.DifficultyTiers.filterTicks(onsetTicks, CHART_RESOLUTION, bpm, offsetSec, diff.tier, presetMul)
     : onsetTicks.slice();
@@ -980,12 +982,9 @@ function generateNotesForDifficulty(onsetTicks, diff, chordProb, sustainProb, bp
     const tick = filtered[i];
     const nextTick = filtered[i + 1];
 
-    // Decidir trastes: caminata aleatoria con bias hacia adyacentes,
-    // sin repetir el último.
     const fret = pickNextFret(lastFret, diff.fretRange);
     const fretsThisNote = [fret];
 
-    // Chord: añadir un fret adicional adyacente con probabilidad chordProb
     if (diff.allowChords && Math.random() < chordProb) {
       const adj = (Math.random() < 0.5 && fret > diff.fretRange[0]) ? fret - 1
                 : (fret < diff.fretRange[1] ? fret + 1 : fret - 1);
@@ -1082,6 +1081,19 @@ function buildChartFile(meta, charts) {
   lines.push('{');
   lines.push('}');
 
+  // Star Power phrases — siempre presentes en el chart maestro. S 2 cada 16
+  // beats, duración 8 beats. Compatible con Clone Hero (lo activa al inclinar
+  // la guitarra) y con el motor Sincro en modo 5+Tilt; el resto de modos los
+  // ignora silenciosamente. Generarlos siempre = una sola partitura sirve para
+  // todos los modos sin re-generar.
+  const spMarkers = [];
+  const spPeriod = 16 * CHART_RESOLUTION;  // 16 beats entre frases
+  const spLen    =  8 * CHART_RESOLUTION;  // duración de cada frase
+  const totalTicks = Math.round(meta.duration * meta.bpm / 60 * CHART_RESOLUTION);
+  for (let t = spPeriod; t + spLen < totalTicks; t += spPeriod) {
+    spMarkers.push(`  ${t} = S 2 ${spLen}`);
+  }
+
   // Una sección por dificultad
   for (const c of charts) {
     lines.push(`[${c.section}]`);
@@ -1091,6 +1103,7 @@ function buildChartFile(meta, charts) {
         lines.push(`  ${n.tick} = N ${f} ${n.sustain}`);
       }
     }
+    for (const sp of spMarkers) lines.push(sp);
     lines.push('}');
   }
   return lines.join('\n');

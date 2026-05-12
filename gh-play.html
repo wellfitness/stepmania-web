@@ -909,6 +909,15 @@
           <option value="ExpertSingle">Experto</option>
         </select>
       </div>
+      <div style="display:flex;flex-direction:column;gap:6px;min-width:200px" title="Cuántos colores aparecen en la partida. El chart maestro siempre tiene 5; el motor remapea proporcionalmente cuando eliges menos. Ideal para ir aprendiendo la ubicación poco a poco.">
+        <label for="colorMode" class="field-label">Colores activos</label>
+        <select id="colorMode" class="gh-styled" onchange="onGHColorModeChange()" style="min-width:200px">
+          <option value="3">🟢🔴🟡 · 3 colores</option>
+          <option value="4">🟢🔴🟡🔵 · 4 colores</option>
+          <option value="5" selected>🟢🔴🟡🔵🟠 · 5 colores</option>
+          <option value="5tilt">🟢🔴🟡🔵🟠 + Tilt</option>
+        </select>
+      </div>
       <div style="flex:1;min-width:240px;display:flex;flex-direction:column;gap:6px">
         <span class="field-label">Densidad de notas</span>
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
@@ -939,6 +948,10 @@
   <div class="card" id="libraryCard">
     <h2>Elige una canción <span id="libraryCount" style="font-size:0.55em;color:var(--gris-500);font-weight:400;font-family:var(--font-sans)"></span></h2>
     <p style="margin-bottom:10px">Las canciones guardadas se tocan con la dificultad y el speed elegidos arriba. ¿Vacío? Genera nuevas en <a href="gh-autostepper.html" style="color:var(--gh-accent)">🎼 Crear partituras</a> o importa un ZIP desde <a href="#" onclick="goto('library');return false" style="color:var(--gh-accent)">📚 Mis canciones</a>.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <input type="text" id="ghLibrarySearchTitle" placeholder="🔍 Título..." autocomplete="off" style="flex:1;min-width:140px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.12);color:#fff;padding:9px 12px;border-radius:8px;font-size:0.95em">
+      <input type="text" id="ghLibrarySearchArtist" placeholder="🎤 Artista..." autocomplete="off" style="flex:1;min-width:140px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.12);color:#fff;padding:9px 12px;border-radius:8px;font-size:0.95em">
+    </div>
     <div id="libraryList"></div>
   </div>
 </div>
@@ -966,6 +979,10 @@
         <button class="action-btn secondary" id="manageClearBtn" onclick="clearManageSelection()" disabled style="padding:8px 14px;font-size:0.9em">Limpiar</button>
         <button class="action-btn" id="manageDeleteBtn" onclick="bulkDeleteFromManage()" disabled style="padding:8px 14px;font-size:0.9em;background:linear-gradient(90deg,var(--color-error),#9f1239)">🗑 Eliminar seleccionadas</button>
       </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+      <input type="text" id="ghManageSearchTitle" placeholder="🔍 Título..." autocomplete="off" style="flex:1;min-width:140px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.12);color:#fff;padding:9px 12px;border-radius:8px;font-size:0.95em">
+      <input type="text" id="ghManageSearchArtist" placeholder="🎤 Artista..." autocomplete="off" style="flex:1;min-width:140px;background:rgba(0,0,0,0.4);border:1px solid rgba(255,255,255,0.12);color:#fff;padding:9px 12px;border-radius:8px;font-size:0.95em">
     </div>
     <div id="manageList"></div>
   </div>
@@ -1170,22 +1187,26 @@ function refreshCalibStatus() {
 refreshCalibStatus();
 
 // ---- Biblioteca: listar charts guardados ----
+// Patrón caché + render para que los filtros de texto no peguen a IndexedDB
+// en cada keystroke. `refreshLibraryList()` re-fetch + render; los toggles
+// de selección y los inputs de filtro solo llaman a `renderGhLibraryFromCache()`.
+let _ghLibraryCache = [];
+let _ghLibraryRunsBySong = new Map();
+
 async function refreshLibraryList() {
   const el = document.getElementById('libraryList');
-  const countEl = document.getElementById('libraryCount');
   if (!window.GHLibrary) {
-    el.innerHTML = '<p style="color:var(--gris-500)">Biblioteca no disponible.</p>';
+    if (el) el.innerHTML = '<p style="color:var(--gris-500)">Biblioteca no disponible.</p>';
     return;
   }
   const entries = await window.GHLibrary.all();
-  countEl.textContent = entries.length ? `(${entries.length})` : '';
   // Cargamos TODOS los runs de GH una sola vez y agrupamos por songId.
   // Evita N+1 transacciones IndexedDB cuando la biblioteca crece.
   const allRuns = filterRunsByGame(await dbRunsAll(), 'gh');
-  const runsBySong = new Map();
+  _ghLibraryRunsBySong = new Map();
   for (const r of allRuns) {
-    if (!runsBySong.has(r.songId)) runsBySong.set(r.songId, []);
-    runsBySong.get(r.songId).push(r);
+    if (!_ghLibraryRunsBySong.has(r.songId)) _ghLibraryRunsBySong.set(r.songId, []);
+    _ghLibraryRunsBySong.get(r.songId).push(r);
   }
   // Recalcular la caché de notas/diff/chart para la leyenda de densidad.
   // Se hace aquí (no en cada render del select) porque parsear chartText
@@ -1202,18 +1223,50 @@ async function refreshLibraryList() {
     if (!seenIds.has(id)) _ghNotesByDiffCache.delete(id);
   }
   updateGHDiffDensityIndicator();
-  if (!entries.length) {
+  // Sort UNA vez aquí; el render solo filtra y pinta.
+  entries.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  _ghLibraryCache = entries;
+  renderGhLibraryFromCache();
+}
+
+function renderGhLibraryFromCache() {
+  const el = document.getElementById('libraryList');
+  const countEl = document.getElementById('libraryCount');
+  if (!el) return;
+  const allEntries = _ghLibraryCache;
+  const runsBySong = _ghLibraryRunsBySong;
+  if (countEl) countEl.textContent = allEntries.length ? `(${allEntries.length})` : '';
+
+  if (!allEntries.length) {
+    _visibleGHIds = [];
     el.innerHTML = '<p style="color:var(--gris-500)">Tu biblioteca está vacía. Genera partituras en <a href="gh-autostepper.html" style="color:var(--gh-accent)">Crear partituras</a> y guárdalas aquí, o usa el cargador de abajo para importar un ZIP/.chart suelto.</p>';
+    updatePlaylistBar();
     return;
   }
-  // Sort: más recientes primero
-  entries.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
-  // Guardar IDs visibles para el "select all" (en GH no hay filtros aún,
-  // visible == todas; queda preparado para cuando se añadan).
+
+  // Filtros de texto (AND entre ambos; vacío = cualquiera).
+  const qTitle  = (document.getElementById('ghLibrarySearchTitle')?.value || '').toLowerCase().trim();
+  const qArtist = (document.getElementById('ghLibrarySearchArtist')?.value || '').toLowerCase().trim();
+  const entries = allEntries.filter(e =>
+    (!qTitle  || (e.title  || '').toLowerCase().includes(qTitle)) &&
+    (!qArtist || (e.artist || '').toLowerCase().includes(qArtist))
+  );
+
   _visibleGHIds = entries.map(e => e.id);
+  // Limpiar selección de IDs que ya no están visibles tras el filtro.
+  for (const id of [...selectedGHIds]) {
+    if (!_visibleGHIds.includes(id)) selectedGHIds.delete(id);
+  }
+
+  if (!entries.length) {
+    el.innerHTML = `<p style="color:var(--gris-500);text-align:center;padding:24px">Sin resultados para los filtros actuales. <button class="icon-btn" onclick="clearGhLibrarySearch()" style="margin-left:6px">Limpiar filtros</button></p>`;
+    updatePlaylistBar();
+    return;
+  }
+
   let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:8px">
       <input type="checkbox" class="playlist-checkbox" id="selectAllVisibleGH" onchange="toggleAllVisible()" aria-label="Seleccionar todas las partituras visibles">
-      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca varias partituras para tocarlas en cadena (modo lista)</span>
+      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca varias partituras para tocarlas en cadena (modo lista)${(qTitle || qArtist) ? ` · <strong>${entries.length}/${allEntries.length}</strong> tras filtros` : ''}</span>
     </div>`;
   for (const e of entries) {
     const dur = e.duration ? `${Math.floor(e.duration/60)}:${('0'+Math.floor(e.duration%60)).slice(-2)}` : '?';
@@ -1373,6 +1426,17 @@ async function deleteFromLibrary(id) {
   selectedGHIds.delete(id);
   refreshLibraryList();
 }
+// Listeners de los filtros de texto (in-screen "Tocar"). Los inputs existen
+// en el DOM al ejecutar este script (definidos en gh-songs-screen). Re-pintan
+// solo desde caché — no pegan a IndexedDB en cada keystroke.
+(function bindGhLibrarySearch() {
+  const t = document.getElementById('ghLibrarySearchTitle');
+  const a = document.getElementById('ghLibrarySearchArtist');
+  if (!t && !a) return;
+  t?.addEventListener('input', renderGhLibraryFromCache);
+  a?.addEventListener('input', renderGhLibraryFromCache);
+})();
+
 // Carga inicial
 refreshLibraryList();
 
@@ -1391,12 +1455,24 @@ const _GH_DIFF_ORDER = ['EasySingle', 'MediumSingle', 'HardSingle', 'ExpertSingl
 function togglePlaylistSelection(id) {
   if (selectedGHIds.has(id)) selectedGHIds.delete(id);
   else selectedGHIds.add(id);
-  refreshLibraryList();
+  // Solo cambia el estado de selección — no hace falta re-fetch IndexedDB,
+  // re-pintamos desde caché (evita el flash "vacío" mientras carga).
+  renderGhLibraryFromCache();
 }
 
 function clearPlaylistSelection() {
   selectedGHIds.clear();
-  refreshLibraryList();
+  renderGhLibraryFromCache();
+}
+
+// Limpia los filtros de texto de la biblioteca de Tocar y re-renderiza.
+// Lo expone el "sin resultados" inline (ver renderGhLibraryFromCache).
+function clearGhLibrarySearch() {
+  const t = document.getElementById('ghLibrarySearchTitle');
+  const a = document.getElementById('ghLibrarySearchArtist');
+  if (t) t.value = '';
+  if (a) a.value = '';
+  renderGhLibraryFromCache();
 }
 
 function updatePlaylistBar() {
@@ -1444,7 +1520,7 @@ function toggleAllVisible() {
   const allMarked = _visibleGHIds.every(id => selectedGHIds.has(id));
   if (allMarked) for (const id of _visibleGHIds) selectedGHIds.delete(id);
   else for (const id of _visibleGHIds) selectedGHIds.add(id);
-  refreshLibraryList();
+  renderGhLibraryFromCache();
 }
 
 // openPlaylistModal/closePlaylistModal quedaron obsoletas tras sacar la
@@ -1704,6 +1780,39 @@ function tickToTime(tick, bpm) {
   return (tick / CHART_RESOLUTION) * (60 / bpm);
 }
 
+// Remapea las notas del chart maestro (5 colores) a un subconjunto reducido,
+// equivalente al patrón "dance-double + getActiveLaneConfig" del motor SM.
+// El chart .chart siempre se genera con frets [0..4]; aquí decidimos en runtime
+// cuántos colores se le muestran al jugador:
+//   - '3':     frets máximos = 2 → comprime [3,4] a [0..2] proporcionalmente
+//   - '4':     frets máximos = 3 → comprime [4] a [0..3]
+//   - '5':     identidad
+//   - '5tilt': identidad por ahora (la activación con tilt es v2)
+// Open notes (fret 7) pasan intactas: representan strum sin fret, un mecanismo
+// ortogonal al color. Tras el remap se deduplican (un acorde Azul+Naranja en
+// modo 3 colapsa a un solo Amarillo) y se evita repetir el fret single anterior
+// desplazándolo al adyacente disponible — preserva la sensación de melodía.
+function remapNotesForColorMode(notes, mode) {
+  const MAX_BY_MODE = { '3': 2, '4': 3, '5': 4, '5tilt': 4 };
+  const maxFret = MAX_BY_MODE[mode] ?? 4;
+  if (maxFret === 4) return notes; // identity, no hace falta clonar
+  let lastSingle = -1;
+  return notes.map(n => {
+    const remapped = new Set();
+    for (const f of n.frets) {
+      if (f === 7) { remapped.add(7); continue; }
+      remapped.add(f <= maxFret ? f : Math.round(f * maxFret / 4));
+    }
+    let newFrets = [...remapped].sort((a, b) => a - b);
+    if (newFrets.length === 1 && newFrets[0] === lastSingle && newFrets[0] !== 7) {
+      const f = newFrets[0];
+      newFrets[0] = (f < maxFret) ? f + 1 : (f > 0 ? f - 1 : f);
+    }
+    lastSingle = (newFrets.length === 1) ? newFrets[0] : -1;
+    return { ...n, frets: newFrets };
+  });
+}
+
 // Auto-detecta HOPOs según regla Clone Hero:
 //   - nota single (no chord) AND
 //   - distinta a la anterior (no fret en común) AND
@@ -1835,6 +1944,26 @@ function applyGlobalConfigAndPlay() {
 function onGHDiffChange() {
   updateGHDiffDensityIndicator();
 }
+
+// Modo de colores activos (independiente de la densidad). Persistido entre
+// sesiones — la usuaria suele tener una preferencia estable mientras aprende
+// trastes nuevos, así que recordarla evita reseleccionar cada vez.
+const GH_COLOR_MODE_KEY = 'sincro-gh-color-mode';
+function getActiveColorMode() {
+  const sel = document.getElementById('colorMode');
+  return (sel && sel.value) || localStorage.getItem(GH_COLOR_MODE_KEY) || '5';
+}
+function onGHColorModeChange() {
+  const sel = document.getElementById('colorMode');
+  if (sel && sel.value) localStorage.setItem(GH_COLOR_MODE_KEY, sel.value);
+}
+// Init: restaurar la última selección al cargar la página.
+(function initColorMode() {
+  const saved = localStorage.getItem(GH_COLOR_MODE_KEY);
+  if (!saved) return;
+  const sel = document.getElementById('colorMode');
+  if (sel && [...sel.options].some(o => o.value === saved)) sel.value = saved;
+})();
 
 // Leyenda de densidad por dificultad GH. Cadencias teóricas alineadas con
 // los caps NPS de difficulty-tiers.js (Easy 1.4 / Medium 2.5 / Hard 4.5 /
@@ -2162,10 +2291,17 @@ function startGame(diffOverride) {
   // Si la diff pedida no existe en este chart, resolver al más cercano.
   if (!song.charts[diff]) diff = pickClosestGHDiff(song.charts, diff);
   if (!diff) { alert('Esta canción no tiene una partitura compatible.'); return; }
-  const notes = song.charts[diff];
-  if (!notes || notes.length === 0) { alert('No hay notas en esa dificultad'); return; }
+  const masterNotes = song.charts[diff];
+  if (!masterNotes || masterNotes.length === 0) { alert('No hay notas en esa dificultad'); return; }
 
-  // Anotar HOPOs según threshold configurado.
+  // Remapeo runtime al modo de colores activo (3 / 4 / 5 / 5+Tilt). El chart
+  // .chart siempre es maestro de 5 frets — aquí decidimos cuántos ve el
+  // jugador. Es un array nuevo para no mutar el chart guardado en biblioteca.
+  const colorMode = getActiveColorMode();
+  const notes = remapNotesForColorMode(masterNotes, colorMode);
+
+  // Anotar HOPOs según threshold configurado, después del remap (la regla
+  // "fret distinto al anterior" depende del fret final visible).
   // Default 65 ticks = (65/192)·resolution — la fórmula canónica de Clone Hero
   // para .chart, validada en scan-chart de Geomitron (natural-hopo.ts).
   const hopoThr = parseInt(document.getElementById('hopoThreshold').value) || 65;
@@ -3316,6 +3452,11 @@ window.addEventListener('keydown', e => {
 
 const selectedManageIds = new Set();
 let _visibleManageIds = [];
+// Caché para que los filtros de texto no peguen a IndexedDB en cada keystroke.
+// `refreshManageList()` re-fetch + render; los toggles de selección y los
+// inputs solo llaman a `renderManageListFromCache()`.
+let _ghManageCache = [];
+let _ghManageStorageInfo = null;
 
 // `navigator.storage.estimate()` agrega IndexedDB + localStorage + caches.
 // Duplicado mínimo del helper que vive en library.js para no acoplar este
@@ -3333,33 +3474,60 @@ async function getGHStorageInfo() {
 
 async function refreshManageList() {
   const el = document.getElementById('manageList');
-  const countEl = document.getElementById('manageCount');
   if (!el || !window.GHLibrary) return;
   const [entries, info] = await Promise.all([window.GHLibrary.all(), getGHStorageInfo()]);
-  if (countEl) countEl.textContent = entries.length ? `(${entries.length})` : '';
+  // Sort UNA vez aquí; el render solo filtra y pinta.
+  entries.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+  _ghManageCache = entries;
+  _ghManageStorageInfo = info;
+  renderManageListFromCache();
+}
+
+function renderManageListFromCache() {
+  const el = document.getElementById('manageList');
+  const countEl = document.getElementById('manageCount');
+  if (!el) return;
+  const allEntries = _ghManageCache;
+  const info = _ghManageStorageInfo;
+  if (countEl) countEl.textContent = allEntries.length ? `(${allEntries.length})` : '';
   const storageBar = info
     ? `<div style="margin-bottom:14px;padding:10px 14px;background:rgba(249,115,22,0.08);border:1px solid rgba(249,115,22,0.2);border-radius:8px;font-size:0.85em;color:var(--gris-300)">
          💾 Biblioteca ocupa <strong style="color:var(--gh-accent)">${info.usedMB} MB</strong> de ${info.quotaMB} MB disponibles (${info.pct}%)
        </div>` : '';
-  if (!entries.length) {
+  if (!allEntries.length) {
     el.innerHTML = storageBar + '<p style="color:var(--gris-500)">Tu biblioteca está vacía. Importa un ZIP abajo o genera partituras en <a href="gh-autostepper.html" style="color:var(--gh-accent)">Crear partituras</a>.</p>';
     _visibleManageIds = [];
     selectedManageIds.clear();
     updateManageBar();
     return;
   }
-  entries.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+  // Filtros de texto (AND entre ambos; vacío = cualquiera).
+  const qTitle  = (document.getElementById('ghManageSearchTitle')?.value || '').toLowerCase().trim();
+  const qArtist = (document.getElementById('ghManageSearchArtist')?.value || '').toLowerCase().trim();
+  const entries = allEntries.filter(e =>
+    (!qTitle  || (e.title  || '').toLowerCase().includes(qTitle)) &&
+    (!qArtist || (e.artist || '').toLowerCase().includes(qArtist))
+  );
+
   _visibleManageIds = entries.map(e => e.id);
-  // Limpiar de la selección IDs que ya no existen (charts borrados externamente).
+  // Limpiar de la selección IDs que ya no están visibles (filtrados o borrados).
   for (const id of [...selectedManageIds]) {
     if (!_visibleManageIds.includes(id)) selectedManageIds.delete(id);
   }
+
+  if (!entries.length) {
+    el.innerHTML = storageBar + `<p style="color:var(--gris-500);text-align:center;padding:24px">Sin resultados para los filtros actuales. <button class="icon-btn" onclick="clearGhManageSearch()" style="margin-left:6px">Limpiar filtros</button></p>`;
+    updateManageBar();
+    return;
+  }
+
   // Cabecera con "Seleccionar todos" (tri-state) — única pista de UX para
   // selección múltiple (los botones de bulk-delete viven en el header de la
   // card, a la derecha del h2).
   let html = storageBar + `<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 12px;background:rgba(0,0,0,0.3);border-radius:8px">
       <input type="checkbox" class="playlist-checkbox" id="selectAllManage" onchange="toggleAllVisibleManage()" aria-label="Seleccionar todos los charts">
-      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca varios charts para eliminarlos a la vez</span>
+      <span style="color:var(--gris-300);font-size:0.88em;flex:1">💡 Marca varios charts para eliminarlos a la vez${(qTitle || qArtist) ? ` · <strong>${entries.length}/${allEntries.length}</strong> tras filtros` : ''}</span>
     </div>`;
   for (const e of entries) {
     const dur = e.duration ? `${Math.floor(e.duration/60)}:${('0'+Math.floor(e.duration%60)).slice(-2)}` : '?';
@@ -3386,12 +3554,21 @@ async function refreshManageList() {
 function toggleManageSelection(id) {
   if (selectedManageIds.has(id)) selectedManageIds.delete(id);
   else selectedManageIds.add(id);
-  refreshManageList();
+  renderManageListFromCache();
 }
 
 function clearManageSelection() {
   selectedManageIds.clear();
-  refreshManageList();
+  renderManageListFromCache();
+}
+
+// Limpia los filtros de texto de "Mis canciones" y re-renderiza.
+function clearGhManageSearch() {
+  const t = document.getElementById('ghManageSearchTitle');
+  const a = document.getElementById('ghManageSearchArtist');
+  if (t) t.value = '';
+  if (a) a.value = '';
+  renderManageListFromCache();
 }
 
 function toggleAllVisibleManage() {
@@ -3399,7 +3576,7 @@ function toggleAllVisibleManage() {
   const allMarked = _visibleManageIds.every(id => selectedManageIds.has(id));
   if (allMarked) for (const id of _visibleManageIds) selectedManageIds.delete(id);
   else for (const id of _visibleManageIds) selectedManageIds.add(id);
-  refreshManageList();
+  renderManageListFromCache();
 }
 
 function updateManageBar() {
@@ -3430,6 +3607,16 @@ function updateManageBar() {
     }
   }
 }
+
+// Listeners de los filtros de texto de "Mis canciones". Los inputs existen
+// en el DOM al ejecutar este script (definidos en gh-library-screen).
+(function bindGhManageSearch() {
+  const t = document.getElementById('ghManageSearchTitle');
+  const a = document.getElementById('ghManageSearchArtist');
+  if (!t && !a) return;
+  t?.addEventListener('input', renderManageListFromCache);
+  a?.addEventListener('input', renderManageListFromCache);
+})();
 
 async function bulkDeleteFromManage() {
   const ids = [...selectedManageIds];

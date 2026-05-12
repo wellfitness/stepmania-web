@@ -74,13 +74,18 @@ function renderSongList() {
       </div>`;
     return;
   }
-  const q = (document.getElementById('songSearch')?.value || '').toLowerCase().trim();
+  const qTitle  = (document.getElementById('songSearchTitle')?.value || '').toLowerCase().trim();
+  const qArtist = (document.getElementById('songSearchArtist')?.value || '').toLowerCase().trim();
   const sort = document.getElementById('songSort')?.value || 'addedAt-desc';
   const ratingFilter = document.getElementById('songFilterRating')?.value || '';
   const gradeFilter = document.getElementById('songFilterGrade')?.value || '';
   const tagFilter = document.getElementById('songFilterTag')?.value || '';
 
-  let songs = _allSongsCache.filter(s => !q || s.title.toLowerCase().includes(q) || (s.artist||'').toLowerCase().includes(q));
+  // AND lógico entre los dos filtros — dejar uno vacío equivale a "cualquiera".
+  let songs = _allSongsCache.filter(s =>
+    (!qTitle  || (s.title  || '').toLowerCase().includes(qTitle)) &&
+    (!qArtist || (s.artist || '').toLowerCase().includes(qArtist))
+  );
 
   if (tagFilter) songs = songs.filter(s => (s.tags || []).includes(tagFilter));
 
@@ -697,10 +702,12 @@ async function saveBpmEdit() {
 
 // Bind search/sort/filters listeners once.
 (function bindSongFilters() {
-  const s = document.getElementById('songSearch');
-  if (!s) return;
-  s.addEventListener('input', renderSongList);
-  document.getElementById('songSort').addEventListener('change', renderSongList);
+  const sTitle  = document.getElementById('songSearchTitle');
+  const sArtist = document.getElementById('songSearchArtist');
+  if (!sTitle && !sArtist) return; // pantalla sin filtros (otros archivos)
+  sTitle?.addEventListener('input', renderSongList);
+  sArtist?.addEventListener('input', renderSongList);
+  document.getElementById('songSort')?.addEventListener('change', renderSongList);
   document.getElementById('songFilterRating')?.addEventListener('change', renderSongList);
   document.getElementById('songFilterGrade')?.addEventListener('change', renderSongList);
   document.getElementById('songFilterTag')?.addEventListener('change', renderSongList);
