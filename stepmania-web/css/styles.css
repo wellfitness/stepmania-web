@@ -1202,17 +1202,19 @@ details summary:hover { color: #fff; }
 /* Pill de posición en el ranking panel */
 .position-pill {
   display: inline-block;
-  padding: 8px 16px;
-  margin: 14px 0 10px;
+  padding: 9px 18px;
+  margin: 0 0 12px;
   background: rgba(255,190,11,0.15);
   border: 1px solid rgba(255,190,11,0.4);
-  border-radius: 10px;
+  border-radius: 999px;
   font-weight: 700; color: #ffbe0b;
-  font-size: 0.95em;
+  font-size: 0.96em;
+  letter-spacing: 0.02em;
 }
 .position-pill.is-top {
   background: linear-gradient(90deg, var(--turquesa-400), #ffbe0b);
   color: #001f22; border-color: transparent;
+  box-shadow: 0 4px 18px rgba(255,190,11,0.4);
   animation: pos-pulse 1.5s ease-out;
 }
 @keyframes pos-pulse {
@@ -1222,37 +1224,46 @@ details summary:hover { color: #fff; }
 }
 
 /* Delta numérico (+1240 / -340) */
-.ranking-delta-wrap { margin: 0 0 12px; }
+.ranking-delta-wrap { margin: 0 0 14px; }
 .ranking-delta {
+  display: inline-block;
   font-family: 'Consolas', monospace;
   font-size: 0.88em; font-weight: 700;
-  padding: 2px 8px; border-radius: 6px;
+  padding: 3px 10px; border-radius: 6px;
   white-space: nowrap;
 }
-.ranking-delta.delta-up   { color: #00ff64; background: rgba(0,255,100,0.1); }
-.ranking-delta.delta-down { color: #ff6688; background: rgba(255,51,102,0.1); }
+.ranking-delta.delta-up   { color: #00ff64; background: rgba(0,255,100,0.12); }
+.ranking-delta.delta-down { color: #ff6688; background: rgba(255,51,102,0.12); }
 .ranking-delta.delta-zero { color: var(--gris-400); background: rgba(255,255,255,0.05); }
 
 /* Tabs CSS-only en el panel de ranking (radio inputs + sibling selectors).
    `display:none` en los radios + label como pestaña visible. Los panes
    muestran/oculatan según qué radio está `:checked`. */
-.ranking-panel { margin-top: 14px; }
+.ranking-panel {
+  margin-top: 18px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 18px 20px 20px;
+}
 .ranking-tabs {
   display: flex; flex-wrap: wrap; gap: 0;
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 .ranking-tabs input[type="radio"] { display: none; }
 .ranking-tab {
-  padding: 10px 18px;
+  padding: 11px 20px;
   cursor: pointer;
   color: var(--gris-400);
-  font-weight: 600; font-size: 0.92em;
+  font-weight: 600; font-size: 0.95em;
   border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
+  margin-bottom: -1px;
+  transition: color 0.18s, border-color 0.18s, background-color 0.18s;
   user-select: none;
 }
-.ranking-tab:hover { color: #fff; }
+.ranking-tab:hover { color: #fff; background: rgba(255,255,255,0.03); }
 .ranking-tab.disabled { opacity: 0.4; cursor: not-allowed; }
+.ranking-tab.disabled:hover { color: var(--gris-400); background: transparent; }
 /* Selector agnóstico de IDs concretos (SM usa rkTabTop/rkTabMine, GH usa
    ghRkTabTop/ghRkTabMine). Usamos :nth-of-type sobre los radios dentro de
    .ranking-tabs para identificar 1º/2º. El label "activo" se identifica por
@@ -1262,52 +1273,69 @@ details summary:hover { color: #fff; }
   color: var(--turquesa-400);
   border-bottom-color: var(--turquesa-400);
 }
-.ranking-pane { display: none; width: 100%; padding-top: 12px; }
+.ranking-pane { display: none; width: 100%; padding-top: 14px; }
 .ranking-tabs > input[type="radio"]:nth-of-type(1):checked ~ .ranking-pane-top,
 .ranking-tabs > input[type="radio"]:nth-of-type(2):checked ~ .ranking-pane-mine {
   display: block;
 }
 
 /* Lista de runs en cualquier ranking (panel de results, modal de chart, modal
-   de song). Estructura: <ol class="ranking-list"><li class="ranking-row">…</li></ol> */
+   de song). Estructura: <ol class="ranking-list"><li class="ranking-row">…</li></ol>
+   Grid de 4 columnas (num, name, grade, score) en Top; en "Mi progresión" la
+   1ª columna es la fecha y no hay rank-num — los selectores adaptan layout. */
 .ranking-list {
   list-style: none; padding: 0; margin: 0;
-  display: flex; flex-direction: column; gap: 4px;
+  display: flex; flex-direction: column; gap: 6px;
 }
 .ranking-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  background: rgba(255,255,255,0.03);
-  border-radius: 8px;
-  font-size: 0.92em;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 10px;
+  font-size: 0.94em;
+  transition: background 0.18s, border-color 0.18s;
+}
+.ranking-row:hover {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.1);
+}
+.ranking-pane-mine .ranking-row {
+  grid-template-columns: auto auto 1fr auto;
 }
 .ranking-row .rank-name {
-  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.ranking-row .rank-score { text-align: left; }
 /* Botón delete en la lista de "todas las partidas" — único elemento que se
    alinea al final (resto del row va pegado a la izquierda). */
 .ranking-row .run-delete-btn { margin-left: auto; }
-.ranking-row.is-me { background: rgba(0,190,200,0.12); }
+.ranking-row.is-me {
+  background: rgba(0,190,200,0.12);
+  border-color: rgba(0,190,200,0.28);
+}
 .ranking-row.is-just-saved {
-  animation: just-saved-pulse 1.5s ease-out;
+  animation: just-saved-pulse 1.6s ease-out;
   border-left: 3px solid var(--turquesa-400);
 }
 @keyframes just-saved-pulse {
   0%   { background: rgba(0,245,212,0.5); }
   100% { background: rgba(0,190,200,0.12); }
 }
-.ranking-row .rank-num   { color: var(--gris-400); font-family: 'Consolas', monospace; font-weight: 700; min-width: 28px; }
+.ranking-row .rank-num   { color: var(--gris-400); font-family: 'Consolas', monospace; font-weight: 700; min-width: 32px; }
 .ranking-row .rank-date  { color: var(--gris-400); font-size: 0.86em; font-family: 'Consolas', monospace; }
-.ranking-row .rank-grade { font-family: 'Consolas', monospace; font-weight: 800; font-size: 0.85em; padding: 2px 8px; border-radius: 6px; letter-spacing: 0.05em; }
-.ranking-row .rank-score { color: #ffbe0b; font-family: 'Consolas', monospace; font-weight: 700; }
+.ranking-row .rank-grade { font-family: 'Consolas', monospace; font-weight: 800; font-size: 0.86em; padding: 3px 9px; border-radius: 6px; letter-spacing: 0.06em; justify-self: end; }
+.ranking-row .rank-score { color: #ffbe0b; font-family: 'Consolas', monospace; font-weight: 700; text-align: right; min-width: 70px; justify-self: end; }
 .ranking-row .rank-name  { color: #fff; font-weight: 600; }
-.ranking-empty { color: var(--gris-500); padding: 12px; text-align: center; font-style: italic; }
+.ranking-empty {
+  color: var(--gris-500); padding: 18px 12px;
+  text-align: center; font-style: italic;
+  background: rgba(255,255,255,0.02);
+  border-radius: 10px;
+}
 
 /* Coloreado de grades en las pills compactas (.rank-grade y .champ-grade).
    Los selectores con .grade-AAA ya existen para las pills de song-select

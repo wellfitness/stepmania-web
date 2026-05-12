@@ -114,10 +114,8 @@ function renderLibraryFromCache() {
     // sigue siendo el top de la canción. La dificultad aparece junto al nombre
     // para que se entienda el contexto.
     const songRuns = runsBySong.get(s.id) || [];
-    let championHtml;
-    if (songRuns.length === 0) {
-      championHtml = '<div class="lib-row-champion empty">Sin puntuaciones todavía</div>';
-    } else {
+    let championHtml = '';
+    if (songRuns.length > 0) {
       const champ = rankRuns(songRuns)[0];
       championHtml = `<div class="lib-row-champion" title="${songRuns.length} partida${songRuns.length === 1 ? '' : 's'} guardada${songRuns.length === 1 ? '' : 's'}">
         👑 <strong>${escapeHtml(champ.playerName || 'Anónimo')}</strong>
