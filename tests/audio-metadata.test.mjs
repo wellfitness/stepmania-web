@@ -246,6 +246,105 @@ describe('parseID3v2', () => {
     expect(parseID3v2(buf.buffer)).toBeNull();
   });
 
+  // Frame de texto con encoding=1 (UTF-16 with BOM) + null terminator de 2 bytes
+  // al final. Reproduce el bug del 2026-05-12 donde el strip de trailing NULs
+  // byte-a-byte se comía el byte alto (00) del último char ASCII, dejando un
+  // byte huérfano que TextDecoder emitía como U+FFFD '�'. Esto es CRÍTICO
+  // porque casi todos los taggers reales (Mp3tag, Picard, WMP) escriben los
+  // tags en UTF-16 BOM dentro de v2.3 — sin este test la regresión vuelve.
+  function makeUTF16Frame(idStr, value, addNullTerminator = true) {
+    const utf16 = new Uint8Array(value.length * 2 + 2 + (addNullTerminator ? 2 : 0));
+    utf16[0] = 0xFF; utf16[1] = 0xFE;  // BOM little-endian
+    for (let i = 0; i < value.length; i++) {
+      const code = value.charCodeAt(i);
+      utf16[2 + i * 2] = code & 0xFF;
+      utf16[2 + i * 2 + 1] = (code >> 8) & 0xFF;
+    }
+    // Trailing 00 00 (null terminator UTF-16). Aquí está la trampa.
+    const totalDataLen = utf16.length + 1;  // +1 por byte de encoding
+    const sizeBytes = uint32BE(totalDataLen);  // v2.3 — uint32BE normal
+    const out = new Uint8Array(10 + totalDataLen);
+    out[0] = idStr.charCodeAt(0);
+    out[1] = idStr.charCodeAt(1);
+    out[2] = idStr.charCodeAt(2);
+    out[3] = idStr.charCodeAt(3);
+    out.set(sizeBytes, 4);
+    out[8] = 0; out[9] = 0;  // flags
+    out[10] = 1;             // encoding = UTF-16 with BOM
+    out.set(utf16, 11);
+    return out;
+  }
+
+  function makeID3v23UTF16(frames) {
+    let totalFrameBytes = 0;
+    const frameBuffers = frames.map(([id, val]) => {
+      const f = makeUTF16Frame(id, val, true);
+      totalFrameBytes += f.length;
+      return f;
+    });
+    const sizeBytes = synchsafe(totalFrameBytes);
+    const header = new Uint8Array(10);
+    header[0] = 0x49; header[1] = 0x44; header[2] = 0x33;
+    header[3] = 3;  // v2.3
+    header[4] = 0; header[5] = 0;
+    header.set(sizeBytes, 6);
+    const out = new Uint8Array(10 + totalFrameBytes);
+    out.set(header, 0);
+    let pos = 10;
+    for (const f of frameBuffers) {
+      out.set(f, pos);
+      pos += f.length;
+    }
+    return out.buffer;
+  }
+
+  it('regresión bug 2026-05-12: UTF-16 con null terminator no debe corromper el último char', () => {
+    // Caso real reportado: "DJ Miko" devolvía "DJ Mik�" porque el strip de
+    // trailing NULs byte-a-byte se comía el byte alto (00) de la 'o'.
+    const buf = makeID3v23UTF16([
+      ['TIT2', "What´s Up (Original Mix)"],
+      ['TPE1', 'DJ Miko'],
+      ['TALB', '90s Megadance Hits (2018)']
+    ]);
+    const result = parseID3v2(buf);
+    expect(result.title).toBe("What´s Up (Original Mix)");
+    expect(result.artist).toBe('DJ Miko');
+    expect(result.album).toBe('90s Megadance Hits (2018)');
+    // Verificación específica: NO debe haber replacement chars al final.
+    expect(result.title.endsWith('�')).toBe(false);
+    expect(result.artist.endsWith('�')).toBe(false);
+    expect(result.album.endsWith('�')).toBe(false);
+  });
+
+  it('UTF-16 con BOM big-endian también funciona', () => {
+    // Construye manualmente un frame UTF-16BE.
+    const value = 'Test';
+    const utf16be = new Uint8Array(value.length * 2 + 2 + 2);
+    utf16be[0] = 0xFE; utf16be[1] = 0xFF;  // BOM big-endian
+    for (let i = 0; i < value.length; i++) {
+      const code = value.charCodeAt(i);
+      utf16be[2 + i * 2] = (code >> 8) & 0xFF;
+      utf16be[2 + i * 2 + 1] = code & 0xFF;
+    }
+    // Trailing 00 00
+    const totalDataLen = utf16be.length + 1;
+    const sizeBytes = uint32BE(totalDataLen);
+    const frame = new Uint8Array(10 + totalDataLen);
+    frame[0] = 0x54; frame[1] = 0x49; frame[2] = 0x54; frame[3] = 0x32;  // "TIT2"
+    frame.set(sizeBytes, 4);
+    frame[10] = 1;
+    frame.set(utf16be, 11);
+    const sizeTagBytes = synchsafe(frame.length);
+    const tag = new Uint8Array(10 + frame.length);
+    tag[0] = 0x49; tag[1] = 0x44; tag[2] = 0x33;
+    tag[3] = 3;
+    tag.set(sizeTagBytes, 6);
+    tag.set(frame, 10);
+    const result = parseID3v2(tag.buffer);
+    expect(result.title).toBe('Test');
+    expect(result.title.endsWith('�')).toBe(false);
+  });
+
   it('para evitar regresión: TRCK con "2/14" extrae solo "2"', () => {
     // El parser ignora tags que solo tienen TRCK (sin title/artist/album es
     // basura para la UI). Por eso el fixture incluye TIT2 también.

@@ -37,24 +37,31 @@
   // players reales (Windows, iTunes) los toleran sin protestar.
   function decodeText(bytes, encoding) {
     if (!bytes || !bytes.length) return '';
-    let end = bytes.length;
-    while (end > 0 && bytes[end - 1] === 0) end--;
-    const sliced = bytes.subarray(0, end);
+    // CRÍTICO: el strip de trailing NUL debe ocurrir DESPUÉS de decode, no
+    // antes. En UTF-16 cada char ocupa 2 bytes. Un strip byte-a-byte puede
+    // comerse el byte alto (00) de un char ASCII como 'o' (6F 00 en LE),
+    // dejando el byte 6F huérfano. TextDecoder('utf-16le') con número impar
+    // de bytes emite U+FFFD ('�') al final. El decoder maneja los NULs
+    // internos como caracteres NUL del string sin problemas — basta con
+    // limpiarlos del result final con un regex en string-land.
     try {
-      if (encoding === 0) return new TextDecoder('iso-8859-1').decode(sliced);
-      if (encoding === 1) {
-        if (sliced.length >= 2) {
-          if (sliced[0] === 0xFF && sliced[1] === 0xFE) {
-            return new TextDecoder('utf-16le').decode(sliced.subarray(2));
-          }
-          if (sliced[0] === 0xFE && sliced[1] === 0xFF) {
-            return new TextDecoder('utf-16be').decode(sliced.subarray(2));
-          }
+      let result;
+      if (encoding === 0) {
+        result = new TextDecoder('iso-8859-1').decode(bytes);
+      } else if (encoding === 1) {
+        if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+          result = new TextDecoder('utf-16le').decode(bytes.subarray(2));
+        } else if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+          result = new TextDecoder('utf-16be').decode(bytes.subarray(2));
+        } else {
+          result = new TextDecoder('utf-16le').decode(bytes);
         }
-        return new TextDecoder('utf-16le').decode(sliced);
+      } else if (encoding === 2) {
+        result = new TextDecoder('utf-16be').decode(bytes);
+      } else {
+        result = new TextDecoder('utf-8').decode(bytes);
       }
-      if (encoding === 2) return new TextDecoder('utf-16be').decode(sliced);
-      return new TextDecoder('utf-8').decode(sliced);
+      return result.replace(/\x00+$/, '');
     } catch (err) {
       return '';
     }
