@@ -182,6 +182,105 @@ async function exportGHBackupZip() {
   setStatus(`<span style="color:var(--color-success)">✓ Backup descargado (${(blob.size/1024/1024).toFixed(1)} MB · ${entries.length} chart${entries.length === 1 ? '' : 's'})</span>`);
 }
 
+// Parser mínimo de song.ini (formato Clone Hero / Phase Shift). Devuelve un
+// objeto plano con keys en minúsculas, valores como string o int. Los `song.ini`
+// reales suelen llevar [song] como header y líneas `key = value` con comillas
+// opcionales alrededor del valor. No respetamos secciones porque Clone Hero
+// solo usa una.
+function _ghParseSongIni(text) {
+  const out = {};
+  const NUMERIC_KEYS = new Set([
+    'year', 'song_length', 'preview_start_time', 'preview_end_time',
+    'delay', 'diff_guitar', 'diff_bass', 'diff_rhythm', 'diff_drums',
+    'diff_keys', 'diff_vocals', 'diff_band', 'video_start_time',
+    'video_end_time', 'album_track', 'playlist_track'
+  ]);
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith(';') || line.startsWith('#') || line.startsWith('[')) continue;
+    const eq = line.indexOf('=');
+    if (eq < 0) continue;
+    const key = line.slice(0, eq).trim().toLowerCase();
+    let val = line.slice(eq + 1).trim();
+    if (/^".*"$/.test(val)) val = val.slice(1, -1);
+    if (NUMERIC_KEYS.has(key)) {
+      const n = parseInt(val, 10);
+      out[key] = isNaN(n) ? val : n;
+    } else {
+      out[key] = val;
+    }
+  }
+  return out;
+}
+
+// Restauración de ZIPs sin metadata.json — formato Clone Hero / autostepper:
+// cada canción en su carpeta con notes.chart + song.ini + song.<ext>. Toda la
+// info necesaria está embebida: title/artist/charter/genre/song_length en el
+// .ini, BPM/diffs/notas en el .chart. No hay guitarMapping ni runs porque ese
+// formato nunca los llevó — se sigue restaurando lo demás.
+async function _ghImportAutostepperLayout(entries, setStatus) {
+  const dec = new TextDecoder();
+  const chartEntries = entries.filter(e => /(^|\/)notes\.chart$/i.test(e.name));
+  if (chartEntries.length === 0) {
+    setStatus('<span style="color:var(--color-error)">✗ ZIP sin metadata.json y sin notes.chart en subcarpetas — no parece un backup de Sincro GH ni un export del autostepper.</span>');
+    return;
+  }
+  const AUDIO_RE = /\.(mp3|ogg|oga|wav|flac|m4a|aac|opus)$/i;
+  let imported = 0, skipped = 0;
+  for (const chartEntry of chartEntries) {
+    const folder = chartEntry.name.slice(0, chartEntry.name.length - 'notes.chart'.length);
+    // Audio: preferimos `song.<ext>` (convención del autostepper), si no, el
+    // primer archivo de audio en la misma carpeta.
+    const audioEntry =
+      entries.find(e => /(^|\/)song\.(mp3|ogg|wav|flac|m4a)$/i.test(e.name) && e.name.startsWith(folder))
+      || entries.find(e => e.name.startsWith(folder) && AUDIO_RE.test(e.name));
+    if (!audioEntry) { skipped++; continue; }
+    const iniEntry = entries.find(e => e.name === folder + 'song.ini');
+
+    const chartText = dec.decode(chartEntry.data);
+    const chartMeta = window.GHLibrary.extractMeta(chartText);
+    const iniMeta = iniEntry ? _ghParseSongIni(dec.decode(iniEntry.data)) : {};
+
+    const folderLabel = folder.replace(/\/$/, '') || 'Untitled';
+    const title = iniMeta.name || chartMeta.name || folderLabel;
+    const artist = iniMeta.artist || chartMeta.artist || '';
+    const bpm = chartMeta.bpm || 120;
+    const durationSec = typeof iniMeta.song_length === 'number' ? iniMeta.song_length / 1000 : 0;
+    const audioName = audioEntry.name.split('/').pop();
+    const ext = _ghGetExt(audioName);
+    const mime = ext === '.wav' ? 'audio/wav'
+              : ext === '.ogg' ? 'audio/ogg'
+              : ext === '.flac' ? 'audio/flac'
+              : 'audio/mpeg';
+    const audioBlob = new Blob([audioEntry.data], { type: mime });
+    try {
+      await window.GHLibrary.add({
+        title, artist, bpm, duration: durationSec,
+        chartText, audioBlob, audioName,
+        diffs: chartMeta.diffs,
+        totalNotes: chartMeta.totalNotes,
+        genre: iniMeta.genre || '',
+        charter: iniMeta.charter || '',
+        addedAt: Date.now()
+      });
+      imported++;
+      setStatus(`Restaurando ${imported}/${chartEntries.length}...`);
+    } catch (err) {
+      console.warn('Error restaurando chart (formato autostepper):', err);
+      if (err && err.name === 'QuotaExceededError') {
+        setStatus(`<span style="color:var(--color-warning)">⚠️ Almacenamiento lleno tras restaurar ${imported} charts. Libera espacio y reintenta.</span>`);
+        if (typeof refreshManageList === 'function') refreshManageList();
+        if (typeof refreshLibraryList === 'function') refreshLibraryList();
+        return;
+      }
+    }
+  }
+  const skipMsg = skipped ? ` · ${skipped} sin audio omitido${skipped === 1 ? '' : 's'}` : '';
+  setStatus(`<span style="color:var(--color-success)">✓ ${imported} chart${imported === 1 ? '' : 's'} restaurado${imported === 1 ? '' : 's'} (formato Clone Hero / autostepper)${skipMsg}</span>`);
+  if (typeof refreshManageList === 'function') refreshManageList();
+  if (typeof refreshLibraryList === 'function') refreshLibraryList();
+}
+
 // ----- Import ----------------------------------------------------------------
 async function importGHBackupZip(file) {
   const status = document.getElementById('ghBackupStatus');
@@ -201,9 +300,11 @@ async function importGHBackupZip(file) {
   }
   const dec = new TextDecoder();
   const metaEntry = entries.find(e => e.name === 'metadata.json');
+  // Fallback: si no hay metadata.json, podría ser un ZIP del autostepper
+  // (formato Clone Hero) o un backup viejo previo a v1. Reintentamos por
+  // estructura — toda la info está embebida en notes.chart + song.ini.
   if (!metaEntry) {
-    setStatus('<span style="color:var(--color-error)">✗ ZIP sin metadata.json (¿es un backup de Sincro GH?)</span>');
-    return;
+    return _ghImportAutostepperLayout(entries, setStatus);
   }
   let meta;
   try { meta = JSON.parse(dec.decode(metaEntry.data)); }

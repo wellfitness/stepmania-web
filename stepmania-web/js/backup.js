@@ -93,6 +93,99 @@ function readZip(uint8) {
   return out;
 }
 
+// Restauración de ZIPs sin metadata.json — formato pack StepMania / autostepper:
+// cada canción en su carpeta con un .ssc (preferido) o .sm + un audio. Misma
+// heurística que el import de packs (`library.js`): agrupar por carpeta, .ssc
+// gana al .sm, audio más grande dentro de la carpeta es el de la canción
+// (banners/preview suelen ser KB, el audio MB). Cubre:
+//   - Export del autostepper SM (`<slug>/<slug>.ssc` + `<slug>/<slug>.sm` + audio)
+//   - Packs StepMania nativos bajados de internet (`Pack/Song/song.ssc` + audio)
+//   - Backups viejos sin metadata.json (si alguna vez los hubo en disco)
+async function _smImportSscPackLayout(entries, status) {
+  const dec = new TextDecoder();
+  // Agrupar por carpeta padre. Soportar archivos en la raíz también (folder='').
+  const folders = new Map();
+  for (const e of entries) {
+    if (e.name === 'metadata.json') continue;
+    const lastSlash = e.name.lastIndexOf('/');
+    const folder = lastSlash >= 0 ? e.name.slice(0, lastSlash) : '';
+    const lower = e.name.toLowerCase();
+    if (!folders.has(folder)) folders.set(folder, { sscs: [], audios: [] });
+    const bucket = folders.get(folder);
+    if (lower.endsWith('.ssc') || lower.endsWith('.sm')) bucket.sscs.push(e);
+    else if (/\.(mp3|ogg|oga|wav|flac|m4a|aac|opus)$/i.test(lower)) bucket.audios.push(e);
+  }
+  // Empareja cada carpeta válida; .ssc gana al .sm, audio más grande gana.
+  const toProcess = [];
+  for (const [folder, b] of folders) {
+    if (!b.sscs.length || !b.audios.length) continue;
+    const ssc = b.sscs.find(e => /\.ssc$/i.test(e.name)) || b.sscs[0];
+    const audio = b.audios.slice().sort((x, y) => y.data.length - x.data.length)[0];
+    toProcess.push({ ssc, audio, folder });
+  }
+  if (!toProcess.length) {
+    status.innerHTML = '<span style="color:var(--rosa-500)">✗ ZIP sin metadata.json y sin carpetas con .ssc/.sm + audio — no parece un backup ni un pack de StepMania.</span>';
+    return;
+  }
+
+  let imported = 0, skipped = 0, quotaHit = false;
+  for (const { ssc, audio, folder } of toProcess) {
+    if (quotaHit) { skipped++; continue; }
+    try {
+      const sscText = dec.decode(ssc.data);
+      const parsed = parseSscOrSm(sscText);
+      const baseName = ssc.name.split('/').pop().replace(/\.[^.]+$/, '');
+      const bpm = parseFloat((parsed.header.BPMS || '0=120').split('=')[1]) || 120;
+      const offsetSec = -parseFloat(parsed.header.OFFSET || '0');
+      const sampleStart = parseFloat(parsed.header.SAMPLESTART || '30');
+      // decodeAudioData necesita un ArrayBuffer detachable: copia explícita
+      // del Uint8Array del ZIP para no romper su buffer subyacente.
+      const audioBytes = new Uint8Array(audio.data);
+      const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
+      const ctx2 = ensureAudioCtx();
+      const decoded = await ctx2.decodeAudioData(audioBytes.buffer.slice(audioBytes.byteOffset, audioBytes.byteOffset + audioBytes.byteLength));
+      const audioName = audio.name.split('/').pop();
+      await dbAdd({
+        title: parsed.header.TITLE || baseName,
+        artist: parsed.header.ARTIST || folder.split('/').pop() || 'Unknown',
+        audioBlob,
+        audioName,
+        sscText,
+        bpm, offsetSec,
+        duration: decoded.duration,
+        sampleStart,
+        charts: parsed.charts.map(c => {
+          const stepType = (c.STEPSTYPE || 'dance-single');
+          const numLanes = (typeof lanesFromStepType === 'function') ? lanesFromStepType(stepType) : 4;
+          const emptyRow = '0'.repeat(numLanes);
+          return {
+            name: c.DIFFICULTY || 'Edit',
+            key: (c.DIFFICULTY || 'edit').toLowerCase(),
+            rating: parseInt(c.METER || '1') || 1,
+            count: (c.NOTES || '').split('\n').filter(r => r.length >= numLanes && r !== emptyRow).length,
+            stepType, numLanes
+          };
+        }),
+        tags: [],
+        addedAt: Date.now()
+      });
+      imported++;
+      status.textContent = `Restaurando ${imported}/${toProcess.length}...`;
+    } catch (err) {
+      skipped++;
+      if (err && err.name === 'QuotaExceededError') quotaHit = true;
+      console.warn('Error restaurando carpeta (formato pack):', folder, err);
+    }
+  }
+  if (quotaHit) {
+    status.innerHTML = `<span style="color:var(--color-warning)">⚠️ Almacenamiento lleno tras restaurar ${imported} canciones. Libera espacio y reintenta.</span>`;
+  } else {
+    const skipMsg = skipped ? ` · ${skipped} omitida${skipped === 1 ? '' : 's'}` : '';
+    status.innerHTML = `<span style="color:var(--color-success)">✓ ${imported} canción${imported === 1 ? '' : 'es'} restaurada${imported === 1 ? '' : 's'} (formato pack StepMania / autostepper)${skipMsg}</span>`;
+  }
+  if (typeof refreshLibrary === 'function' && typeof currentScreen !== 'undefined' && currentScreen === 'library') refreshLibrary();
+}
+
 async function importBackupZip(file) {
   const status = document.getElementById('backupStatus');
   status.textContent = 'Leyendo ZIP...';
@@ -102,7 +195,9 @@ async function importBackupZip(file) {
   catch (e) { status.innerHTML = `<span style="color:var(--rosa-500)">✗ ${e.message}</span>`; return; }
   const dec = new TextDecoder();
   const metaEntry = entries.find(e => e.name === 'metadata.json');
-  if (!metaEntry) { status.innerHTML = '<span style="color:var(--rosa-500)">✗ ZIP sin metadata.json</span>'; return; }
+  // Fallback: si no hay metadata.json, podría ser un ZIP del autostepper, un
+  // pack StepMania nativo, o un backup viejo. Reintentamos por estructura.
+  if (!metaEntry) return _smImportSscPackLayout(entries, status);
   let meta;
   try { meta = JSON.parse(dec.decode(metaEntry.data)); }
   catch (e) { status.innerHTML = '<span style="color:var(--rosa-500)">✗ metadata.json malformado</span>'; return; }
