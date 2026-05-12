@@ -1497,6 +1497,7 @@ async function analyzeOne(q) {
     croppedAudio = window.AudioPipeline.audioBufferToWav(buffer, effectiveDuration, 1.5);
     croppedAudioName = q.file.name.replace(/\.[^.]+$/, '') + '.wav';
   }
+  q._audioBytes = new Uint8Array(await (croppedAudio || q.file).arrayBuffer());
 
   q.result = {
     bpm, offsetSec,
@@ -1527,7 +1528,7 @@ async function analyzeAll() {
 
   // reset pending statuses (re-analyze even if already done)
   for (const q of queue) {
-    if (q.status !== 'working') { q.status = 'pending'; q.result = null; }
+    if (q.status !== 'working') { q.status = 'pending'; q.result = null; q._audioBytes = null; }
   }
   renderQueue();
 
@@ -1947,38 +1948,33 @@ async function saveAllToLibrary() {
   }
 }
 
-async function downloadAllZip() {
-  const done = queue.filter(q => q.status === 'done');
-  if (done.length === 0) return;
+function downloadAllZip() {
+  const done = queue.filter(q => q.status === 'done' && q._audioBytes);
   const status = document.getElementById('exportStatus');
-  status.textContent = 'Construyendo ZIP...';
-
-  const enc = new TextEncoder();
-  const files = [];
-  for (const q of done) {
-    const folder = safeFilename(q.title);
-    const audioName = audioNameFor(q);
-    // .ssc (SM5 native, preferred)
-    const ssc = buildSscForSong(q);
-    files.push({ name: `${folder}/${folder}.ssc`, data: enc.encode(ssc) });
-    // .sm (legacy, for compatibility with older forks: ITG2, Etterna, 3.9)
-    const sm = buildSmForSong(q);
-    files.push({ name: `${folder}/${folder}.sm`, data: enc.encode(sm) });
-    // audio: WAV recortado si hubo cap, archivo original en caso contrario
-    const sourceBlob = q.result.croppedAudio || q.file;
-    const audioBytes = new Uint8Array(await sourceBlob.arrayBuffer());
-    files.push({ name: `${folder}/${audioName}`, data: audioBytes });
-    status.textContent = `Empaquetando: ${folder}...`;
-    await yieldUI();
+  if (done.length === 0) {
+    status.textContent = 'Sin canciones procesadas para descargar.';
+    return;
   }
-
-  status.textContent = 'Comprimiendo...';
-  await yieldUI();
-  const zipBytes = makeZip(files);
-  const blob = new Blob([zipBytes], { type: 'application/zip' });
-  const fn = `AutoStepper_${done.length}_songs.zip`;
-  downloadBlob(blob, fn);
-  status.innerHTML = `<span style="color:#00ff64">✓ ZIP descargado: ${fn} (${(blob.size/1024/1024).toFixed(1)} MB)</span>`;
+  status.textContent = 'Construyendo ZIP...';
+  try {
+    const enc = new TextEncoder();
+    const files = [];
+    for (const q of done) {
+      const folder = safeFilename(q.title);
+      const audioName = audioNameFor(q);
+      files.push({ name: `${folder}/${folder}.ssc`, data: enc.encode(buildSscForSong(q)) });
+      files.push({ name: `${folder}/${folder}.sm`,  data: enc.encode(buildSmForSong(q)) });
+      files.push({ name: `${folder}/${audioName}`,  data: q._audioBytes });
+    }
+    const zipBytes = makeZip(files);
+    const blob = new Blob([zipBytes], { type: 'application/zip' });
+    const fn = `AutoStepper_${done.length}_songs.zip`;
+    downloadBlob(blob, fn);
+    status.innerHTML = `<span style="color:#00ff64">✓ ZIP descargado: ${fn} (${(blob.size/1024/1024).toFixed(1)} MB)</span>`;
+  } catch (err) {
+    console.error('downloadAllZip error:', err);
+    status.innerHTML = `<span style="color:#ff4444">Error al empaquetar: ${escapeHtml(err.message)}</span>`;
+  }
 }
 
 // ============================================================
