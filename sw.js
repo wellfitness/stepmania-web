@@ -18,7 +18,7 @@
 // Aviso: NO interceptamos requests POST ni con header Range (audio range
 // requests del motor son delicados — los dejamos pasar a network).
 
-const CACHE_VERSION = 'sincro-v27';
+const CACHE_VERSION = 'sincro-v28';
 const PRECACHE      = `${CACHE_VERSION}-shell`;
 const RUNTIME       = `${CACHE_VERSION}-runtime`;
 
@@ -60,7 +60,15 @@ const PRECACHE_URLS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(PRECACHE)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      // CRÍTICO: `cache: 'reload'` fuerza al SW a saltarse el HTTP cache del
+      // browser y pedir cada asset directo al servidor. Sin esto, addAll
+      // reusa la versión cacheada por el browser desde el deploy anterior,
+      // dejando al SW nuevo sirviendo JS viejo aunque el servidor tenga el
+      // nuevo. Bug descubierto el 2026-05-12 tras bumpear v25→v27 sin
+      // detectar que el precache contenía aún el audio-metadata.js v25.
+      .then((cache) => cache.addAll(
+        PRECACHE_URLS.map((url) => new Request(url, { cache: 'reload' }))
+      ))
       .then(() => self.skipWaiting())
   );
 });
