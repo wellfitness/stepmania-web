@@ -1169,31 +1169,37 @@ details summary:hover { color: #fff; }
    ranking en results, modal de scores en song-select y library.
    ============================================================================ */
 
-/* Form inline en results-screen tras acabar canción */
+/* Form inline en results-screen tras acabar canción. Mismo lenguaje visual
+   que .ranking-panel (radius 14px, fondo translúcido) para que ambos se
+   lean como bloques hermanos — el form se transforma en panel tras guardar. */
 .score-save-form {
-  display: flex; align-items: center; gap: 10px;
-  margin: 16px 0 8px;
-  padding: 14px 16px;
-  background: rgba(0,190,200,0.08);
-  border: 1px solid rgba(0,190,200,0.3);
-  border-radius: 10px;
+  display: flex; align-items: center; gap: 12px;
+  margin: 18px 0 0;
+  padding: 16px 18px;
+  background: linear-gradient(180deg, rgba(0,190,200,0.10), rgba(0,190,200,0.04));
+  border: 1px solid rgba(0,190,200,0.28);
+  border-radius: 14px;
   flex-wrap: wrap;
 }
 .score-save-form label {
-  color: var(--gris-300); font-size: 0.9em; font-weight: 600;
+  color: var(--gris-300); font-size: 0.92em; font-weight: 600;
+  letter-spacing: 0.01em;
 }
 .score-save-form input[type="text"] {
   flex: 1; min-width: 180px;
   padding: 10px 14px;
-  background: rgba(0,0,0,0.4);
-  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(0,190,200,0.35);
   color: #fff; border-radius: 8px;
   font-size: 1em; font-family: inherit;
+  transition: border-color 0.18s, box-shadow 0.18s;
 }
 .score-save-form input[type="text"]:focus {
   outline: none; border-color: var(--turquesa-400);
-  box-shadow: 0 0 0 3px rgba(0,190,200,0.2);
+  box-shadow: 0 0 0 3px rgba(0,190,200,0.22);
 }
+.score-save-form input[type="text"]::placeholder { color: var(--gris-500); }
+.score-save-form .action-btn { flex-shrink: 0; }
 .action-btn.primary {
   background: linear-gradient(90deg, var(--turquesa-400), var(--turquesa-600));
   color: #001f22; font-weight: 700;
