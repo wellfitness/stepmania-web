@@ -1255,12 +1255,25 @@ const DEFAULT_MAT_MAPPING = {
   start: 8, back: 9
 };
 const MAT_KEY = 'mat-mapping';
+// IMPORTANTE: NO mezclamos con DEFAULT_MAT_MAPPING al cargar. Antes lo
+// hacíamos para "facilitar" a usuarias sin calibrar, pero rompía la UX de
+// "Borrar mapping": tras borrar, la tabla volvía a mostrar los defaults
+// preasignados (upLeft: 4, upRight: 5, ...) y parecía que el botón no hacía
+// nada. Además rompía el detector de layout para alfombras 6-down: el
+// localStorage estaba limpio pero matMapping en memoria tenía upLeft/upRight
+// "fantasma" de los defaults, confundiendo al usuario.
+//
+// El motor del juego (game.js → applyMatCalibrationToConfig) ya tiene
+// fallback a `LANE_CONFIGS[N].padMap` cuando no hay mapping en storage, así
+// que las usuarias con alfombras DDR estándar siguen funcionando sin tener
+// que pasar por calibración. DEFAULT_MAT_MAPPING queda como referencia
+// documental de los índices canónicos.
 function loadMatMapping() {
   try {
     const stored = localStorage.getItem(MAT_KEY);
-    if (!stored) return { ...DEFAULT_MAT_MAPPING };
-    return { ...DEFAULT_MAT_MAPPING, ...JSON.parse(stored) };
-  } catch (e) { return { ...DEFAULT_MAT_MAPPING }; }
+    if (!stored) return {};
+    return JSON.parse(stored) || {};
+  } catch (e) { return {}; }
 }
 function saveMatMapping(m) {
   try { localStorage.setItem(MAT_KEY, JSON.stringify(m)); } catch (e) {}
@@ -1300,13 +1313,19 @@ const FRET_META = {
 
 const GUITAR_KEY = 'guitar-mapping';
 
+// Misma política que loadMatMapping: no mezclar defaults. La UX de "Borrar
+// mapping" requiere que la tabla quede VACÍA tras pulsar borrar. Para el
+// motor de Guitar Hero (gh-play.html), si no hay mapping en storage la
+// usuaria tiene que calibrar — no hay alfombra "estándar" para guitarras
+// porque cada receptor (Sony emulado, PS3 nativo, GH3 USB) tiene índices
+// distintos. DEFAULT_GUITAR_MAPPING queda como referencia documental.
 function loadGuitarMapping() {
   try {
     const stored = localStorage.getItem(GUITAR_KEY);
-    if (!stored) return { ...DEFAULT_GUITAR_MAPPING };
-    return { ...DEFAULT_GUITAR_MAPPING, ...JSON.parse(stored) };
+    if (!stored) return {};
+    return JSON.parse(stored) || {};
   } catch (e) {
-    return { ...DEFAULT_GUITAR_MAPPING };
+    return {};
   }
 }
 function saveGuitarMapping(m) {
@@ -2451,14 +2470,34 @@ function skipCalibStep() {
 function finishCalibration() {
   if (!calibState) return;
   const baseMapping = getCurrentMapping();
-  // Filtra nulls del mapping del wizard antes de fusionar: si el usuario saltó
-  // un step (o el detector axis falló), preservamos el valor previo en vez de
-  // sobreescribirlo con null. Para borrar todo, hay botón "Borrar mapping".
-  const newMappings = {};
-  for (const [k, v] of Object.entries(calibState.mapping)) {
-    if (v !== null && v !== undefined) newMappings[k] = v;
+  // Política para el wizard completo: los roles que el usuario SALTÓ deben
+  // quedar SIN asignar (no preservar valor previo). Antes preservábamos lo
+  // anterior, pero eso rompía un caso de uso real: si la usuaria tenía una
+  // calibración vieja con `upLeft+upRight` y recalibraba saltando esos pasos
+  // porque su alfombra solo tiene diagonales inferiores, los valores antiguos
+  // sobrevivían al wizard y el detector de layout seguía viendo "alfombra con
+  // diagonales superiores". Como `startCalibration` setea null en TODOS los
+  // roles del wizard al empezar (línea 2292), cualquier rol que quede null al
+  // final fue saltado intencionalmente.
+  //
+  // Roles FUERA del wizard (futuras extensiones) sí preservan su valor previo
+  // del baseMapping — el wizard solo debe gobernar sobre lo que cubre.
+  //
+  // Para la reasignación individual (clickear fila del mapping), startReassign
+  // no toca calibState así que esta función NO se ejecuta — el flujo de fila
+  // individual ya escribe directo al mapping persistido sin pasar por aquí.
+  const steps = (calibState.mode === 'mat') ? MAT_CALIB_STEPS : GUITAR_CALIB_STEPS;
+  const wizardRoles = new Set(steps.map(s => s.role));
+  const finalMapping = {};
+  // 1) Preservar roles fuera del wizard que el usuario ya tenía.
+  for (const [k, v] of Object.entries(baseMapping)) {
+    if (!wizardRoles.has(k) && v !== null && v !== undefined) finalMapping[k] = v;
   }
-  applyCurrentMapping({ ...baseMapping, ...newMappings });
+  // 2) Aplicar SOLO las nuevas asignaciones del wizard (skips → no se incluyen).
+  for (const [k, v] of Object.entries(calibState.mapping)) {
+    if (wizardRoles.has(k) && v !== null && v !== undefined) finalMapping[k] = v;
+  }
+  applyCurrentMapping(finalMapping);
   document.getElementById('calibTarget').textContent = '✓ Calibración guardada';
   document.getElementById('calibHint').textContent = 'El mapping queda persistido en localStorage. Cambia de pestaña para probar.';
   document.getElementById('calibStart').disabled = false;
@@ -2876,7 +2915,11 @@ onPress(({ bit, time }) => {
 // ============================================================
 let strumState = null;
 function startStrum() {
-  if (guitarMapping.strumUp === null || guitarMapping.strumDown === null) {
+  // == null cubre null y undefined. Antes el guard solo verificaba === null,
+  // pero como ahora loadGuitarMapping puede devolver mapping sin esa key
+  // (la usuaria saltó el paso o no calibró aún), `undefined === null` es
+  // false y el test arrancaba con strum sin calibrar → crash silencioso.
+  if (guitarMapping.strumUp == null || guitarMapping.strumDown == null) {
     document.getElementById('strumVerdict').innerHTML =
       '<span style="color:#ff3366">Strum bar no calibrado. Ve a "Calibrar".</span>';
     return;
