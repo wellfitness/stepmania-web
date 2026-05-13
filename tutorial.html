@@ -45,6 +45,7 @@
         <button class="tab-btn" data-ttab="calib">🎯 Calibración</button>
         <button class="tab-btn" data-ttab="library">📚 Biblioteca</button>
         <button class="tab-btn" data-ttab="settings">⚙ Ajustes</button>
+        <button class="tab-btn" data-ttab="hardware">🛒 Hardware</button>
         <button class="tab-btn" data-ttab="extra">🔧 Otras herramientas</button>
       </div>
 
@@ -362,6 +363,169 @@
         <p style="line-height:1.6;color:var(--gris-300)">Por defecto cada canción tiene un fondo único generado a partir de su título. Puedes cargar una imagen para que se use como fondo común en todas las canciones. Se guarda dentro del navegador.</p>
       </div>
 
+      <!-- TUT: HARDWARE -->
+      <div class="tab-content" id="tut-hardware">
+        <h2 style="font-family:var(--font-display);color:var(--turquesa-400);margin-bottom:10px">Hardware recomendado</h2>
+        <p style="line-height:1.6;color:var(--gris-300)">
+          No hace falta comprar nada caro para empezar — con un teclado ya juegas. Pero si quieres la
+          experiencia completa, conviene saber qué tipos de alfombras y guitarras existen y qué modos
+          de juego desbloquea cada una. Aquí va el detalle, sin marcas concretas (cambian cada año)
+          pero con los criterios que importan al comprar.
+        </p>
+
+        <h3 id="hardware" style="margin-top:24px;color:var(--tulip-tree-500);font-size:1.05em">🦶 Alfombras de baile</h3>
+        <p style="line-height:1.6;color:var(--gris-300)">
+          <strong>El número de paneles físicos que tenga tu alfombra determina qué modos de juego
+          puedes activar.</strong> Sincro lo detecta automáticamente cuando calibras y adapta las
+          flechas que verás en pantalla. Hay cuatro variantes principales en el mercado:
+        </p>
+
+        <h3 style="margin-top:18px;color:var(--turquesa-400);font-size:0.98em">🪧 4 paneles · solo cardinales (← ↓ ↑ →)</h3>
+        <p style="line-height:1.6;color:var(--gris-300)">
+          El estándar mínimo. Es lo que trae la mayoría de alfombras genéricas baratas (10-25€ en
+          Amazon o AliExpress) y también muchas RedOctane originales antiguas. Cubre el 95% del
+          catálogo DDR/ITG porque los charts Beginner/Easy/Medium están todos diseñados para 4
+          carriles.
+        </p>
+        <ul style="line-height:1.7;color:var(--gris-300);padding-left:20px">
+          <li><strong>Modos compatibles:</strong> Por defecto (4 carriles).</li>
+          <li><strong>Modo Solo / Full:</strong> no disponibles.</li>
+          <li><strong>Pros:</strong> baratas, fáciles de encontrar, todas son compatibles.</li>
+          <li><strong>Contras:</strong> no puedes jugar charts Hard/Expert pensados para diagonales.</li>
+        </ul>
+
+        <h3 style="margin-top:18px;color:var(--turquesa-400);font-size:0.98em">🪧 6 paneles · cardinales + diagonales superiores (↖ ↗)</h3>
+        <p style="line-height:1.6;color:var(--gris-300)">
+          La variante "cabinet DDR": las cuatro flechas cardinales más las dos diagonales hacia arriba.
+          Es la convención canónica de las máquinas arcade DDR y el formato más común en alfombras
+          semi-profesionales (RedOctane Ignition v2, mats con base rígida de alta gama).
+        </p>
+        <ul style="line-height:1.7;color:var(--gris-300);padding-left:20px">
+          <li><strong>Modos compatibles:</strong> Por defecto + Solo (↖↗).</li>
+          <li><strong>Modo Full:</strong> no disponible.</li>
+          <li><strong>Identificar al comprar:</strong> las flechas diagonales en la lona apuntan hacia
+              arriba (↖ y ↗). Mira las fotos del producto desde arriba.</li>
+        </ul>
+
+        <h3 style="margin-top:18px;color:var(--turquesa-400);font-size:0.98em">🪧 6 paneles · cardinales + diagonales inferiores (↙ ↘)</h3>
+        <p style="line-height:1.6;color:var(--gris-300)">
+          La variante "china barata": cardinales más dos diagonales hacia abajo. Aparece en muchos
+          modelos genéricos de Amazon entre 15-30€. Antes de Sincro v40, jugar Solo aquí requería
+          poner la alfombra del revés (rompiendo los cardinales) — ahora <strong>el motor detecta esta
+          orientación al calibrar y dibuja las flechas ↙↘ en lugar de ↖↗</strong>, así que pisas tu lona
+          como está y todo encaja.
+        </p>
+        <ul style="line-height:1.7;color:var(--gris-300);padding-left:20px">
+          <li><strong>Modos compatibles:</strong> Por defecto + Solo (↙↘ adaptado automáticamente).</li>
+          <li><strong>Modo Full:</strong> no disponible.</li>
+          <li><strong>Identificar al comprar:</strong> las flechas diagonales apuntan hacia abajo (↙ y ↘).</li>
+          <li><strong>Aviso:</strong> calibra desde <em>Comprobar el equipo → Calibrar</em> SALTANDO los
+              pasos UP-LEFT/UP-RIGHT y asignando DOWN-LEFT/DOWN-RIGHT — si pisas durante UP-LEFT
+              acabarías con un mapping mixto que confunde al detector.</li>
+        </ul>
+
+        <h3 style="margin-top:18px;color:var(--turquesa-400);font-size:0.98em">🪧 8 paneles · cardinales + 4 diagonales completas</h3>
+        <p style="line-height:1.6;color:var(--gris-300)">
+          La alfombra "Pump It Up" o ITG profesional: cuatro cardinales más las cuatro diagonales
+          (↖ ↗ ↙ ↘). Es el formato más caro y más raro de encontrar — suelen ser alfombras de metal
+          o composite, no las baratas de espuma plástica.
+        </p>
+        <ul style="line-height:1.7;color:var(--gris-300);padding-left:20px">
+          <li><strong>Modos compatibles:</strong> Todos (Por defecto, Solo, Full).</li>
+          <li><strong>Convención:</strong> Sincro usa por defecto las diagonales superiores en modo Solo
+              (cabinet DDR), pero las inferiores siguen activas para el modo Full.</li>
+          <li><strong>Identificar al comprar:</strong> verás 8 flechas pintadas en la lona, una en cada
+              esquina además de los cuatro cardinales.</li>
+        </ul>
+
+        <h3 style="margin-top:24px;color:var(--tulip-tree-500);font-size:1em">🔍 Cómo elegir y qué evitar</h3>
+        <ul style="line-height:1.7;color:var(--gris-300);padding-left:20px">
+          <li><strong>Cuenta los paneles activos en las fotos del producto</strong>, no las flechas
+              impresas. Algunos modelos baratos pintan 8 flechas decorativas pero solo tienen 4
+              sensores reales debajo — quedan paneles "muertos" que no responden al pisar.</li>
+          <li><strong>Busca reviews que mencionen explícitamente las diagonales.</strong> Si un usuario
+              reporta "las flechas diagonales no van", asume que es defecto de diseño, no de su
+              unidad. Si reporta "las de arriba sí pero las de abajo no" (o viceversa), confirma de
+              qué tipo es el modelo.</li>
+          <li><strong>Conexión USB nativa</strong> es obligatoria. Las alfombras que se conectan por
+              cable de PS2/Xbox necesitan un adaptador adicional que añade latencia y a veces no se
+              reconoce en Windows/Mac. Las USB se identifican como HID Gamepad sin drivers.</li>
+          <li><strong>Base rígida o antideslizante</strong>. Las alfombras de espuma fina se mueven al
+              pisar fuerte y reducen la precisión. Si vas a usar Hard+/Expert, mejor una con base de
+              goma gruesa o metal.</li>
+          <li><strong>Bouncing en los sensores</strong>: las alfombras baratas a veces registran una
+              pisada como múltiples (rebote del switch). Sincro tiene un test de stress en
+              <em>Comprobar el equipo</em> que detecta esto. Si tu modelo tiene bouncing severo
+              (intervalos &lt; 15 ms), juega con timing window más permisivo (J4) o devuelve la
+              unidad.</li>
+        </ul>
+
+        <h3 style="margin-top:24px;color:var(--tulip-tree-500);font-size:1.05em">🎸 Guitarras Guitar Hero</h3>
+        <p style="line-height:1.6;color:var(--gris-300)">
+          Las guitarras de Guitar Hero / Rock Band son periféricos pensados para consolas, no para
+          PC. Por suerte la mayoría se reconocen como gamepad HID estándar via USB. Hay varios
+          modelos en circulación, todos compatibles con Sincro a través de la pestaña
+          <em>Calibrar</em>.
+        </p>
+
+        <h3 style="margin-top:18px;color:var(--turquesa-400);font-size:0.98em">📋 Versiones de guitarra existentes</h3>
+        <ul style="line-height:1.7;color:var(--gris-300);padding-left:20px">
+          <li><strong>PS2 con cable + adaptador PS2→USB:</strong> la opción más barata de segunda mano
+              (5-15€ la guitarra + 5€ el adaptador). El receptor aparece como <em>Sony PlayStation
+              Adapter</em> (VID 054C / PID 0268). Es lo que probamos en Sincro durante el desarrollo
+              — el strum bar y la palanca whammy comparten el mismo eje analógico, pero el detector
+              los discrimina automáticamente.</li>
+          <li><strong>PS3 inalámbrica + dongle USB:</strong> guitarras Guitar Hero 3/World Tour/5 con su
+              propio receptor USB que va plug-and-play en Windows. Latencia baja, sin cables. Buscar
+              "Wireless Guitar Controller for PS3" — son las más cómodas.</li>
+          <li><strong>Xbox 360 inalámbrica:</strong> requiere un receptor especial Xbox 360 USB para PC
+              (~15-25€ original Microsoft). La guitarra en sí es la más cara de las tres, pero la
+              calidad de construcción suele ser superior.</li>
+          <li><strong>Wii con Wiimote dentro:</strong> NO recomendado para PC. La guitarra Wii habla
+              Bluetooth a través del Wiimote y necesita drivers GlovePIE/WiinRemote que son
+              inestables en Windows moderno.</li>
+          <li><strong>Guitar Hero Live (2015):</strong> botones 2×3 en lugar de 5 trastes en línea
+              — NO compatible con Sincro porque los charts standard asumen el layout clásico.</li>
+        </ul>
+
+        <h3 style="margin-top:18px;color:var(--turquesa-400);font-size:0.98em">🎛 Controles que detecta Sincro</h3>
+        <ul style="line-height:1.7;color:var(--gris-300);padding-left:20px">
+          <li><strong>5 trastes:</strong> Verde, Rojo, Amarillo, Azul, Naranja. El orden de botones HID
+              varía por receptor — la calibración los asigna automáticamente.</li>
+          <li><strong>Strum bar (↑ / ↓):</strong> en algunos receptores son botones digitales, en otros
+              un eje analógico que salta a ±1. El detector se adapta a ambos.</li>
+          <li><strong>Palanca whammy:</strong> eje analógico continuo. Sincro auto-detecta cuál es el
+              eje correcto muestreando movimiento durante 4s.</li>
+          <li><strong>Tilt sensor:</strong> botón o eje según modelo. Opcional — si tu guitarra no lo
+              tiene, salta el paso en la calibración.</li>
+          <li><strong>Star Power dedicado:</strong> botón en la parte superior del mástil en algunos
+              modelos. Opcional.</li>
+          <li><strong>Select / Start:</strong> botones de navegación menú. Útiles pero opcionales para
+              jugar.</li>
+        </ul>
+
+        <h3 style="margin-top:24px;color:var(--tulip-tree-500);font-size:1em">🔍 Cómo elegir</h3>
+        <ul style="line-height:1.7;color:var(--gris-300);padding-left:20px">
+          <li><strong>Si nunca has tocado guitarra de juego:</strong> empieza con una PS2 + adaptador
+              USB. Total ~15-20€ usado. Si te engancha, después vas a PS3 inalámbrica.</li>
+          <li><strong>Si compras de segunda mano:</strong> pide al vendedor un vídeo donde pulse cada
+              traste y mueva el strum. Los trastes flojos o el strum bouncing son fallos comunes y
+              no se ven en fotos.</li>
+          <li><strong>Confirma que tienes el receptor</strong> antes de comprar. Las guitarras
+              inalámbricas sin su dongle son inutilizables — y los dongles se venden por separado
+              entre 10-20€.</li>
+          <li><strong>Latencia:</strong> las USB con cable son las más predecibles. Las inalámbricas
+              añaden 10-20 ms variables que se compensan desde <em>Ajustes → Offset global</em>.</li>
+        </ul>
+
+        <p style="line-height:1.6;color:var(--gris-300);margin-top:24px;padding:14px;background:rgba(0,190,200,0.08);border-left:3px solid var(--turquesa-400);border-radius:6px">
+          <strong>💡 Antes de comprar cualquier cosa:</strong> abre Sincro en tu navegador con teclado
+          y guitarra/alfombra USB que tengas a mano. Si el dispositivo se reconoce en la pestaña
+          <em>Comprobar el equipo</em> y todos los botones responden en el test de Secuencia, ya
+          está listo para jugar.
+        </p>
+      </div>
+
       <!-- TUT: EXTRA -->
       <div class="tab-content" id="tut-extra">
         <h2 style="font-family:var(--font-display);color:var(--turquesa-400);margin-bottom:10px">Otras herramientas</h2>
@@ -395,16 +559,39 @@
   </div>
 </div>
 
-<!-- Tutorial tab switcher (sin colisión: no hay pad-screen aquí) -->
+<!-- Tutorial tab switcher (sin colisión: no hay pad-screen aquí).
+     Soporta navegación por hash (#tab-N o #hardware desde el FAQ) para que
+     un link externo abra directo la pestaña apropiada en lugar de tener que
+     clickear manualmente. -->
 <script>
+  function activateTutTab(name) {
+    document.querySelectorAll('#tutorial-screen .tab-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.ttab === name)
+    );
+    document.querySelectorAll('#tutorial-screen .tab-content').forEach(t =>
+      t.classList.toggle('active', t.id === 'tut-' + name)
+    );
+  }
   document.querySelectorAll('#tutorial-screen .tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#tutorial-screen .tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('#tutorial-screen .tab-content').forEach(t => t.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('tut-' + btn.dataset.ttab).classList.add('active');
-    });
+    btn.addEventListener('click', () => activateTutTab(btn.dataset.ttab));
   });
+  // Hash → pestaña. Aliases para nombres semánticos venidos del FAQ u otras
+  // partes del producto. Si el hash apunta directamente al id de una pestaña
+  // (data-ttab), también funciona.
+  const HASH_TO_TAB = {
+    hardware: 'hardware',
+    alfombras: 'hardware',
+    guitarras: 'hardware'
+  };
+  function applyHash() {
+    const raw = (location.hash || '').replace('#', '').toLowerCase();
+    if (!raw) return;
+    const target = HASH_TO_TAB[raw] ||
+      (document.querySelector('#tutorial-screen .tab-btn[data-ttab="' + raw + '"]') ? raw : null);
+    if (target) activateTutTab(target);
+  }
+  applyHash();
+  window.addEventListener('hashchange', applyHash);
 </script>
 
 </body>
