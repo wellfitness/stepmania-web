@@ -564,6 +564,61 @@
   .judge-overstrum { color: var(--gris-400); }
   .judge-miss    { color: var(--rosa-500); }
 
+  /* ===== Combo meter (estilo SM/GH clásico) =====
+     Número grande centrado en mid-highway, etiqueta COMBO debajo. Visible
+     desde combo ≥ 4 — los primeros hits los celebra el texto de juicio,
+     no merecen racha. Posición top:45% (encima del judge-text en 78%, debajo
+     de la mitad del highway donde caen notas pero sin tapar receptores en
+     88%). Semi-transparente para no bloquear notas que pasan por detrás.
+     Escalada de tier visual por hitos 50/100/200/500. */
+  .combo-meter {
+    position: absolute; left: 50%; top: 45%;
+    transform: translate(-50%, -50%) scale(0.9);
+    display: none; flex-direction: column; align-items: center;
+    pointer-events: none; z-index: 5;
+    font-family: var(--font-display); font-weight: 800;
+    text-shadow: 0 0 14px currentColor, 0 1px 3px rgba(0,0,0,0.9);
+    opacity: 0; transition: opacity 0.18s, transform 0.18s;
+  }
+  .combo-meter.show { display: flex; opacity: 0.92; }
+  .combo-meter .combo-number {
+    font-size: 4em; line-height: 1; letter-spacing: -0.02em;
+  }
+  .combo-meter .combo-label {
+    font-size: 0.95em; letter-spacing: 0.22em;
+    margin-top: 2px; opacity: 0.85;
+  }
+  .combo-meter.pulse {
+    animation: ghComboPulse 0.22s cubic-bezier(.3,1.4,.5,1);
+  }
+  @keyframes ghComboPulse {
+    0%   { transform: translate(-50%, -50%) scale(0.95); }
+    50%  { transform: translate(-50%, -50%) scale(1.08); }
+    100% { transform: translate(-50%, -50%) scale(1.0); }
+  }
+  /* Tiers — cuanto más combo, más canales visuales (color, glow, tamaño). */
+  .combo-meter.tier-1 { color: #e0fbfc; }
+  .combo-meter.tier-1 .combo-label { color: rgba(16,185,129,0.75); }
+  .combo-meter.tier-2 {
+    color: var(--fret-yellow);
+    text-shadow: 0 0 22px currentColor, 0 0 8px currentColor, 0 1px 3px rgba(0,0,0,0.9);
+  }
+  .combo-meter.tier-3 {
+    color: var(--fret-orange);
+    text-shadow: 0 0 28px currentColor, 0 0 10px currentColor, 0 1px 3px rgba(0,0,0,0.9);
+  }
+  .combo-meter.tier-3 .combo-number { font-size: 4.6em; }
+  .combo-meter.tier-4 {
+    color: var(--rosa-500);
+    text-shadow: 0 0 34px currentColor, 0 0 14px currentColor, 0 0 4px #fff, 0 1px 3px rgba(0,0,0,0.9);
+  }
+  .combo-meter.tier-4 .combo-number { font-size: 5em; }
+  .combo-meter.tier-5 {
+    color: var(--color-success);
+    text-shadow: 0 0 40px currentColor, 0 0 18px var(--fret-yellow), 0 0 6px #fff, 0 1px 3px rgba(0,0,0,0.9);
+  }
+  .combo-meter.tier-5 .combo-number { font-size: 5.4em; }
+
   .pause-overlay {
     position: absolute; inset: 0;
     background: rgba(0,0,0,0.8); display: none;
@@ -1268,6 +1323,13 @@
     <div class="hud-cell"><span class="label">Notas</span><span class="value"><span id="hudHit">0</span>/<span id="hudTotal">0</span></span></div>
   </div>
   <div class="judge-text" id="judgeText"></div>
+  <!-- Combo meter al estilo Guitar Hero / SM clásico: número grande en mid-
+       highway con etiqueta COMBO debajo. Solo visible a partir de combo ≥ 4.
+       Pulse cada hit + escalada de color/glow en hitos 50/100/200/500. -->
+  <div class="combo-meter" id="comboMeter">
+    <span class="combo-number" id="comboNumber">0</span>
+    <span class="combo-label">COMBO</span>
+  </div>
   <div class="pause-overlay" id="pauseOverlay">
     <h2>PAUSA</h2>
     <button class="action-btn" onclick="resumeGame()">▶ Continuar</button>
@@ -2578,6 +2640,7 @@ function startGame(diffOverride) {
   document.getElementById('hudScore').textContent = '0';
   document.getElementById('hudCombo').textContent = '0';
   document.getElementById('hudMult').textContent = 'x1';
+  updateComboMeter(0);
   // Título canción + dificultad en el footer (truncado por CSS si no cabe).
   const songTitle = (song.meta && (song.meta.Name || song.meta.Title)) || 'Sin título';
   const songArtist = (song.meta && song.meta.Artist) ? ' — ' + song.meta.Artist : '';
@@ -2661,6 +2724,12 @@ function quitGame() {
   if (game && game.audioSource) try { game.audioSource.stop(); } catch(e){}
   if (rafId) cancelAnimationFrame(rafId);
   game = null;
+  // Oculta combo meter si quedó visible al salir (pausa/quit antes del fin
+  // natural). Sin esto la siguiente partida arrancaría con el meter mostrando
+  // el combo final de la anterior por un frame.
+  const cm = document.getElementById('comboMeter');
+  if (cm) cm.classList.remove('show', 'pulse', 'tier-1', 'tier-2', 'tier-3', 'tier-4', 'tier-5');
+  _ghComboMeterLast = 0;
   document.getElementById('game-screen').classList.remove('active');
   document.body.classList.remove('playing');
   goto(_lastSetupScreen || 'songs');
@@ -2874,6 +2943,41 @@ function updateHud() {
   document.getElementById('hudCombo').textContent = game.combo;
   document.getElementById('hudHit').textContent = game.hits;
   document.getElementById('hudMult').textContent = 'x' + getMultiplier();
+  updateComboMeter(game.combo);
+}
+
+// Combo meter (estilo SM/GH clásico). Visible a partir de combo ≥ 4 — los
+// primeros hits los celebra el judge-text (¡EXCELENTE!/GENIAL), no necesitan
+// racha redundante. Cinco tiers por hitos 4/50/100/200/500. El pulse se
+// dispara SOLO cuando el combo crece — sin esto, cada frame del render loop
+// (que llama updateHud vía el bucle externo) reiniciaría la animación.
+let _ghComboMeterLast = 0;
+function _ghComboTier(c) {
+  if (c >= 500) return 5;
+  if (c >= 200) return 4;
+  if (c >= 100) return 3;
+  if (c >=  50) return 2;
+  return 1;
+}
+function updateComboMeter(combo) {
+  const el = document.getElementById('comboMeter');
+  if (!el) return;
+  if (combo < 4) {
+    if (el.classList.contains('show')) {
+      el.classList.remove('show', 'pulse', 'tier-1', 'tier-2', 'tier-3', 'tier-4', 'tier-5');
+    }
+    _ghComboMeterLast = combo;
+    return;
+  }
+  if (combo === _ghComboMeterLast) return;
+  document.getElementById('comboNumber').textContent = combo;
+  const tier = _ghComboTier(combo);
+  for (let i = 1; i <= 5; i++) el.classList.toggle('tier-' + i, i === tier);
+  el.classList.add('show');
+  el.classList.remove('pulse');
+  void el.offsetWidth;
+  el.classList.add('pulse');
+  _ghComboMeterLast = combo;
 }
 
 // ============================================================================

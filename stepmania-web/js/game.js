@@ -475,6 +475,7 @@ async function startGame() {
   document.getElementById('hudSongInfo').textContent = gameState.songInfo;
   document.getElementById('hudScore').textContent = '0';
   document.getElementById('hudCombo').textContent = '0';
+  updateComboMeter(0);
 
   src.onended = () => {
     if (gameState && !gameState.finished) {
@@ -540,6 +541,12 @@ function stopGame() {
   window.removeEventListener('keydown', onKeyDown);
   window.removeEventListener('keyup', onKeyUp);
   hideTouchControls();
+  // Oculta combo meter si quedó visible al salir (pausa / quit antes del
+  // endGame natural). Sin esto la siguiente canción arrancaría con el meter
+  // mostrando el combo final de la anterior por un frame.
+  const cm = document.getElementById('hudComboMeter');
+  if (cm) cm.classList.remove('show', 'pulse', 'tier-1', 'tier-2', 'tier-3', 'tier-4', 'tier-5');
+  _comboMeterLast = 0;
   gameState = null;
 }
 
@@ -797,6 +804,7 @@ function gameLoop() {
 
   document.getElementById('hudScore').textContent = gameState.score.toLocaleString();
   document.getElementById('hudCombo').textContent = gameState.combo;
+  updateComboMeter(gameState.combo);
 
   render(audioTime);
 
@@ -929,6 +937,52 @@ function showJudgment(judg) {
   const receptorY = Math.round(110 * uiScale);
   el.style.top = Math.max(40, receptorY - 90) + 'px';
   setTimeout(() => { if (el.classList) el.classList.remove('show'); }, 700);
+}
+
+// Combo meter (estilo SM clásico). Visible a partir de combo ≥ 4 — los
+// primeros aciertos no merecen UI dedicada (sería ruido constante al inicio).
+// Cinco tiers visuales escalonados: 4 / 50 / 100 / 200 / 500. El pulse se
+// dispara SOLO cuando el combo crece (no en cada frame del gameLoop), así la
+// animación no se reinicia perpetuamente. `_lastShown` recuerda el último
+// valor pintado para detectar cambios; si el combo se rompe a 0, oculta y
+// limpia tiers — el siguiente combo arranca desde tier-1 limpio.
+let _comboMeterLast = 0;
+function comboTierFor(c) {
+  if (c >= 500) return 5;
+  if (c >= 200) return 4;
+  if (c >= 100) return 3;
+  if (c >=  50) return 2;
+  return 1;
+}
+function updateComboMeter(combo) {
+  const el = document.getElementById('hudComboMeter');
+  if (!el) return;
+  const num = document.getElementById('hudComboNumber');
+  // Threshold de visibilidad: 4. Antes de eso, el meter no aparece — los
+  // primeros aciertos los celebra el texto de juicio (EXCELENTE/PERFECTO),
+  // no necesitan racha redundante. Si el combo cae bajo el umbral (incluido
+  // a 0), oculta y limpia clases.
+  if (combo < 4) {
+    if (el.classList.contains('show')) {
+      el.classList.remove('show', 'pulse', 'tier-1', 'tier-2', 'tier-3', 'tier-4', 'tier-5');
+    }
+    _comboMeterLast = combo;
+    return;
+  }
+  if (combo === _comboMeterLast) return; // sin cambios — gameLoop tick sin hit
+  num.textContent = combo;
+  // Aplica tier correcto y limpia los demás. La transición de tier coincide
+  // con el pulse, así un combo 50 entra con halo dorado pulsando.
+  const tier = comboTierFor(combo);
+  for (let i = 1; i <= 5; i++) el.classList.toggle('tier-' + i, i === tier);
+  el.classList.add('show');
+  // Re-trigger del pulse: quitar la clase, force reflow, reañadir. Mismo
+  // patrón que showJudgment para que dos hits consecutivos del mismo tier
+  // re-disparen la animación en vez de quedarse congelados.
+  el.classList.remove('pulse');
+  void el.offsetWidth;
+  el.classList.add('pulse');
+  _comboMeterLast = combo;
 }
 
 function render(audioTime) {
