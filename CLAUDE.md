@@ -320,13 +320,16 @@ Lo cargan tanto `gh-autostepper.html` (para el botón "Guardar en biblioteca") c
 
 **Resultados**: grade S/A/B/C/D/F basado en accuracy (hits/total). Muestra score, accuracy, hits, misses, max combo.
 
-**Pendiente / mejoras futuras (v2):**
-- Star Power (acumulación + activación con tilt, timing windows ampliadas durante SP).
-- Whammy → modulación de pitch del sustain (Web Audio detune mientras axes[1] varía y hay sustain activo).
-- Open notes (fret 7 en .chart) — strum sin fret pulsado.
-- Variable BPM (parser ya soporta múltiples markers `B` en SyncTrack pero el motor solo usa el primero).
+**Implementado (v50):**
+- **Star Power**: `parseChart()` parsea frases `S 2 startTick durationTicks` por cada sección de dificultad. `arr.spPhrases = [{startTick, endTick, noteCount}]` se precomputa en parseChart (noteCount = notas de la sección que caen dentro). En `startGame`, `game.spPhrases = masterNotes.spPhrases || []` y `runtimeNotes` incluye `tick` para lookup. `judgeHit` acumula `game.starPower += 0.5/p.noteCount` (max 2 = 4 activaciones). `inputState.tiltEdge` (flanco ascendente del botón tilt) + `game.starPowerActive` gestionado en `tick()`. SP drena a ritmo `bpm/60/32` unidades/s (agota en 32 beats). `getMultiplier()` dobla el multiplicador base durante SP (cap 8). Render: glow dorado pulsante sobre el highway cuando SP activo; barra `#hudSP` en HUD (cian = cargando, dorado = activo).
+- **Whammy → detune**: en `tick()`, cuando hay sustain activo `game.audioSource.detune.value` converge con lerp (12/s) hacia `-inputState.whammy * 200` cents (rango 0..-200 = 0..-2 semitonos). Sin sustain, vuelve a 0. `togglePause()` aplica el mismo detune al nuevo `AudioBufferSourceNode` recreado al reanudar.
+- **Open notes** (fret 7): strum sin fret pulsado; barra negra horizontal en render; `fretsMatchNote` maneja fret 7.
+
+**Pendiente / mejoras futuras:**
+- Variable BPM en el player (el parser ya soporta múltiples `B` en SyncTrack pero `tickToTime` solo usa el primero).
+- Timing windows más amplias durante Star Power activo (actualmente usa las mismas ±45/90/135 ms).
 - Notas de bombo / drums tracks.
-- Persistencia de scores en IndexedDB (compartida con play.html SM).
+- Whammy pitch shift en sustains de open notes (actualmente el glow visual ya funciona pero el open note no tiene fret, así que el detune sigue aplicando a toda la pista igualmente).
 
 ### `gh-autostepper.html`
 Generador automático de charts **Guitar Hero (.chart Clone Hero / Feedback format)** desde MP3/WAV. Reusa `stepmania-web/js/audio-pipeline.js` (mismo análisis: bass-emphasis, ODF, BPM, offset). El output diverge: en vez de `.ssc/.sm` produce `notes.chart` + `song.ini` + audio en ZIP, listo para extraer en `Clone Hero/Songs/`.

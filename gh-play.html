@@ -497,6 +497,17 @@
     color: var(--fret-yellow); line-height: 1;
     text-shadow: 0 0 10px rgba(250,204,21,0.6);
   }
+  .hud-sp { gap: 5px; flex-shrink: 0; }
+  .sp-bar-track {
+    width: 72px; height: 8px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 4px; overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.18);
+  }
+  .sp-bar-fill { height: 100%; width: 0%; background: #22d3ee; border-radius: 4px; }
+  .hud.sp-active { border-top-color: rgba(250,204,21,0.8); }
+  .hud.sp-active .sp-bar-fill { background: #facc15; box-shadow: 0 0 8px #facc15; }
+  .hud.sp-active .sp-label { color: #facc15; text-shadow: 0 0 8px rgba(250,204,21,0.8); }
 
   /* judge-text aparece JUSTO ENCIMA del hit zone (que vive a canvasH*0.88).
      Antes estaba en top:60% — se perdía visualmente porque los ojos del
@@ -618,6 +629,48 @@
     text-shadow: 0 0 40px currentColor, 0 0 18px var(--fret-yellow), 0 0 6px #fff, 0 1px 3px rgba(0,0,0,0.9);
   }
   .combo-meter.tier-5 .combo-number { font-size: 5.4em; }
+
+  /* Countdown — 5 pasos × 1000ms con scale-pop + tier por color. Antes
+     GH solo tenía audio delay (2s silenciosos), ahora hay referencia visual
+     idéntica a la de SM en mid-screen. */
+  .gh-countdown {
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%,-50%) scale(1.0);
+    font-family: var(--font-display); font-weight: 900;
+    font-size: 8em; color: #fff;
+    text-shadow: 0 0 30px var(--gh-accent), 0 0 60px rgba(249,115,22,0.5);
+    pointer-events: none; z-index: 50;
+    letter-spacing: -0.02em; white-space: nowrap;
+  }
+  .gh-countdown.hidden { display: none; }
+  .gh-countdown.cd-prep {
+    font-size: 4.5em; color: #e0fbfc;
+    text-shadow: 0 0 28px var(--color-success), 0 0 10px rgba(16,185,129,0.5);
+  }
+  .gh-countdown.cd-3 {
+    color: var(--color-success);
+    text-shadow: 0 0 40px currentColor, 0 0 16px currentColor, 0 0 6px #fff;
+  }
+  .gh-countdown.cd-2 {
+    color: var(--fret-yellow);
+    text-shadow: 0 0 40px currentColor, 0 0 16px currentColor, 0 0 6px #fff;
+  }
+  .gh-countdown.cd-1 {
+    color: var(--fret-orange);
+    text-shadow: 0 0 40px currentColor, 0 0 16px currentColor, 0 0 6px #fff;
+  }
+  .gh-countdown.cd-go {
+    font-size: 9em; color: var(--rosa-500);
+    text-shadow: 0 0 50px currentColor, 0 0 24px currentColor, 0 0 8px #fff, 0 0 4px var(--fret-yellow);
+  }
+  .gh-countdown.pop {
+    animation: ghCountdownPop 0.45s cubic-bezier(.2,1.6,.5,1);
+  }
+  @keyframes ghCountdownPop {
+    0%   { transform: translate(-50%,-50%) scale(0.55); }
+    40%  { transform: translate(-50%,-50%) scale(1.35); }
+    100% { transform: translate(-50%,-50%) scale(1.0); }
+  }
 
   .pause-overlay {
     position: absolute; inset: 0;
@@ -1321,6 +1374,7 @@
     <div class="hud-cell"><span class="label">Score</span><span class="value" id="hudScore">0</span></div>
     <div class="hud-cell"><span class="label">Combo</span><span class="value" id="hudCombo">0</span><span class="multiplier" id="hudMult">x1</span></div>
     <div class="hud-cell"><span class="label">Notas</span><span class="value"><span id="hudHit">0</span>/<span id="hudTotal">0</span></span></div>
+    <div class="hud-cell hud-sp"><span class="label sp-label">⭐</span><div class="sp-bar-track"><div class="sp-bar-fill" id="hudSP"></div></div></div>
   </div>
   <div class="judge-text" id="judgeText"></div>
   <!-- Combo meter al estilo Guitar Hero / SM clásico: número grande en mid-
@@ -1330,6 +1384,10 @@
     <span class="combo-number" id="comboNumber">0</span>
     <span class="combo-label">COMBO</span>
   </div>
+  <!-- Countdown 5 pasos × 1000ms con tier de color + pop animation. Antes
+       GH solo retrasaba el audio 2s en silencio (sin UI), así que no había
+       referencia visual de "cuándo empieza". -->
+  <div class="gh-countdown hidden" id="ghCountdown"></div>
   <div class="pause-overlay" id="pauseOverlay">
     <h2>PAUSA</h2>
     <button class="action-btn" onclick="resumeGame()">▶ Continuar</button>
@@ -2047,6 +2105,24 @@ function parseChart(text) {
       });
     }
     arr.sort((a, b) => a.tick - b.tick);
+
+    // Frases Star Power: S 2 <startTick> <durationTicks>
+    const spPhrases = [];
+    for (const line of sections[sec]) {
+      const s = line.match(/^(\d+)\s*=\s*S\s+2\s+(\d+)/);
+      if (!s) continue;
+      const startTick = parseInt(s[1]);
+      const endTick = startTick + parseInt(s[2]);
+      spPhrases.push({ startTick, endTick, noteCount: 0 });
+    }
+    // Precompute noteCount por frase (cuántas notas caen dentro) para
+    // calcular cuánto SP aporta cada nota al completar la frase.
+    for (const n of arr) {
+      for (const p of spPhrases) {
+        if (n.tick >= p.startTick && n.tick <= p.endTick) { p.noteCount++; break; }
+      }
+    }
+    arr.spPhrases = spPhrases;
     charts[sec] = arr;
   }
 
@@ -2426,7 +2502,8 @@ const inputState = {
   strumDownEdge: false,
   strumUpEdge: false,
   whammy: 0,    // 0..1 (tras normalizar)
-  tilt: false
+  tilt: false,
+  tiltEdge: false
 };
 const FRET_ROLES = ['fretGreen','fretRed','fretYellow','fretBlue','fretOrange'];
 
@@ -2461,6 +2538,8 @@ function readGamepad() {
   // Reset edges
   inputState.strumDownEdge = false;
   inputState.strumUpEdge = false;
+  inputState.tiltEdge = false;
+  const prevTilt = inputState.tilt;
   inputState.prevFretsHeld = inputState.fretsHeld.slice();
   inputState.fretsHeld = [false, false, false, false, false];
 
@@ -2514,10 +2593,12 @@ function readGamepad() {
     inputState.whammy = Math.max(0, Math.min(1, (gp.axes[wAx] + 1) / 2));
   }
 
-  // Tilt: button (Star Power)
+  // Tilt: button (Star Power) — con detección de flanco ascendente
+  inputState.tilt = false;
   if (typeof guitarMapping.tilt === 'number' && gp.buttons[guitarMapping.tilt]) {
     inputState.tilt = gp.buttons[guitarMapping.tilt].pressed;
   }
+  if (inputState.tilt && !prevTilt) inputState.tiltEdge = true;
 
   // Actualizar lastAxisValue para el siguiente frame
   for (let i = 0; i < gp.axes.length; i++) lastAxisValue[i] = gp.axes[i];
@@ -2590,6 +2671,7 @@ function startGame(diffOverride) {
   const offsetMs = parseInt(document.getElementById('globalOffset').value) || 0;
   const offsetSec = offsetMs / 1000;
   const runtimeNotes = notes.map(n => ({
+    tick: n.tick,
     time: tickToTime(n.tick, song.bpm) + offsetSec,
     sustainEnd: tickToTime(n.tick + n.sustain, song.bpm) + offsetSec,
     sustain: n.sustain > 0,
@@ -2621,6 +2703,7 @@ function startGame(diffOverride) {
     fretFlashes: [null, null, null, null, null],
     starPower: 0,
     starPowerActive: false,
+    spPhrases: masterNotes.spPhrases || [],
     audioStartTime: 0,
     audioSource: null,
     nextNoteIdx: 0,
@@ -2660,11 +2743,15 @@ function startGame(diffOverride) {
   game.audioSource = ctx.createBufferSource();
   game.audioSource.buffer = song.audioBuffer;
   game.audioSource.connect(ctx.destination);
-  // Damos 2 segundos de countdown antes de que empiece la canción para que el
-  // jugador vea las primeras notas caer.
-  const countdownSec = 2.0;
-  game.audioStartTime = ctx.currentTime + countdownSec;
+  // Cuenta atrás 5s (visible, con beep) + lead-in 3s (notas cayendo en
+  // silencio antes del audio). El 2s anterior era insuficiente: ni la
+  // jugadora se centraba ni las primeras notas eran legibles antes de
+  // llegar al receptor.
+  const COUNTDOWN_SEC = 5.0;
+  const LEAD_IN_SEC = 3.0;
+  game.audioStartTime = ctx.currentTime + COUNTDOWN_SEC + LEAD_IN_SEC;
   game.audioSource.start(game.audioStartTime);
+  runGHCountdown(ctx);
 
   isPaused = false;
   document.getElementById('pauseOverlay').classList.remove('show');
@@ -2672,14 +2759,99 @@ function startGame(diffOverride) {
   rafId = requestAnimationFrame(tick);
 }
 
+// Countdown 5 pasos × 1000ms = 5s con scale-pop + tier de color + beep
+// auditivo. Tras los 5s, todavía quedan 3s de lead-in silencioso antes de
+// que arranque el audio (game.audioStartTime ya está calculado con ese
+// margen). El beep es Web Audio puro — sin assets, latencia <1ms.
+const GH_COUNTDOWN_STEPS = [
+  { text: '¡PREPÁRATE!', cls: 'cd-prep', beep: { freq: 660,  dur: 0.10 } },
+  { text: '3',           cls: 'cd-3',    beep: { freq: 880,  dur: 0.10 } },
+  { text: '2',           cls: 'cd-2',    beep: { freq: 880,  dur: 0.10 } },
+  { text: '1',           cls: 'cd-1',    beep: { freq: 880,  dur: 0.10 } },
+  { text: '¡VAMOS!',     cls: 'cd-go',   beep: { freq: 1320, dur: 0.22 } },
+];
+const GH_COUNTDOWN_STEP_MS = 1000;
+function playGHCountdownBeep(ctx, freq, dur) {
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    g.gain.value = 0;
+    osc.connect(g);
+    g.connect(ctx.destination);
+    const t0 = ctx.currentTime;
+    g.gain.linearRampToValueAtTime(0.18, t0 + 0.01);
+    g.gain.linearRampToValueAtTime(0, t0 + dur);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  } catch (e) { /* ctx suspended o detached — silencio OK */ }
+}
+function runGHCountdown(ctx) {
+  const el = document.getElementById('ghCountdown');
+  if (!el) return;
+  el.classList.remove('hidden');
+  let i = 0;
+  const showStep = () => {
+    const s = GH_COUNTDOWN_STEPS[i];
+    el.textContent = s.text;
+    el.className = '';
+    void el.offsetWidth;
+    el.className = s.cls + ' pop';
+    playGHCountdownBeep(ctx, s.beep.freq, s.beep.dur);
+  };
+  showStep();
+  const advance = () => {
+    // Si el juego se canceló (quitGame) durante el countdown, abortar para no
+    // dejar el overlay visible sobre la pantalla setup.
+    if (!game) {
+      el.classList.add('hidden');
+      el.className = 'hidden';
+      return;
+    }
+    i++;
+    if (i >= GH_COUNTDOWN_STEPS.length) {
+      setTimeout(() => {
+        el.classList.add('hidden');
+        el.className = 'hidden';
+      }, GH_COUNTDOWN_STEP_MS);
+      return;
+    }
+    showStep();
+    setTimeout(advance, GH_COUNTDOWN_STEP_MS);
+  };
+  setTimeout(advance, GH_COUNTDOWN_STEP_MS);
+}
+
 function tick() {
   if (!game) return;
   const ctx = window.AudioPipeline.ensureAudioContext();
   const t = ctx.currentTime - game.audioStartTime;
+  const deltaTime = game._lastTickT !== undefined ? Math.max(0, Math.min(t - game._lastTickT, 0.1)) : 0;
+  game._lastTickT = t;
 
   if (!isPaused) {
     readGamepad();
     applyKeyboardFallback();
+
+    // Star Power: activar con tilt si hay ≥0.5 acumulado
+    if (inputState.tiltEdge && game.starPower >= 0.5) game.starPowerActive = true;
+    // Drenar SP activo: se agota en ~32 beats a la BPM de la canción
+    if (game.starPowerActive) {
+      game.starPower = Math.max(0, game.starPower - (song.bpm / 60 / 32) * deltaTime);
+      if (game.starPower <= 0) game.starPowerActive = false;
+    }
+
+    // Whammy → detune (solo durante sustain activo)
+    if (game.audioSource) {
+      const hasSustain = game.activeSustains.some(s => !s.sustainBroken);
+      const detuneTarget = hasSustain ? -inputState.whammy * 200 : 0;
+      const cur = game.audioSource.detune.value;
+      // Lerp suave: se aproxima al 20% del gap por frame (a 60fps ~ 0.8s de time constant)
+      game.audioSource.detune.value = cur + (detuneTarget - cur) * Math.min(1, 12 * deltaTime);
+    }
+
     processInput(t);
     processSustains(t);
     processMisses(t);
@@ -2711,6 +2883,9 @@ function togglePause() {
     game.audioSource = ctx.createBufferSource();
     game.audioSource.buffer = song.audioBuffer;
     game.audioSource.connect(ctx.destination);
+    // Restaurar detune del whammy en el source recién creado
+    const hasSustain = game.activeSustains && game.activeSustains.some(s => !s.sustainBroken);
+    game.audioSource.detune.value = hasSustain ? -inputState.whammy * 200 : 0;
     const offsetIntoSong = ctx.currentTime - game.audioStartTime;
     if (offsetIntoSong >= 0) {
       game.audioSource.start(0, offsetIntoSong);
@@ -2730,6 +2905,11 @@ function quitGame() {
   const cm = document.getElementById('comboMeter');
   if (cm) cm.classList.remove('show', 'pulse', 'tier-1', 'tier-2', 'tier-3', 'tier-4', 'tier-5');
   _ghComboMeterLast = 0;
+  // Oculta countdown inmediatamente — runGHCountdown ya tiene guard `if
+  // (!game)` en su advance(), pero el último step mostrado quedaría visible
+  // hasta el siguiente setTimeout (hasta 1s después de quit).
+  const cd = document.getElementById('ghCountdown');
+  if (cd) cd.className = 'gh-countdown hidden';
   document.getElementById('game-screen').classList.remove('active');
   document.body.classList.remove('playing');
   goto(_lastSetupScreen || 'songs');
@@ -2820,6 +3000,17 @@ function judgeHit(note, idx, t) {
   game.score += SCORES[kind] * getMultiplier();
   game.judgments[kind]++;
   flashFrets(note.frets, kind, t);
+  // Star Power: acumular cuando la nota cae dentro de una frase SP.
+  // Cada frase completa aporta 0.5 (con max 2 = 4 activaciones posibles).
+  // sp / noteCount por nota = 0.5 / noteCount al completar la frase entera.
+  if (game.spPhrases.length) {
+    for (const p of game.spPhrases) {
+      if (p.noteCount > 0 && note.tick >= p.startTick && note.tick <= p.endTick) {
+        game.starPower = Math.min(2, game.starPower + 0.5 / p.noteCount);
+        break;
+      }
+    }
+  }
   if (idx === game.nextNoteIdx) game.nextNoteIdx++;
   showJudge(kind);
   updateHud();
@@ -2911,11 +3102,9 @@ function processSustains(t) {
 }
 
 function getMultiplier() {
-  // Multiplicador clásico: x1 / x2 (10 combo) / x3 (20) / x4 (30)
-  if (game.combo >= 30) return 4;
-  if (game.combo >= 20) return 3;
-  if (game.combo >= 10) return 2;
-  return 1;
+  const base = game.combo >= 30 ? 4 : game.combo >= 20 ? 3 : game.combo >= 10 ? 2 : 1;
+  // Star Power dobla el multiplicador (cap 8 = 4×2)
+  return game.starPowerActive ? Math.min(8, base * 2) : base;
 }
 
 let judgeTimeout = null;
@@ -3060,9 +3249,25 @@ function render(t) {
   const topY = Math.max(70, canvasH * 0.08);
   const hitY = canvasH * 0.88;          // posición del hit zone
 
-  // Fondo highway
+  // Fondo highway (+ glow dorado durante Star Power activo)
   ctx2d.fillStyle = 'rgba(0,0,0,0.6)';
   ctx2d.fillRect(highwayX, topY, highwayW, hitY - topY);
+  if (game.starPowerActive) {
+    const spGlow = 0.12 + 0.06 * Math.sin(t * 7);
+    ctx2d.save();
+    ctx2d.globalAlpha = spGlow;
+    ctx2d.fillStyle = '#facc15';
+    ctx2d.fillRect(highwayX, topY, highwayW, hitY - topY);
+    ctx2d.restore();
+  }
+
+  // SP bar en el HUD — actualizar cada frame para que refleje el drenado
+  const spEl = document.getElementById('hudSP');
+  if (spEl) {
+    spEl.style.width = Math.min(100, (game.starPower / 2) * 100) + '%';
+    const hudEl = document.querySelector('.hud');
+    if (hudEl) hudEl.classList.toggle('sp-active', game.starPowerActive);
+  }
 
   // Líneas de carriles
   ctx2d.strokeStyle = 'rgba(255,255,255,0.08)';

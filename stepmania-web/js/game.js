@@ -428,14 +428,20 @@ async function startGame() {
   }
 
   // Countdown 3-2-1-GO before starting audio
-  await runCountdown();
+  await runCountdown(aborted);
   if (aborted()) { document.getElementById('countdown').classList.add('hidden'); return; }
 
-  // Start audio
+  // Start audio. LEAD_IN_SEC añade 3s de silencio entre el fin del countdown
+  // y el inicio del audio. Durante ese intervalo el gameLoop renderiza con
+  // audioTime negativo: las notas ya están scrolling hacia los receptores
+  // pero todavía no hay sonido — la jugadora ve qué viene antes de que
+  // empiece la música. Sin este lead-in, las primeras notas llegaban al
+  // receptor en menos de 1s y eran prácticamente imposibles de leer.
   const src = audioCtx.createBufferSource();
   src.buffer = audioBuffer;
   src.connect(audioCtx.destination);
-  const startAt = audioCtx.currentTime + 0.05;
+  const LEAD_IN_SEC = 3.0;
+  const startAt = audioCtx.currentTime + LEAD_IN_SEC;
   src.start(startAt);
 
   const N = laneConfig.lanes;
@@ -505,24 +511,86 @@ async function startGame() {
   }
 }
 
-function runCountdown() {
+// Countdown extendido a 5 segundos (5 pasos × 1000ms). El countdown previo
+// (~2.5s) era demasiado breve — la usuaria no llegaba a centrarse antes del
+// primer paso. Cinco pasos con animación scale-pop + tier de color + beep
+// auditivo en cada uno usando el AudioContext ya inicializado. El beep es un
+// oscilador sinusoidal de 12ms (corto, no enmascara la música pre-canción ni
+// la siguiente nota); ¡VAMOS! va con frecuencia más alta y duración doble
+// para subrayarlo. Tras esta cuenta se aplica además LEAD_IN_SEC=3 de silencio
+// con notas ya cayendo, así la primera nota llega cuando la jugadora está
+// realmente en posición.
+const COUNTDOWN_STEPS_SM = [
+  { text: '¡PREPÁRATE!', cls: 'cd-prep', beep: { freq: 660,  dur: 0.10 } },
+  { text: '3',           cls: 'cd-3',    beep: { freq: 880,  dur: 0.10 } },
+  { text: '2',           cls: 'cd-2',    beep: { freq: 880,  dur: 0.10 } },
+  { text: '1',           cls: 'cd-1',    beep: { freq: 880,  dur: 0.10 } },
+  { text: '¡VAMOS!',     cls: 'cd-go',   beep: { freq: 1320, dur: 0.22 } },
+];
+const COUNTDOWN_STEP_MS = 1000;
+const COUNTDOWN_TIER_CLASSES = 'cd-prep cd-3 cd-2 cd-1 cd-go pop';
+
+function playCountdownBeep(freq, dur) {
+  // Beep generado con Web Audio API en lugar de un asset .mp3 para evitar
+  // dependencias y mantener latencia <1ms. Sine wave + ramp up/down lineal
+  // (10ms attack, decay hasta dur) — sin attack hay click audible al inicio.
+  if (!audioCtx) return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    g.gain.value = 0;
+    osc.connect(g);
+    g.connect(audioCtx.destination);
+    const t0 = audioCtx.currentTime;
+    g.gain.linearRampToValueAtTime(0.18, t0 + 0.01);
+    g.gain.linearRampToValueAtTime(0, t0 + dur);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  } catch (e) { /* AudioContext suspended o detached — silencio OK */ }
+}
+
+function runCountdown(isAborted) {
   return new Promise(resolve => {
     const el = document.getElementById('countdown');
     el.classList.remove('hidden');
-    const seq = ['3','2','1','¡VAMOS!'];
     let i = 0;
-    el.textContent = seq[0];
-    const tick = () => {
-      i++;
-      if (i >= seq.length) {
+    // isAborted devuelve true si el usuario navegó fuera mientras estábamos
+    // en la cuenta. Sin este check, los beeps + animaciones seguirían 5s
+    // después de que la usuaria ya saltó a otra pantalla.
+    const aborted = () => typeof isAborted === 'function' && isAborted();
+    const showStep = () => {
+      const s = COUNTDOWN_STEPS_SM[i];
+      el.textContent = s.text;
+      el.className = '';
+      void el.offsetWidth;
+      el.className = s.cls + ' pop';
+      playCountdownBeep(s.beep.freq, s.beep.dur);
+    };
+    showStep();
+    const advance = () => {
+      if (aborted()) {
         el.classList.add('hidden');
+        el.className = 'hidden';
         resolve();
         return;
       }
-      el.textContent = seq[i];
-      setTimeout(tick, i === seq.length-1 ? 400 : 700);
+      i++;
+      if (i >= COUNTDOWN_STEPS_SM.length) {
+        // Último paso (¡VAMOS!) ya está pintado — mantenerlo visible 1s antes
+        // de ocultar para que se lea bien (antes era solo 400ms y se perdía).
+        setTimeout(() => {
+          el.classList.add('hidden');
+          el.className = 'hidden';
+          resolve();
+        }, COUNTDOWN_STEP_MS);
+        return;
+      }
+      showStep();
+      setTimeout(advance, COUNTDOWN_STEP_MS);
     };
-    setTimeout(tick, 700);
+    setTimeout(advance, COUNTDOWN_STEP_MS);
   });
 }
 
@@ -547,6 +615,11 @@ function stopGame() {
   const cm = document.getElementById('hudComboMeter');
   if (cm) cm.classList.remove('show', 'pulse', 'tier-1', 'tier-2', 'tier-3', 'tier-4', 'tier-5');
   _comboMeterLast = 0;
+  // Oculta countdown por si la usuaria abandona durante los 5s de cuenta o
+  // los 3s de lead-in (el aborted() check de runCountdown solo cubre navegar
+  // fuera de play-screen, no parar la canción ya iniciada).
+  const cd = document.getElementById('countdown');
+  if (cd) { cd.className = 'hidden'; }
   gameState = null;
 }
 
