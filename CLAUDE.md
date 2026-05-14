@@ -174,7 +174,7 @@ Algoritmo (optimizado para música bailable: techno, dance, pop, rock):
 **Generación de charts (rejilla interna 192nds para compat SM5):**
 - Quantización a 192nds (1 measure = 192 unidades, 1 beat = 48)
 - Filtro por resolución elegida (negras=48, corcheas=24, semicorcheas=12)
-- Asignación de flechas evitando misma flecha 2 veces seguidas
+- Asignación de flechas vía `stepmania-web/js/sm-flow.js` (motor de flow biomecánico: alternancia L/R con tolerancia, anti-crossover, drills L-R automáticos en runs rápidas) + anti-repeat de las últimas 2 flechas dentro del subconjunto del pie objetivo
 - Holds/rolls cuando hay gap ≥ 1/2 beat al siguiente paso (probabilidad ajustable)
 - Hands (3 paneles simultáneos) solo en Challenge
 - Resolución variable por compás (cada compás escoge subdivision válida más pequeña: 4/8/12/16/24/32/48/64/96/192)
@@ -260,6 +260,25 @@ El módulo devuelve `{ title, artist, album, track, year, source }` aunque los c
 - **Doble export CJS** al final del módulo siguiendo el patrón de `parser.js:275-289` y `difficulty-tiers.js:259-274`. Esto permite que el test `tests/audio-metadata.test.mjs` haga `import pkg from '...js'` aunque el módulo esté escrito como classic script.
 
 API expuesta: `window.AudioMetadata.{extractMetadata(file), parseID3v2(buf), parseID3v1(buf), parseFLAC(buf), parseFromFilename(name)}`. Los 4 parsers internos son exportados públicamente para testing — los autosteppers solo invocan `extractMetadata`.
+
+### `stepmania-web/js/sm-flow.js`
+Motor de flow biomecánico que asigna flechas en el autostepper SM. Sustituye al `Math.random()` puro del generador antiguo por reglas que imitan cómo un charter humano coloca pies. Lo carga `autostepper.html` justo después de `audio-metadata.js` y antes del bloque `<script>` inline del autostepper; `generateBaseNotes` (línea ~1095) lo consume con fallback automático a la lógica random si `window.SMFlow` no está definido (útil para tests puntuales con scripts sueltos).
+
+**Mapeo L/P/R en los 8 carriles** (dance-double, master único): `['L','P','P','R','L','R','L','R']`. Es decir ←=L · ↓=P · ↑=P · →=R · ↖=L · ↗=R · ↙=L · ↘=R. Los carriles `P` (pivots, ↓↑) son de "pie heredable" — `footOfLane(lane, lastFoot)` devuelve el pie contrario al último uso. Sin la regla, una secuencia ↓↓ obligaría a romper el patrón o a hacer un cross-over visualmente feo; marcándolos como heredables, una corchea ↓↑↓↑ se baila L→R→L→R sin esfuerzo.
+
+**Reglas principales:**
+- **Alternancia con tolerancia** (`alternationProb = 0.85` por defecto). El 15% restante deja repetir el mismo pie de vez en cuando, evitando que el chart se sienta robótico.
+- **Anti-crossover**: cuando el pie deseado es L, candidatos = `LEFT_LANES ∪ pivots` (los pivots solo si su pie efectivo coincide con el deseado, es decir cuando wantedFoot ≠ lastFoot). Cuando es R, simétrico. Imposible cruzar.
+- **Anti-repeat de las últimas 2** (preservado del motor antiguo, ahora dentro del subconjunto del pie objetivo). Si filtrar deja vacío, relaja primero a "no repetir lastLane" y solo después al fallback total.
+- **Drills L-R automáticos** vía `computeRunInfo(positions, opts)`: detecta runs ≥4 onsets con gap uniforme ≤ `maxGapForDrill` (default 24 = 1/8 beat = corchea) y les asigna un par cardinal del array `DRILL_PAIRS` (peso 3 a ←→, peso 2 a ↓↑, peso 1 a las 4 diagonales cruzadas). Dentro de la run, los onsets alternan estrictamente los dos lanes del par.
+
+**Por qué el threshold 24:** a 120 BPM equivale a ~250 ms entre onsets — el límite inferior cómodo para alternar pies sin pivotar tronco. Subir a 12 (semicorcheas, 125 ms a 120 BPM) generaría "rachas técnicas" en vez de caminatas bailables.
+
+**Compatibilidad con el remap del motor:** el chart se genera siempre con 8 carriles asumiendo flow biomecánico completo. El motor (`game.js:279-303`) remapea simétricamente a 4 (default) o 6 (Solo) en runtime. Como `LANE_FOOT` respeta la simetría L/R del eje vertical, el flow sobrevive al remap sin recalcular nada.
+
+**API expuesta:** `window.SMFlow.{LANE_FOOT, LEFT_LANES, RIGHT_LANES, PIVOT_LANES, DRILL_PAIRS, footOfLane(lane, lastFoot), computeRunInfo(positions, opts), pickArrowFlow(state, opts), pickJumpLane(primaryLane, primaryFoot, rng)}`. `state = { lastFoot, lastLane, beforeLastLane }`. `opts.rng` inyectable (default `Math.random`) — los tests usan Mulberry32 con seed fija para ser deterministas.
+
+**Doble export CJS** al final del módulo siguiendo el patrón de `parser.js:275-289` y `difficulty-tiers.js:259-274` para que `tests/sm-flow.test.mjs` pueda importarlo como `import sf from '...js'`.
 
 ### `stepmania-web/js/gh-db.js`
 Módulo de IndexedDB para la **biblioteca de charts Guitar Hero**. Comparte la misma DB `StepManiaWebDB` que la suite SM (DB_VERSION 3, upgrade-safe — añade el store `gh-songs` sin tocar `songs`/`scores` existentes). Expone `window.GHLibrary` con: `open()`, `add(entry)`, `all()`, `get(id)`, `delete(id)`, `extractMeta(chartText)`.
@@ -498,8 +517,9 @@ Desde un test, el patrón de import es: `import pkg from '../stepmania-web/js/pa
 - **`tests/difficulty-tiers.test.mjs`** — 23 tests: TIER_CONFIG (5 tiers SM, 4 tiers GH, monotonía de NPS y minGap), rhythmPriority (downbeat=5, mid-measure=4, beat=3, offbeat=2, semicorchea=1), filterByDifficulty con invariantes (NPS cap, gap mínimo, retención esperada por tier), filterPositions48 round-trip, filterTicks GH, PRESET_MULTIPLIER.
 - **`tests/audio-metadata.test.mjs`** — 27 tests: parser ID3v2.3/v2.4 (TIT2/TPE1/TALB/TRCK/TYER en UTF-8 con tildes y emoji, multi-valor v2.4 separado por NUL, "5/12"→"5" en TRCK, guard de null sin title/artist/album), ID3v1 canónico y v1.1 con byte de track, FLAC Vorbis Comments (case-insensitive en keys), `parseFromFilename` con prefijos de track# en 4 formatos (`02 `, `12. `, `03 - `, `03_`) y splits "Artist - Title" / "Artist - Album - Title" / "Artist - Album - 03 - Title". Los fixtures binarios se generan en runtime con helpers locales (`makeID3v2`, `makeID3v1`, `makeFLAC`) — no se commitean .mp3 reales.
 - **`tests/mat-layout.test.mjs`** — 11 tests: `getMatDiagonalLayout(mapping)` devuelve `'up' | 'down' | 'none'` según qué diagonales tenga calibradas el usuario. Cubre los 4 casos canónicos (sin mapping, solo up, solo down, ambos), el guard contra valores no numéricos (null/undefined/string/negativos en las claves de diagonal), el edge case "botón 0 es asignación válida" (no falsy en este contexto), media-diagonal asimétrica → `'none'`, alfombra de 4 botones (sin diagonales) → `'none'`, e input no-objeto degrada graceful a `'up'`. Adicionalmente verifica que `detectMatDiagonalLayout()` NUNCA expone `'none'` — colapsa a `'up'` para que el motor tenga siempre fallback.
+- **`tests/sm-flow.test.mjs`** — 24 tests: estructura de `LANE_FOOT`/`LEFT_LANES`/`RIGHT_LANES`/`PIVOT_LANES`/`DRILL_PAIRS` (disjunción, ponderación cardinal); `footOfLane` con pivots heredables y default estable; `computeRunInfo` con runs ≥4 a gap uniforme (≤ 1/8 beat), gap > maxGap, rupturas por cambio de gap, par de lanes compartido dentro de la misma run; `pickArrowFlow` en drill (ignora rng, sigue estrictamente `drillLanes[idx % 2]`) y libre (alternationProb=1 fuerza pie contrario, =0 fuerza mismo pie, anti-repeat respeta últimas 2, pivots como puente vertical cuando alterna, anti-cross verificado estadísticamente con 100 picks); `pickJumpLane` devuelve lane del pie contrario al primary en ambos sentidos. Aleatoriedad inyectada vía Mulberry32 con seed fija (sin deps).
 
-**Total: 107 tests (parser 23 + difficulty-tiers 23 + scores 23 + audio-metadata 27 + mat-layout 11), ~470ms en CI.**
+**Total: 131 tests (parser 23 + difficulty-tiers 23 + scores 23 + audio-metadata 27 + mat-layout 11 + sm-flow 24), ~440ms en CI.**
 
 ### Lo que NO se testea (decisión consciente)
 - Render del canvas en `game.js` (visual regression manual).

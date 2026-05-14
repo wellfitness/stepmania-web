@@ -784,6 +784,7 @@
 <script src="stepmania-web/js/audio-pipeline.js"></script>
 <script src="stepmania-web/js/difficulty-tiers.js"></script>
 <script src="stepmania-web/js/audio-metadata.js"></script>
+<script src="stepmania-web/js/sm-flow.js"></script>
 <script>
 // ============================================================
 //                  GLOBAL STATE
@@ -1084,8 +1085,13 @@ function snapToResolution(positions, resolution) {
 
 // Generates note objects with cols as integers (0=empty, 1=tap).
 // Filtra por dificultad usando DifficultyTiers — calibrado a NPS objetivo y
-// minGap absoluto en segundos (no por subdivisión modular). Esto desacopla la
-// dificultad efectiva del BPM y de la percusividad de la canción.
+// minGap absoluto en segundos (no por subdivisión modular).
+//
+// La asignación de flechas usa SMFlow (`stepmania-web/js/sm-flow.js`) que
+// imita cómo coloca pies un charter humano: alternancia L/R con tolerancia,
+// anti-crossover y drills L-R en runs ≥4 onsets a gap uniforme ≤ corchea.
+// Si SMFlow no está cargado (ej: test puntual con script suelto), cae al
+// modo Math.random() puro del motor antiguo.
 function generateBaseNotes(positions, difficulty, jumpProb, handsProb, bpm, offsetSec, presetMul) {
   const filtered = (window.DifficultyTiers && bpm)
     ? window.DifficultyTiers.filterPositions48(positions, bpm, offsetSec, difficulty, presetMul)
@@ -1095,29 +1101,51 @@ function generateBaseNotes(positions, difficulty, jumpProb, handsProb, bpm, offs
   // del que el motor redistribuye a 4 (clásico) o 6 (Solo) en runtime.
   const ARROWS = 8;
   const notes = [];
-  let last = -1, lastLast = -1;
   const realJumpProb =
     difficulty === 'challenge' ? jumpProb * 1.4 :
     difficulty === 'hard'      ? jumpProb :
     difficulty === 'medium'    ? jumpProb * 0.3 : 0;
   const realHandsProb = difficulty === 'challenge' ? handsProb : 0;
 
+  const flow = window.SMFlow;
+  // Precalcula runs solo si tenemos SMFlow; de lo contrario fallback random.
+  const runInfo = flow ? flow.computeRunInfo(filtered) : null;
+
+  // Anti-repeat de 2 históricas (preservado del motor antiguo, ahora dentro
+  // de los candidatos del pie objetivo).
+  let lastLane = -1, beforeLastLane = -1;
+  let lastFoot = null;
+
   for (let i = 0; i < filtered.length; i++) {
     const pos = filtered[i];
     const cols = new Array(ARROWS).fill(0);
 
-    // Primary arrow, avoid repeating last 2
-    let arr, tries = 0;
-    do {
-      arr = Math.floor(Math.random() * ARROWS);
-      tries++;
-    } while ((arr === last || arr === lastLast) && tries < 8);
+    let arr;
+    let arrFoot = null;
+    if (flow) {
+      const pick = flow.pickArrowFlow(
+        { lastFoot, lastLane, beforeLastLane },
+        { runInfo: runInfo[i] }
+      );
+      arr = pick.lane;
+      arrFoot = pick.foot;
+    } else {
+      let tries = 0;
+      do {
+        arr = Math.floor(Math.random() * ARROWS);
+        tries++;
+      } while ((arr === lastLane || arr === beforeLastLane) && tries < 8);
+    }
     cols[arr] = 1;
 
-    // Jumps (2 arrows simultaneous)
     if (Math.random() < realJumpProb) {
-      let jumpArr;
-      do { jumpArr = Math.floor(Math.random() * ARROWS); } while (jumpArr === arr);
+      const jumpArr = flow
+        ? flow.pickJumpLane(arr, arrFoot ?? 'L')
+        : (() => {
+            let j;
+            do { j = Math.floor(Math.random() * ARROWS); } while (j === arr);
+            return j;
+          })();
       cols[jumpArr] = 1;
 
       // Hands (3 simultaneous), only on challenge
@@ -1129,7 +1157,9 @@ function generateBaseNotes(positions, difficulty, jumpProb, handsProb, bpm, offs
     }
 
     notes.push({ pos, cols });
-    lastLast = last; last = arr;
+    beforeLastLane = lastLane;
+    lastLane = arr;
+    if (arrFoot) lastFoot = arrFoot;
   }
   return notes;
 }
