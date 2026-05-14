@@ -161,15 +161,20 @@ Generador automático de charts **StepMania (.ssc/.sm)** desde MP3/WAV. Equivale
 - `saveAllToLibrary`, `downloadAllZip`, `buildSscForSong` y `buildSmForSong` (SM) consumen `croppedAudio || q.file` con la misma lógica — coherencia del `#MUSIC` field con el archivo empaquetado.
 - Si se elige "Completa", el archivo original (MP3/WAV/etc.) se conserva sin re-codificar.
 
-Algoritmo (optimizado para música bailable: techno, dance, pop, rock):
+Algoritmo (optimizado para música bailable: techno, dance, pop, rock, latina, tropical):
 1. `decodeAudioData` → mono Float32Array
-2. **Bass-emphasis** — IIR low-pass 2-polo cascado a ~200 Hz. Aísla el kick + bajo, descarta voces, hi-hats, guitarras distorsionadas. El kick domina el envelope.
-3. Energy envelope (ventanas 23ms, hop 5ms) sobre la señal bass-emphasized
-4. ODF = log-derivada rectificada del envelope
-5. Pico-detección con umbral adaptativo local (75ms window)
-6. BPM via autocorrelación de la ODF, **rango 90-180 BPM** (cubre pop/rock 90-130, house 120-130, techno 125-145, DnB 165-180), corrección de octava al mismo rango
-7. Offset via correlación de fase
-8. **Tap sync manual:** botón "Tap" por canción abre modal; usuario pulsa SPACE/botón al ritmo, mediana de intervalos → BPM. Sobrescribe la detección automática vía `q.bpmOverride`.
+2. **ODF multi-banda 40/60** — dos pipelines paralelos:
+   - **Bass-emphasis** (`bassEmphasize`): IIR low-pass 2-polo cascado a ~200 Hz. Aísla kick + bajo.
+   - **Mid-emphasize** (`midEmphasize`): bandpass 200–2500 Hz (highpass por sustracción + lowpass 2500 Hz). Capta voz, caja, guitarra, sintes melódicos y percusión latina (congas, timbales, clave, cencerro).
+   - Cada banda produce su propio `energy envelope` (ventanas 23ms, hop 5ms) y su propio `ODF` (log-derivada rectificada).
+   - Blend final: `0.4 · bassOdf + 0.6 · midOdf` renormalizado a [0,1]. Calibrado para rock/pop/latina/trance; en electrónica de bombo dominante los onsets extra del mid (snare en 2/4) los acota el filtro NPS de `DifficultyTiers` en tiers bajos.
+3. **`normalizeODFLocally`** — segundo pase con umbral adaptativo en ventana local (~3s). Captura onsets en tramos quiet (intro, break) que quedarían bajo el umbral global.
+4. Pico-detección sobre la ODF local (75ms window).
+5. BPM via autocorrelación de la ODF blended (no la local — la blended tiene mejor SNR global), **rango 90–180 BPM** (cubre pop/rock 90-130, house 120-130, techno 125-145, DnB 165-180), corrección de octava al mismo rango. `detectBPMSegments` segmenta tempo variable si la canción cambia de pulso (default: 1 segmento = tempo constante).
+6. Offset via correlación de fase sobre la blended.
+7. **Tap sync manual:** botón "Tap" por canción abre modal; usuario pulsa SPACE/botón al ritmo, mediana de intervalos → BPM. Sobrescribe la detección automática vía `q.bpmOverride`.
+
+**Por qué multi-banda** (rationale del cambio 2026-05-14, primero en GH, replicado en SM): el bass-only IIR 200 Hz ignora todo lo que vive entre 200 Hz y 2500 Hz — caja, voz, guitarra, sintes, percusión latina. En rock/pop la mitad del groove queda fuera del análisis; en cumbia/salsa/reggaetón la riqueza percusiva (clave, congas, dembow) es invisible. El blend añade onsets de mid sin perder los de bass, y el filtro de prioridad rítmica + cap NPS por tier evita sobre-densidad. BPM/offset usan la misma ODF que `pickPeaks` para que tempo y picos compartan la misma fase (sin drift).
 
 **Generación de charts (rejilla interna 192nds para compat SM5):**
 - Quantización a 192nds (1 measure = 192 unidades, 1 beat = 48)

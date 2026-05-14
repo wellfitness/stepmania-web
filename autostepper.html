@@ -1044,7 +1044,7 @@ function closeTapSync() {
 // gh-autostepper.html. Ver ese módulo para detalles de cada algoritmo.
 // Aquí solo destructuramos para mantener llamadas sin prefijo.
 const {
-  decodeFile, toMono, bassEmphasize,
+  decodeFile, toMono, bassEmphasize, midEmphasize,
   computeEnergyEnvelope, computeODF,
   pickPeaks, detectBPM, detectBPMSegments, detectOffset,
   normalizeODFLocally
@@ -1463,11 +1463,34 @@ async function analyzeOne(q) {
 
   const sr = buffer.sampleRate;
   const monoData = toMono(buffer);
+
+  // Pipeline análisis multi-banda. Bass ODF (0–200 Hz) capta bombo y bajo.
+  // Mid ODF (200–2500 Hz) capta voz, caja, guitarra, sintes melódicos y
+  // percusión latina (congas, timbales, cencerro, clave). Blend 40/60 al
+  // nivel de ODF (antes de pickPeaks) — calibrado para rock/pop/latina/
+  // trance; en electrónica de bombo dominante, los onsets extra del mid
+  // (snare en 2/4) los acota el filtro de NPS de DifficultyTiers en
+  // tiers bajos. BPM y offset también se calculan sobre la blended para
+  // consistencia entre tempo y picos (sin drift de fase).
   const bassData = bassEmphasize(monoData, sr);
   await yieldUI();
-  const { env, framesPerSec } = computeEnergyEnvelope(bassData, sr);
+  const midData = midEmphasize(monoData, sr);
   await yieldUI();
-  const odf = computeODF(env);
+  const { env: bassEnv, framesPerSec } = computeEnergyEnvelope(bassData, sr);
+  const { env: midEnv }                = computeEnergyEnvelope(midData, sr);
+  await yieldUI();
+  const bassOdf = computeODF(bassEnv);
+  const midOdf  = computeODF(midEnv);
+  await yieldUI();
+
+  // Blend 40% bass + 60% mid y renormalizar a [0,1].
+  const odf = new Float32Array(bassOdf.length);
+  let blendMax = 0;
+  for (let i = 0; i < odf.length; i++) {
+    odf[i] = 0.4 * bassOdf[i] + 0.6 * midOdf[i];
+    if (odf[i] > blendMax) blendMax = odf[i];
+  }
+  if (blendMax > 0) for (let i = 0; i < odf.length; i++) odf[i] /= blendMax;
   await yieldUI();
 
   const sensitivity = parseFloat(document.getElementById('sensitivity').value);
