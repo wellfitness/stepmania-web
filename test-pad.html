@@ -3009,7 +3009,11 @@ function whammySampleAllAxes(gp) {
   for (let i = 0; i < gp.axes.length; i++) {
     const v = gp.axes[i];
     if (!whammyState.perAxis[i]) {
-      whammyState.perAxis[i] = { min: v, max: v, unique: new Set(), samples: 0 };
+      // firstVal = valor del eje en el instante en que arranca el test = palanca
+      // en reposo natural (asumiendo que la usuaria pulsa Iniciar sin tocar la
+      // palanca, lo natural). Se usa en finishWhammy para decidir cuál de los
+      // extremos (min/max) es "reposo" y cuál es "palanca al fondo".
+      whammyState.perAxis[i] = { min: v, max: v, unique: new Set(), samples: 0, firstVal: v };
     }
     const a = whammyState.perAxis[i];
     if (v < a.min) a.min = v;
@@ -3065,15 +3069,26 @@ function finishWhammy() {
     } else if (a.unique.size < 30) {
       verdict = `<span style="color:#ffaa00">⚠ Resolución baja (${a.unique.size} valores únicos). El potenciómetro reporta pocos pasos discretos — uso prolongado o desgaste.</span>`;
     } else {
+      // Determinar reposo y "palanca al fondo" comparando el primer sample con
+      // los extremos detectados. Asume que la usuaria pulsa Iniciar con la
+      // palanca sin tocar; el firstVal cae cerca del extremo de reposo y el
+      // opuesto es el extremo activo. Necesario porque distintas guitarras
+      // reposan en distintos puntos (GH PS2 vía receptor Sony reposa cerca
+      // de 0 e ir a -1 al hundir; otros modelos reposan en +1 e ir a 0).
+      const firstVal = a.firstVal;
+      const distToMin = Math.abs(firstVal - a.min);
+      const distToMax = Math.abs(firstVal - a.max);
+      const whammyRest   = (distToMin < distToMax) ? a.min : a.max;
+      const whammyActive = (distToMin < distToMax) ? a.max : a.min;
       // Auto-asignar y guardar
-      if (guitarMapping.whammyAxis !== picked) {
-        guitarMapping.whammyAxis = picked;
-        saveGuitarMapping(guitarMapping);
-        renderCalibMapping();
-        verdict = `<span style="color:#00ff64">✓ Whammy detectado en eje <strong>${picked}</strong> y guardado en el mapping. Rango ${range.toFixed(2)}, ${a.unique.size} valores discretos.</span>`;
-      } else {
-        verdict = `<span style="color:#00ff64">✓ Whammy OK en eje ${picked}. Rango ${range.toFixed(2)}, ${a.unique.size} valores discretos.</span>`;
-      }
+      const wasSameAxis = (guitarMapping.whammyAxis === picked);
+      guitarMapping.whammyAxis   = picked;
+      guitarMapping.whammyRest   = whammyRest;
+      guitarMapping.whammyActive = whammyActive;
+      saveGuitarMapping(guitarMapping);
+      renderCalibMapping();
+      const prefix = wasSameAxis ? `✓ Whammy OK en eje ${picked}` : `✓ Whammy detectado en eje <strong>${picked}</strong> y guardado en el mapping`;
+      verdict = `<span style="color:#00ff64">${prefix}. Reposo ${whammyRest.toFixed(3)} → fondo ${whammyActive.toFixed(3)} (rango ${range.toFixed(2)}, ${a.unique.size} valores discretos).</span>`;
     }
   }
   document.getElementById('whammyVerdict').innerHTML = verdict;

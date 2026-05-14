@@ -2707,6 +2707,27 @@ function pickGuitarGamepad(pads) {
   return null;
 }
 
+// Normaliza un valor crudo de eje al rango [0,1] usando reposo / palanca-al-fondo
+// calibrados en test-pad (`whammyRest`, `whammyActive` en `guitarMapping`).
+// - travel = active - rest puede ser negativo (palanca va hacia -1 al hundir)
+//   o positivo (algunas guitarras van hacia +1).
+// - Deadzone de 5% al inicio absorbe el jitter del potenciómetro (palancas
+//   analógicas baratas reportan ±0.01–0.05 incluso quietas).
+// - Cuando el mapping es legacy (sin whammyRest/whammyActive), cae al
+//   normalizador antiguo (asume reposo en -1) para no romper instalaciones
+//   previas al fix del 2026-05-14. Se invita a la usuaria a recalibrar.
+function normalizeWhammy(raw, rest, active) {
+  if (typeof rest !== 'number' || typeof active !== 'number') {
+    // Legacy fallback (pre-2026-05-14): asume reposo en -1
+    return Math.max(0, Math.min(1, (raw + 1) / 2));
+  }
+  const travel = active - rest;
+  if (Math.abs(travel) < 0.3) return 0; // calibración inválida (rango insuficiente)
+  const norm = (raw - rest) / travel;
+  if (norm < 0.05) return 0; // deadzone (absorbe jitter del potenciómetro)
+  return Math.max(0, Math.min(1, norm));
+}
+
 function readGamepad() {
   // Reset edges
   inputState.strumDownEdge = false;
@@ -2760,10 +2781,13 @@ function readGamepad() {
     prevAxisStrum.up = active;
   }
 
-  // Whammy: lectura del eje (no edge, valor continuo)
+  // Whammy: lectura del eje (no edge, valor continuo). Normaliza al rango
+  // [0,1] usando reposo/fondo calibrados en test-pad (whammyRest, whammyActive).
+  // Cuando el mapping es legacy (sin esos campos) cae al normalizador antiguo
+  // (asume reposo en -1) para no romper instalaciones previas. Ver normalizeWhammy.
   const wAx = guitarMapping.whammyAxis;
   if (typeof wAx === 'number' && gp.axes[wAx] !== undefined) {
-    inputState.whammy = Math.max(0, Math.min(1, (gp.axes[wAx] + 1) / 2));
+    inputState.whammy = normalizeWhammy(gp.axes[wAx], guitarMapping.whammyRest, guitarMapping.whammyActive);
   }
 
   // Tilt: button (Star Power) — con detección de flanco ascendente
@@ -2916,13 +2940,11 @@ function startGame(diffOverride) {
   game.audioSource = ctx.createBufferSource();
   game.audioSource.buffer = song.audioBuffer;
   game.audioSource.connect(ctx.destination);
-  // Cuenta atrás 5s con beep + el chart va retrasado NOTE_DELAY_SEC respecto
-  // al audio: la música arranca justo al terminar la cuenta y la primera
-  // nota llega al receptor 3s después. Durante esos 3s, las notas ya se ven
-  // cayendo desde el final de la pista PERO con la música sonando — sin esto
-  // se sentía absurdo (notas en silencio antes de oír nada).
-  const COUNTDOWN_SEC = 5.0;
-  const audioRealStartAt = ctx.currentTime + COUNTDOWN_SEC;
+  // La música arranca YA al pulsar Iniciar y el countdown 5→1 corre EN
+  // PARALELO durante NOTE_DELAY_SEC=5s. La primera nota llega al receptor
+  // justo cuando el countdown desaparece. Antes: countdown silencioso 5s +
+  // audio + 3s extra sin notas = 8s perceptuales hasta jugar.
+  const audioRealStartAt = ctx.currentTime;
   game.audioSource.start(audioRealStartAt);
   // game.audioStartTime es el cero del RELOJ DE JUEGO (no del audio). El audio
   // real arranca NOTE_DELAY_SEC antes — pause/resume usa esa relación para
@@ -2942,18 +2964,19 @@ function startGame(diffOverride) {
 // que la primera nota toque el receptor. El beep es Web Audio puro — sin
 // assets, latencia <1ms.
 const GH_COUNTDOWN_STEPS = [
-  { text: '¡PREPÁRATE!', cls: 'cd-prep', beep: { freq: 660,  dur: 0.10 } },
-  { text: '3',           cls: 'cd-3',    beep: { freq: 880,  dur: 0.10 } },
-  { text: '2',           cls: 'cd-2',    beep: { freq: 880,  dur: 0.10 } },
-  { text: '1',           cls: 'cd-1',    beep: { freq: 880,  dur: 0.10 } },
-  { text: '¡VAMOS!',     cls: 'cd-go',   beep: { freq: 1320, dur: 0.22 } },
+  { text: '5', cls: 'cd-5', beep: { freq: 660,  dur: 0.10 } },
+  { text: '4', cls: 'cd-4', beep: { freq: 740,  dur: 0.10 } },
+  { text: '3', cls: 'cd-3', beep: { freq: 820,  dur: 0.10 } },
+  { text: '2', cls: 'cd-2', beep: { freq: 900,  dur: 0.10 } },
+  { text: '1', cls: 'cd-1', beep: { freq: 1320, dur: 0.22 } },
 ];
 const GH_COUNTDOWN_STEP_MS = 1000;
-// Tras el countdown, la música suena pero el chart "comienza" NOTE_DELAY_SEC
-// después: la primera nota llega al receptor 3s tras arrancar el audio. Esto
-// da a la jugadora un compás-y-medio de groove antes de tener que tocar.
-// El reloj de juego (gameClock) = audioRealTime − NOTE_DELAY_SEC.
-const NOTE_DELAY_SEC = 3.0;
+// La música arranca YA y el chart "comienza" NOTE_DELAY_SEC después: la
+// primera nota llega al receptor 5s tras arrancar el audio. Durante esos 5s
+// el countdown 5→1 está visible sobre el highway, así la jugadora oye el
+// groove desde el segundo 0 y los números le dan el conteo visual al
+// arranque. El reloj de juego (gameClock) = audioRealTime − NOTE_DELAY_SEC.
+const NOTE_DELAY_SEC = 5.0;
 function playGHCountdownBeep(ctx, freq, dur) {
   if (!ctx) return;
   try {
@@ -2995,10 +3018,13 @@ function runGHCountdown(ctx) {
     }
     i++;
     if (i >= GH_COUNTDOWN_STEPS.length) {
-      setTimeout(() => {
-        el.classList.add('hidden');
-        el.className = 'hidden';
-      }, GH_COUNTDOWN_STEP_MS);
+      // Último número ("1") ya estuvo visible 1s (los GH_COUNTDOWN_STEP_MS
+      // entre su showStep y este advance). Ocultar sin delay extra para que
+      // el total sea exactamente GH_COUNTDOWN_STEPS.length × STEP_MS = 5s,
+      // alineado con NOTE_DELAY_SEC para que la primera nota toque el
+      // receptor justo cuando el countdown desaparece.
+      el.classList.add('hidden');
+      el.className = 'hidden';
       return;
     }
     showStep();
@@ -3026,13 +3052,18 @@ function tick() {
       if (game.starPower <= 0) game.starPowerActive = false;
     }
 
-    // Whammy → detune (solo durante sustain activo)
-    if (game.audioSource) {
+    // Whammy → detune (solo durante sustain activo). Usa setTargetAtTime para
+    // que el detune sea una rampa exponencial suave (Web Audio interpola en el
+    // grafo) en lugar de un escalón por frame con `.value = ...`. Asignaciones
+    // directas cada frame generan microclics/aliasing audibles ("rasgado") al
+    // re-muestrear el AudioBuffer; setTargetAtTime usa una time-constant de
+    // 50 ms que filtra el jitter del potenciómetro y respeta cambios reales
+    // de la palanca en <100 ms.
+    if (game.audioSource && game.audioSource.detune) {
       const hasSustain = game.activeSustains.some(s => !s.sustainBroken);
       const detuneTarget = hasSustain ? -inputState.whammy * 200 : 0;
-      const cur = game.audioSource.detune.value;
-      // Lerp suave: se aproxima al 20% del gap por frame (a 60fps ~ 0.8s de time constant)
-      game.audioSource.detune.value = cur + (detuneTarget - cur) * Math.min(1, 12 * deltaTime);
+      const ctx = window.AudioPipeline.ensureAudioContext();
+      game.audioSource.detune.setTargetAtTime(detuneTarget, ctx.currentTime, 0.05);
     }
 
     processInput(t);
@@ -3066,9 +3097,12 @@ function togglePause() {
     game.audioSource = ctx.createBufferSource();
     game.audioSource.buffer = song.audioBuffer;
     game.audioSource.connect(ctx.destination);
-    // Restaurar detune del whammy en el source recién creado
+    // Restaurar detune del whammy en el source recién creado. setValueAtTime
+    // (no setTargetAtTime) para arrancar SIN rampa desde el detune objetivo —
+    // así no hay glissando audible al reanudar la pausa.
     const hasSustain = game.activeSustains && game.activeSustains.some(s => !s.sustainBroken);
-    game.audioSource.detune.value = hasSustain ? -inputState.whammy * 200 : 0;
+    const resumeDetune = hasSustain ? -inputState.whammy * 200 : 0;
+    game.audioSource.detune.setValueAtTime(resumeDetune, ctx.currentTime);
     // El audio arranca NOTE_DELAY_SEC ANTES que el reloj de juego (game.audio
     // StartTime es el cero del gameClock, no del audio). Para reanudar:
     //   - audioRealOffset = dónde está la canción ahora en segundos absolutos
