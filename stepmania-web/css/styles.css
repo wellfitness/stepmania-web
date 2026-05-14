@@ -1261,6 +1261,179 @@ details summary:hover { color: #fff; }
 }
 .session-summary .row:last-child { border-bottom: none; }
 
+/* Chip + edit inline del jugador en el banner de "siguiente canción".
+   Cuando hay sesión activa con autoguardado, mostramos qué nombre se está
+   usando y permitimos cambiarlo entre canciones (caso multijugador en casa:
+   madre y peque alternan partidas). Durante la edición el countdown se
+   pausa para no perder el input — la lógica de pause/resume vive en JS. */
+.session-player-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 10px;
+  padding: 6px 12px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(0,190,200,0.32);
+  border-radius: 999px;
+  font-size: 0.9em;
+  color: var(--gris-200);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.session-player-chip:hover {
+  border-color: var(--turquesa-400);
+  background: rgba(0,190,200,0.10);
+}
+.session-player-chip .chip-label {
+  color: var(--gris-400);
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.session-player-chip .chip-name {
+  color: var(--tulip-tree-500);
+  font-weight: 700;
+}
+.session-player-chip .chip-edit {
+  color: var(--gris-400);
+  font-size: 0.85em;
+}
+.session-player-edit {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 10px;
+  padding: 4px 6px 4px 10px;
+  background: rgba(0,0,0,0.50);
+  border: 1px solid var(--turquesa-400);
+  border-radius: 999px;
+}
+.session-player-edit input[type="text"] {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 0.95em;
+  font-family: inherit;
+  padding: 4px 2px;
+  min-width: 140px;
+  outline: none;
+}
+.session-player-edit .edit-ok {
+  background: var(--turquesa-400);
+  color: #001f22;
+  border: none;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 0.88em;
+}
+.session-player-edit .edit-ok:hover { background: var(--turquesa-300, #4dd0d7); }
+.session-player-edit .edit-cancel {
+  background: transparent;
+  color: var(--gris-400);
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* Aviso de autoguardado tras canción en sesión (sustituye al form de nombre). */
+.score-saved-notice {
+  margin: 18px 0 0;
+  padding: 12px 16px;
+  background: rgba(0,190,200,0.08);
+  border-left: 3px solid var(--turquesa-400);
+  border-radius: 8px;
+  color: var(--gris-200);
+  font-size: 0.95em;
+  text-align: center;
+}
+
+/* Tag con nombre del jugador junto a cada fila del resumen final. */
+.session-summary .player-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  background: rgba(234,179,8,0.14);
+  border: 1px solid rgba(234,179,8,0.32);
+  border-radius: 999px;
+  font-size: 0.78em;
+  color: var(--tulip-tree-500);
+  font-weight: 600;
+}
+.session-summary .players-breakdown {
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  font-size: 0.88em;
+  color: var(--gris-300);
+}
+.session-summary .players-breakdown strong { color: var(--tulip-tree-500); }
+
+/* Modal de "Tu nombre para esta partida" al inicio de sesión multijugador.
+   Sustituye al prompt() nativo del navegador (que en PWA standalone iOS se
+   ve feo y a veces Safari lo bloquea). Reutilizado por SM y GH — ambos
+   archivos cargan styles.css. La lógica vive en cada motor (askSessionPlayerName
+   en song-select.js para SM, copia inline en gh-play.html para GH) porque
+   no comparten JS, solo CSS. */
+.session-name-modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.78);
+  z-index: 99999;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: snmFadeIn 0.15s ease-out;
+}
+@keyframes snmFadeIn { from { opacity: 0 } to { opacity: 1 } }
+.session-name-box {
+  background: linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.92));
+  border: 1px solid rgba(0,190,200,0.36);
+  border-radius: 16px;
+  padding: 24px 26px;
+  max-width: 480px; width: 100%;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04);
+  animation: snmSlideIn 0.18s ease-out;
+}
+@keyframes snmSlideIn {
+  from { transform: translateY(8px); opacity: 0 }
+  to   { transform: translateY(0);   opacity: 1 }
+}
+.session-name-box h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  color: var(--turquesa-400);
+  font-size: 1.3em;
+}
+.session-name-box .snm-sub {
+  margin: 0 0 16px;
+  color: var(--gris-300);
+  font-size: 0.92em;
+  line-height: 1.5;
+}
+.session-name-box .snm-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(0,190,200,0.30);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 1.05em;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.session-name-box .snm-input:focus {
+  outline: none;
+  border-color: var(--turquesa-400);
+  box-shadow: 0 0 0 3px rgba(0,190,200,0.22);
+}
+.session-name-box .snm-input::placeholder { color: var(--gris-500); }
+.session-name-box .snm-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
 /* ============================================================================
    PUNTUACIONES / RANKINGS — formulario de guardar al acabar, panel de
    ranking en results, modal de scores en song-select y library.
@@ -1297,6 +1470,21 @@ details summary:hover { color: #fff; }
 }
 .score-save-form input[type="text"]::placeholder { color: var(--gris-500); }
 .score-save-form .action-btn { flex-shrink: 0; }
+
+/* Aviso "✓ Guardado como X" en modo sesión (playlist), reemplaza al form
+   porque el nombre se fijó al iniciar la partida. Mismo lenguaje visual que
+   .score-save-form para que se lea como bloque hermano. */
+.score-saved-notice {
+  margin: 18px 0 0;
+  padding: 12px 18px;
+  background: linear-gradient(180deg, rgba(0,255,100,0.10), rgba(0,255,100,0.04));
+  border: 1px solid rgba(0,255,100,0.28);
+  border-radius: 14px;
+  color: var(--gris-200);
+  font-size: 0.95em;
+  text-align: center;
+}
+.score-saved-notice strong { color: #00ff64; }
 .action-btn.primary {
   background: linear-gradient(90deg, var(--turquesa-400), var(--turquesa-600));
   color: #001f22; font-weight: 700;

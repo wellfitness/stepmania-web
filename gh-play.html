@@ -1006,6 +1006,21 @@
   .score-save-form input[type="text"]::placeholder { color: var(--gris-500); }
   .score-save-form .action-btn { flex-shrink: 0; }
 
+  /* Aviso "✓ Guardado como X" en modo sesión (playlist), reemplaza al form
+     porque el nombre se fijó al iniciar la partida. Paleta verde (success)
+     pero radius/padding alineados con .score-save-form. */
+  .score-saved-notice {
+    margin: 18px 0 0;
+    padding: 12px 18px;
+    background: linear-gradient(180deg, rgba(0,255,100,0.10), rgba(0,255,100,0.04));
+    border: 1px solid rgba(0,255,100,0.28);
+    border-radius: 14px;
+    color: var(--gris-200);
+    font-size: 0.95em;
+    text-align: center;
+  }
+  .score-saved-notice strong { color: var(--color-success); }
+
   /* ===== RANKING PANEL (results screen + modales) — paleta GH naranja =====
      Idéntico naming a stepmania-web/css/styles.css pero con --gh-accent en
      vez de turquesa. Estructura HTML: .ranking-panel > [.position-pill] >
@@ -1885,6 +1900,17 @@ function pickClosestGHDiff(parsedCharts, targetKey) {
 
 async function startPlaylistSession() {
   if (selectedGHIds.size === 0) return;
+  // Pedir el nombre del jugador UNA VEZ al inicio — el countdown de 5s entre
+  // canciones no daría tiempo a escribirlo cada vez. El nombre se reutiliza
+  // para autoguardar todas las puntuaciones de la sesión (flujo arcade
+  // canónico, idéntico al de SM). Modal HTML (no prompt() nativo) para
+  // mejor look-and-feel en PWA standalone iOS.
+  const lastName = getLastPlayerName();
+  const raw = await askSessionPlayerName(lastName || '');
+  if (raw === null) return;  // canceló — no arrancamos la sesión
+  const playerName = sanitizePlayerName(raw);
+  setLastPlayerName(playerName);
+
   // La dificultad común viene del select global del config-card.
   // Ya no abrimos modal — flow directo, idéntico al de SM.
   const diffKey = document.getElementById('difficulty').value;
@@ -1901,6 +1927,7 @@ async function startPlaylistSession() {
   playSession = {
     queue, difficultyKey: diffKey,
     index: 0, scores: [],
+    playerName,
     startedAt: Date.now()
   };
   selectedGHIds.clear();
@@ -1953,6 +1980,9 @@ function continueSessionNow() {
 }
 
 // Inyecta banner de "siguiente" o resumen final en results-screen.
+// `lastResult.playerName` (opcional) registra QUIÉN jugó la canción —
+// clave para el caso multijugador donde alterna gente entre canciones de
+// la misma partida (madre/peque, amigues turnándose).
 function updateResultsForSession(lastResult) {
   if (!playSession) return;
   if (lastResult) playSession.scores.push({
@@ -1969,16 +1999,35 @@ function updateResultsForSession(lastResult) {
   if (isLast) {
     const totalScore = playSession.scores.reduce((s, r) => s + (r.score || 0), 0);
     const avgAcc = playSession.scores.reduce((s, r) => s + (r.accuracy || 0), 0) / playSession.scores.length;
-    const summary = playSession.scores.map(r =>
-      `<div class="row"><span>${escHtml(r.title)} <small style="color:var(--gris-500)">· ${escHtml(ghDiffLabel(r.diff))}</small></span>` +
-      `<span style="color:var(--fret-yellow)"><strong>${r.grade}</strong> ${(r.accuracy||0).toFixed(0)}%</span></div>`
-    ).join('');
+    // Conteo por jugador. Si todos los runs son del mismo nombre, lo señalamos
+    // ("Sesión guardada como X"); si hay alternancia, mostramos desglose.
+    const playerCounts = new Map();
+    for (const r of playSession.scores) {
+      const p = r.playerName || 'Anónimo';
+      playerCounts.set(p, (playerCounts.get(p) || 0) + 1);
+    }
+    let breakdownHtml = '';
+    if (playerCounts.size === 1) {
+      const only = playerCounts.keys().next().value;
+      breakdownHtml = `<div class="players-breakdown">💾 Guardado como <strong>${escHtml(only)}</strong> (${playSession.scores.length}/${playSession.queue.length})</div>`;
+    } else {
+      const parts = Array.from(playerCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, n]) => `<strong>${escHtml(name)}</strong> · ${n}`);
+      breakdownHtml = `<div class="players-breakdown">💾 ${parts.join(' · ')}</div>`;
+    }
+    const summary = playSession.scores.map(r => {
+      const tag = r.playerName ? `<span class="player-tag">${escHtml(r.playerName)}</span>` : '';
+      return `<div class="row"><span>${escHtml(r.title)} <small style="color:var(--gris-500)">· ${escHtml(ghDiffLabel(r.diff))}</small>${tag}</span>` +
+        `<span style="color:var(--fret-yellow)"><strong>${r.grade}</strong> ${(r.accuracy||0).toFixed(0)}%</span></div>`;
+    }).join('');
     const summaryEl = document.createElement('div');
     summaryEl.className = 'session-summary';
     summaryEl.innerHTML = `
       <div style="font-family:var(--font-display);color:var(--gh-accent);font-size:1.1em;margin-bottom:8px">
         🏁 Sesión completa · ${playSession.queue.length} canciones
       </div>
+      ${breakdownHtml}
       ${summary}
       <div class="row" style="margin-top:8px;padding-top:10px;border-top:1px solid rgba(249,115,22,0.3)">
         <strong>Score total</strong>
@@ -1989,9 +2038,10 @@ function updateResultsForSession(lastResult) {
     return;
   }
 
-  // Hay siguiente: banner con countdown
+  // Hay siguiente: banner con countdown + chip de jugador
   const nextIdx = playSession.index + 1;
   const next = playSession.queue[nextIdx];
+  const currentPlayer = playSession.playerName || 'Anónimo';
   const banner = document.createElement('div');
   banner.className = 'session-next-banner';
   banner.innerHTML = `
@@ -1999,24 +2049,147 @@ function updateResultsForSession(lastResult) {
     <div class="next-title">${escHtml(next.entry.title || '?')}</div>
     <div class="countdown" id="sessionCountdown">5</div>
     <div class="progress-text">Canción ${nextIdx + 1} de ${playSession.queue.length}</div>
+    <div id="sessionPlayerWrap">
+      <button type="button" class="session-player-chip" id="sessionPlayerChip" title="Cambiar jugador para las siguientes canciones">
+        <span class="chip-label">Próxima jugada</span>
+        <span class="chip-name" id="sessionPlayerName">${escHtml(currentPlayer)}</span>
+        <span class="chip-edit">✎ cambiar</span>
+      </button>
+    </div>
     <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
       <button class="action-btn" onclick="continueSessionNow()">▶ Continuar ahora</button>
       <button class="action-btn secondary" onclick="endPlaylistSession();returnToSetup()">⊘ Salir de la sesión</button>
     </div>`;
   resultsScreen.querySelector('.center').insertAdjacentElement('beforebegin', banner);
 
-  let secs = 5;
+  // Wire chip → modo edición. Pausa countdown mientras escribe.
+  const chip = document.getElementById('sessionPlayerChip');
+  if (chip) chip.addEventListener('click', () => openSessionPlayerEdit());
+
+  startSessionCountdown(5);
+}
+
+// Arranca/reinicia el countdown. Centralizado para que el cambio de jugador
+// pueda pausar y reanudarlo limpiamente.
+function startSessionCountdown(secs) {
   if (_sessionCountdownTimer) clearInterval(_sessionCountdownTimer);
+  let s = secs;
+  const el = document.getElementById('sessionCountdown');
+  if (el) el.textContent = s;
   _sessionCountdownTimer = setInterval(() => {
-    secs--;
-    const el = document.getElementById('sessionCountdown');
-    if (el) el.textContent = secs;
-    if (secs <= 0) {
+    s--;
+    const e2 = document.getElementById('sessionCountdown');
+    if (e2) e2.textContent = s;
+    if (s <= 0) {
       clearInterval(_sessionCountdownTimer);
       _sessionCountdownTimer = null;
       continueSessionNow();
     }
   }, 1000);
+}
+
+function pauseSessionCountdown() {
+  if (_sessionCountdownTimer) {
+    clearInterval(_sessionCountdownTimer);
+    _sessionCountdownTimer = null;
+  }
+}
+
+// Sustituye el chip por un input editable y pausa el countdown — el usuario
+// puede tomarse el tiempo que necesite. Al confirmar (Enter / OK) actualiza
+// playSession.playerName y reanuda el countdown desde 5s. Cancelar (ESC / ×)
+// restaura el chip sin cambiar nada y reanuda igualmente.
+function openSessionPlayerEdit() {
+  if (!playSession) return;
+  pauseSessionCountdown();
+  const wrap = document.getElementById('sessionPlayerWrap');
+  if (!wrap) return;
+  const current = playSession.playerName || '';
+  wrap.innerHTML = `
+    <div class="session-player-edit">
+      <input type="text" id="sessionPlayerInput" maxlength="12" value="${escHtml(current)}" placeholder="Nombre del siguiente jugador" autocomplete="off">
+      <button type="button" class="edit-ok" id="sessionPlayerOk">OK</button>
+      <button type="button" class="edit-cancel" id="sessionPlayerCancel" title="Cancelar">×</button>
+    </div>`;
+  const inp = document.getElementById('sessionPlayerInput');
+  const okBtn = document.getElementById('sessionPlayerOk');
+  const cancelBtn = document.getElementById('sessionPlayerCancel');
+  const commit = () => {
+    const name = sanitizePlayerName(inp.value);
+    playSession.playerName = name;
+    setLastPlayerName(name);
+    restoreSessionPlayerChip();
+    startSessionCountdown(5);
+  };
+  const cancel = () => {
+    restoreSessionPlayerChip();
+    startSessionCountdown(5);
+  };
+  okBtn.addEventListener('click', commit);
+  cancelBtn.addEventListener('click', cancel);
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+  });
+  inp.focus();
+  inp.select();
+}
+
+function restoreSessionPlayerChip() {
+  const wrap = document.getElementById('sessionPlayerWrap');
+  if (!wrap || !playSession) return;
+  const currentPlayer = playSession.playerName || 'Anónimo';
+  wrap.innerHTML = `
+    <button type="button" class="session-player-chip" id="sessionPlayerChip" title="Cambiar jugador para las siguientes canciones">
+      <span class="chip-label">Próxima jugada</span>
+      <span class="chip-name" id="sessionPlayerName">${escHtml(currentPlayer)}</span>
+      <span class="chip-edit">✎ cambiar</span>
+    </button>`;
+  const chip = document.getElementById('sessionPlayerChip');
+  if (chip) chip.addEventListener('click', () => openSessionPlayerEdit());
+}
+
+// Modal HTML para pedir el nombre del jugador al iniciar una partida multi.
+// Espejo del askSessionPlayerName de song-select.js (SM) — no compartimos JS
+// entre los dos motores pero sí los estilos (.session-name-modal en
+// styles.css). Devuelve Promise<string|null> — null si cancela. Razón del
+// modal vs prompt() nativo: en PWA standalone iOS, prompt() puede aparecer
+// con look raro o estar parcialmente bloqueado por Safari.
+function askSessionPlayerName(defaultValue = '') {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'session-name-modal';
+    overlay.innerHTML = `
+      <div class="session-name-box" role="dialog" aria-modal="true" aria-labelledby="snmTitle">
+        <h3 id="snmTitle">🎸 Nueva partida</h3>
+        <p class="snm-sub">Tu nombre se guardará con cada canción de la partida. Podrás cambiarlo entre canciones si alterna otra persona.</p>
+        <input type="text" class="snm-input" maxlength="12" placeholder="Tu nombre" autocomplete="off">
+        <div class="snm-actions">
+          <button type="button" class="action-btn secondary snm-cancel">Cancelar</button>
+          <button type="button" class="action-btn primary snm-ok">Empezar partida</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const inp = overlay.querySelector('.snm-input');
+    inp.value = defaultValue;
+    const close = (val) => {
+      document.removeEventListener('keydown', onKey, true);
+      overlay.remove();
+      resolve(val);
+    };
+    const onKey = e => {
+      if (e.key === 'Escape') { e.preventDefault(); close(null); }
+      else if (e.key === 'Enter' && document.activeElement === inp) {
+        e.preventDefault();
+        close(inp.value);
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    overlay.querySelector('.snm-ok').addEventListener('click', () => close(inp.value));
+    overlay.querySelector('.snm-cancel').addEventListener('click', () => close(null));
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(null); });
+    setTimeout(() => { inp.focus(); inp.select(); }, 30);
+  });
 }
 
 // ============================================================================
@@ -3579,7 +3752,7 @@ function render(t) {
 // ============================================================================
 //                          RESULTS / END
 // ============================================================================
-function finishGame() {
+async function finishGame() {
   if (!game) return;
   if (game.audioSource) try { game.audioSource.stop(); } catch(e){}
   if (rafId) cancelAnimationFrame(rafId);
@@ -3651,13 +3824,35 @@ function finishGame() {
   } else {
     _pendingGhRun = null;
   }
-  const lastName = escHtml(getLastPlayerName());
-  const saveFormHtml = _pendingGhRun ? `
+  // En modo sesión (playlist) auto-guardamos con el nombre vigente — éste
+  // puede cambiar entre canciones si la usuaria pulsa "Cambiar jugador" en
+  // el banner de transición (caso multijugador alternando turnos). NO
+  // renderizamos el form porque el countdown de 5s no daría tiempo a escribir
+  // nombre cada vez. En single seguimos pidiendo nombre canción a canción.
+  const sessionPlayer = (playSession && playSession.playerName) ? playSession.playerName : null;
+  let saveFormHtml = '';
+  let autoSavedNotice = '';
+  let autoSavedName = null;  // se pasa a updateResultsForSession para el resumen final
+  if (sessionPlayer && _pendingGhRun) {
+    const autoRun = { ..._pendingGhRun, playerName: sessionPlayer, playerLower: sessionPlayer.toLowerCase() };
+    _pendingGhRun = null;
+    try {
+      await dbRunAdd(autoRun);
+      autoSavedName = sessionPlayer;
+      autoSavedNotice = `<div class="score-saved-notice">✓ Guardado como <strong>${escHtml(sessionPlayer)}</strong></div>`;
+    } catch (e) {
+      console.error('Auto-save de sesión falló:', e);
+      autoSavedNotice = `<div class="score-saved-notice" style="color:#ff6b6b">⚠ No se pudo guardar la puntuación</div>`;
+    }
+  } else if (_pendingGhRun) {
+    const lastName = escHtml(getLastPlayerName());
+    saveFormHtml = `
     <div id="ghResultsScoreSave" class="score-save-form">
       <label for="ghPlayerNameInput">Tu nombre</label>
       <input id="ghPlayerNameInput" type="text" maxlength="12" value="${lastName}" placeholder="Tu nombre" autocomplete="off">
       <button id="ghSaveRunBtn" class="action-btn primary">Guardar puntuación</button>
-    </div>` : '';
+    </div>`;
+  }
 
   const stats = document.getElementById('resultsStats');
   stats.innerHTML = `
@@ -3671,24 +3866,30 @@ function finishGame() {
     </div>
     <div class="results-judgments">${judgmentRows}</div>
     ${saveFormHtml}
+    ${autoSavedNotice}
   `;
   // Wire-up del form de guardar puntuación. Autofocus solo si no hay nombre
-  // prefilled (no robamos foco al texto si el usuario ya escribió antes).
-  if (_pendingGhRun) {
+  // prefilled (no robamos foco al texto si el usuario ya escribió antes). El
+  // form solo existe en modo single (en sesión se autoguardó arriba).
+  if (saveFormHtml) {
     const inp = document.getElementById('ghPlayerNameInput');
     const btn = document.getElementById('ghSaveRunBtn');
     if (inp && btn) {
       btn.addEventListener('click', () => { saveCurrentGhRun().catch(e => console.error('saveCurrentGhRun:', e)); });
       inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } });
+      const lastName = getLastPlayerName();
       if (!lastName) inp.focus();
     }
   }
   // Hook playlist mode: si hay sesión activa, inyecta banner de siguiente o
-  // resumen final. Capturamos los datos antes de game = null.
+  // resumen final. Capturamos los datos antes de game = null. `playerName`
+  // queda en el score para que el resumen final pueda etiquetar cada fila
+  // con quién la jugó (caso multijugador).
   const sessionResult = playSession ? {
     grade,
     accuracy: +accuracy.toFixed(2),
-    score: Math.round(game.score)
+    score: Math.round(game.score),
+    playerName: autoSavedName  // null si autosave falló o no había sesión
   } : null;
   game = null;
   if (sessionResult) updateResultsForSession(sessionResult);

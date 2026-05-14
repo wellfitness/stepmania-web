@@ -1495,14 +1495,35 @@ async function endGame() {
         <span class="jcount">${count}</span>
       </div>`;
   }).join('');
-  // El form de guardar solo aparece cuando hay un run válido pendiente.
-  const lastName = escapeHtml(getLastPlayerName());
-  const saveFormHtml = _pendingRun ? `
+  // En modo sesión (playlist) auto-guardamos con el nombre vigente — éste
+  // puede cambiar entre canciones si la usuaria pulsa "Cambiar jugador" en
+  // el banner de transición (caso multijugador alternando turnos). NO
+  // renderizamos el form porque el countdown de 5s no daría tiempo a escribir
+  // nombre cada vez. En single seguimos pidiendo nombre canción a canción.
+  const sessionPlayer = (typeof getActiveSessionPlayer === 'function') ? getActiveSessionPlayer() : null;
+  let saveFormHtml = '';
+  let autoSavedNotice = '';
+  let autoSavedName = null;  // se pasa a updateResultsForSession para el resumen final
+  if (sessionPlayer && _pendingRun) {
+    const autoRun = { ..._pendingRun, playerName: sessionPlayer, playerLower: sessionPlayer.toLowerCase() };
+    _pendingRun = null;
+    try {
+      await dbRunAdd(autoRun);
+      autoSavedName = sessionPlayer;
+      autoSavedNotice = `<div class="score-saved-notice">✓ Guardado como <strong>${escapeHtml(sessionPlayer)}</strong></div>`;
+    } catch (e) {
+      console.error('Auto-save de sesión falló:', e);
+      autoSavedNotice = `<div class="score-saved-notice" style="color:#ff6b6b">⚠ No se pudo guardar la puntuación</div>`;
+    }
+  } else if (_pendingRun) {
+    const lastName = escapeHtml(getLastPlayerName());
+    saveFormHtml = `
     <div id="resultsScoreSave" class="score-save-form">
       <label for="playerNameInput">Tu nombre</label>
       <input id="playerNameInput" type="text" maxlength="12" value="${lastName}" placeholder="Tu nombre" autocomplete="off">
       <button id="saveRunBtn" class="action-btn primary">Guardar puntuación</button>
-    </div>` : '';
+    </div>`;
+  }
   document.getElementById('resultsContent').innerHTML = `
     <div class="results-header">
       <div class="results-grade ${gradeClass}">${grade}</div>
@@ -1514,16 +1535,19 @@ async function endGame() {
     </div>
     <div class="results-judgments">${judgmentRows}</div>
     ${saveFormHtml}
+    ${autoSavedNotice}
   `;
   // Wire-up del form: Enter en input dispara click en botón. Autofocus solo
   // si el nombre prefilled está vacío — si ya hay nombre del último jugador,
-  // dejamos al usuario decidir si lo cambia (no robamos foco al texto).
-  if (_pendingRun) {
+  // dejamos al usuario decidir si lo cambia (no robamos foco al texto). El
+  // form solo existe en modo single (en sesión se autoguardó arriba).
+  if (saveFormHtml) {
     const inp = document.getElementById('playerNameInput');
     const btn = document.getElementById('saveRunBtn');
     if (inp && btn) {
       btn.addEventListener('click', () => { saveCurrentRun().catch(e => console.error('saveCurrentRun:', e)); });
       inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); btn.click(); } });
+      const lastName = getLastPlayerName();
       if (!lastName) inp.focus();
     }
   }
@@ -1531,8 +1555,15 @@ async function endGame() {
   goto('results');
   // Hook de modo playlist: si hay sesión activa, inyecta banner de siguiente
   // canción + countdown, o resumen agregado en la última canción.
+  // `playerName` queda en el score para que el resumen final pueda etiquetar
+  // cada fila con quién la jugó (caso multijugador).
   if (typeof updateResultsForSession === 'function') {
-    updateResultsForSession({ grade, accuracy: +accuracy.toFixed(2), score: gameState.score });
+    updateResultsForSession({
+      grade,
+      accuracy: +accuracy.toFixed(2),
+      score: gameState.score,
+      playerName: autoSavedName  // null fuera de sesión, nombre real si autoguardó
+    });
   }
 }
 
