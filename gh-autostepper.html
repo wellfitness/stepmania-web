@@ -720,7 +720,8 @@ const CHART_RESOLUTION = 192;  // ticks per quarter note (SM y CH usan ambos 192
 const {
   decodeFile, toMono, bassEmphasize, midEmphasize,
   computeEnergyEnvelope, computeODF,
-  pickPeaks, detectBPM, detectOffset,
+  pickPeaks, detectBPM, detectBPMSegments, detectOffset,
+  normalizeODFLocally,
   ensureAudioContext,
   computeBandEnvelopes, getPitchBandAtFrame
 } = window.AudioPipeline;
@@ -944,6 +945,39 @@ function log(msg, cls='') {
 }
 
 // ============================================================================
+//                    TICK TIMELINE (BPM variable)
+// ============================================================================
+// Construye la línea de tiempo tick↔segundos para BPM variable.
+// bpmSegments: [{timeSec, bpm}] en tiempo absoluto del audio.
+// offsetSec: instante del primer downbeat = tick 0 del chart.
+// Devuelve [{startRelSec, bpm, startTick}] ordenado por startRelSec.
+function buildTickTimeline(bpmSegments, offsetSec, chartResolution) {
+  const tl = [];
+  let cumTick = 0;
+  for (let i = 0; i < bpmSegments.length; i++) {
+    const relSec = Math.max(0, bpmSegments[i].timeSec - offsetSec);
+    if (i === 0) {
+      tl.push({ startRelSec: 0, bpm: bpmSegments[i].bpm, startTick: 0 });
+    } else {
+      const prev = tl[tl.length - 1];
+      if (relSec <= prev.startRelSec) { prev.bpm = bpmSegments[i].bpm; continue; }
+      const durSec = relSec - prev.startRelSec;
+      cumTick = prev.startTick + Math.round(durSec / (60 / prev.bpm) * chartResolution);
+      tl.push({ startRelSec: relSec, bpm: bpmSegments[i].bpm, startTick: cumTick });
+    }
+  }
+  return tl;
+}
+// Convierte segundos (desde offsetSec) a ticks usando el tick timeline.
+function relSecToTick(relSec, tl, chartResolution) {
+  let seg = tl[0];
+  for (let i = tl.length - 1; i >= 0; i--) {
+    if (relSec >= tl[i].startRelSec) { seg = tl[i]; break; }
+  }
+  return seg.startTick + Math.round((relSec - seg.startRelSec) / (60 / seg.bpm) * chartResolution);
+}
+
+// ============================================================================
 //                          NOTE GENERATION (5 frets)
 // ============================================================================
 // Modelo de nota: { tick: int, frets: [int...], sustain: int }
@@ -975,11 +1009,10 @@ const DIFFICULTIES = [
 ];
 
 // Devuelve un array de notas para la dificultad dada.
-//   onsetTicks: array de ticks (int) de cada onset detectado (resolución 192/quarter)
-//   bpm: tempo en BPM (constante por toda la canción para MVP)
-//   offsetSec: instante del primer downbeat
-//   presetMul: multiplicador del preset suave/normal/intenso (1.0 default)
-function generateNotesForDifficulty(onsetTicks, diff, chordProb, sustainProb, bpm, offsetSec, presetMul, pitchBandForTick) {
+//   onsetTicks: array de ticks (int) de cada onset detectado
+//   bandEnvs: envolventes de 5 bandas de frecuencia para sustains por audio
+//   framesPerSec: para calcular frames correspondientes al gap
+function generateNotesForDifficulty(onsetTicks, diff, chordProb, sustainProb, bpm, offsetSec, presetMul, pitchBandForTick, bandEnvs, framesPerSec) {
   if (onsetTicks.length === 0) return [];
   const notes = [];
 
@@ -992,11 +1025,18 @@ function generateNotesForDifficulty(onsetTicks, diff, chordProb, sustainProb, bp
     const tick = filtered[i];
     const nextTick = filtered[i + 1];
 
-    const pitchBand = pitchBandForTick ? (pitchBandForTick.get(tick) ?? 2) : undefined;
+    const pbEntry  = pitchBandForTick ? pitchBandForTick.get(tick) : undefined;
+    const pitchBand = pbEntry !== undefined ? pbEntry.band  : undefined;
+    const pitchFrame = pbEntry !== undefined ? pbEntry.frame : undefined;
     const fret = pickNextFret(lastFret, diff.fretRange, pitchBand);
-    const fretsThisNote = [fret];
 
-    if (diff.chordMul > 0 && Math.random() < chordProb * diff.chordMul) {
+    // Open notes (fret 7): ~5% en Hard/Expert cuando el pitch es grave (banda 0)
+    const isOpen = (diff.tier === 'hard' || diff.tier === 'expert')
+                && pitchBand === 0
+                && Math.random() < 0.05;
+    let fretsThisNote = isOpen ? [7] : [fret];
+
+    if (!isOpen && diff.chordMul > 0 && Math.random() < chordProb * diff.chordMul) {
       const adj = (Math.random() < 0.5 && fret > diff.fretRange[0]) ? fret - 1
                 : (fret < diff.fretRange[1] ? fret + 1 : fret - 1);
       if (adj !== fret && adj >= diff.fretRange[0] && adj <= diff.fretRange[1]) {
@@ -1004,21 +1044,47 @@ function generateNotesForDifficulty(onsetTicks, diff, chordProb, sustainProb, bp
       }
     }
 
-    // Sustain: si hay gap >= 1/2 beat (96 ticks) hasta el siguiente onset,
-    // con probabilidad sustainProb convertimos esto en sustain que cubre
-    // hasta el 80% de ese gap.
+    // Sustain basado en energía audio mid-band + fallback probabilístico.
+    // Si la guitarra/voz sigue sonando entre onset y siguiente → biás a sustain.
     let sustain = 0;
-    if (diff.sustainsAllowed && nextTick !== undefined) {
+    if (!isOpen && diff.sustainsAllowed && nextTick !== undefined) {
       const gap = nextTick - tick;
-      if (gap >= CHART_RESOLUTION / 2 && Math.random() < sustainProb) {
-        sustain = Math.floor(gap * 0.8);
+      if (gap >= CHART_RESOLUTION / 2) {
+        let audioProb = sustainProb;
+        if (bandEnvs && pitchFrame !== undefined) {
+          const nextEntry = pitchBandForTick ? pitchBandForTick.get(nextTick) : undefined;
+          const nextFrame = nextEntry !== undefined ? nextEntry.frame : undefined;
+          if (nextFrame !== undefined) {
+            const sustained = isMidEnergySustained(bandEnvs, pitchFrame, nextFrame);
+            audioProb = sustained ? Math.max(0.70, sustainProb) : Math.min(0.15, sustainProb);
+          }
+        }
+        if (Math.random() < audioProb) sustain = Math.floor(gap * 0.8);
       }
     }
 
     notes.push({ tick, frets: fretsThisNote, sustain });
-    lastFret = fret;
+    if (!isOpen) lastFret = fret;  // no contaminar lastFret con fret 7
   }
   return notes;
+}
+
+// Si la energía mid-band (250-1500 Hz) se mantiene ≥40% de la energía en el
+// onset durante al menos el 50% del gap → el audio "suena sostenido" → sustain.
+function isMidEnergySustained(bandEnvs, startFrame, endFrame) {
+  if (!bandEnvs || endFrame <= startFrame) return false;
+  const dur = endFrame - startFrame;
+  let onsetE = 0;
+  for (const b of [1, 2]) onsetE += (bandEnvs[b]?.[startFrame] ?? 0);
+  if (onsetE < 1e-6) return false;
+  const thr = onsetE * 0.40;
+  let sustained = 0;
+  for (let f = startFrame; f < endFrame; f++) {
+    let e = 0;
+    for (const b of [1, 2]) e += (bandEnvs[b]?.[f] ?? 0);
+    if (e >= thr) sustained++;
+  }
+  return sustained / dur >= 0.50;
 }
 
 // Asigna el siguiente fret. Con pitchBand (0-4): 70% guiado por pitch,
@@ -1088,13 +1154,15 @@ function buildChartFile(meta, charts) {
   lines.push(`  MusicStream = "${meta.audioFilename}"`);
   lines.push('}');
 
-  // [SyncTrack] — para MVP solo un BPM constante. El offset musical lo
-  // metemos como Offset del Song header (en segundos), no en SyncTrack.
-  // CH usa milibeats: `B 120000` = 120.000 BPM. Multiplicar BPM por 1000.
+  // [SyncTrack] — un marcador B por segmento de BPM detectado.
+  // CH usa milibeats: `B 120000` = 120.000 BPM → multiplicar BPM × 1000.
   lines.push('[SyncTrack]');
   lines.push('{');
   lines.push(`  0 = TS 4`);
-  lines.push(`  0 = B ${Math.round(meta.bpm * 1000)}`);
+  const tl = meta.tickTimeline || [{ startTick: 0, bpm: meta.bpm }];
+  for (const seg of tl) {
+    lines.push(`  ${seg.startTick} = B ${Math.round(seg.bpm * 1000)}`);
+  }
   lines.push('}');
 
   // [Events]
@@ -1234,20 +1302,27 @@ async function processOne(q, opts) {
   }
   if (blendMax > 0) for (let i = 0; i < blendedOdf.length; i++) blendedOdf[i] /= blendMax;
 
-  const peakFrames = pickPeaks(blendedOdf, framesPerSec, opts.sensitivity);
+  // Normalización local: permite capturar onsets en tramos quiet (intro, break)
+  // que quedarían bajo el umbral global. BPM/offset usan la ODF global (blendedOdf).
+  const localOdf = normalizeODFLocally(blendedOdf, framesPerSec);
+  const peakFrames = pickPeaks(localOdf, framesPerSec, opts.sensitivity);
 
-  // 3. BPM + offset — usamos la blended ODF para mejor detección en música
-  // con guitarra (la autocorrelación responde mejor al mid-band que al bass solo).
-  let bpm;
+  // 3. BPM variable + offset — usamos la blended ODF.
+  // detectBPMSegments devuelve [{timeSec, bpm}]: 1 elemento = tempo constante.
+  let bpmSegments;
   if (q.bpmOverride && parseFloat(q.bpmOverride) > 0) {
-    bpm = parseFloat(q.bpmOverride);
-    log(`  BPM (override): ${bpm.toFixed(1)}`);
+    bpmSegments = [{ timeSec: 0, bpm: parseFloat(q.bpmOverride) }];
+    log(`  BPM (override): ${bpmSegments[0].bpm.toFixed(1)}`);
   } else {
-    bpm = detectBPM(blendedOdf, framesPerSec);
-    log(`  BPM detectado: ${bpm.toFixed(1)}`);
+    bpmSegments = detectBPMSegments(blendedOdf, framesPerSec);
+    log(`  BPM: ${bpmSegments.map((s, i) => s.bpm.toFixed(1) + (i > 0 ? `@${s.timeSec.toFixed(0)}s` : '')).join(' → ')}`);
   }
+  const bpm = bpmSegments[0].bpm;
   const offsetSec = detectOffset(blendedOdf, framesPerSec, bpm);
   log(`  Offset: ${offsetSec.toFixed(3)}s · ${peakFrames.length} onsets`);
+
+  // Tick timeline para BPM variable — convierte segundos → ticks correctamente.
+  const tickTimeline = buildTickTimeline(bpmSegments, offsetSec, CHART_RESOLUTION);
 
   // 3.b. Cap de duración (Completa / 90s / 120s / 180s) — recorta el chart Y
   // el audio. effectiveDuration manda en TODO el resto del pipeline para que
@@ -1259,20 +1334,14 @@ async function processOne(q, opts) {
     log(`  Duración recortada: ${effectiveDuration.toFixed(1)}s / ${buffer.duration.toFixed(1)}s`);
   }
 
-  // 4. Convertir onsets de frames → segundos → ticks. Si hay cap activo se
-  // descartan los peaks que caigan en la sección recortada antes de pasar a
-  // ticks — así DifficultyTiers.filterTicks ve un universo ya truncado y el
-  // NPS por ventana sigue siendo correcto en el segmento mantenido.
-  const beatSec = 60 / bpm;
+  // 4. Convertir onsets frames → ticks usando el tick timeline (BPM variable).
   const onsetTicks = [];
   for (const f of peakFrames) {
     const sec = f / framesPerSec;
-    if (sec >= effectiveDuration) continue;  // fuera del cap, descartado
+    if (sec >= effectiveDuration) continue;
     const relSec = sec - offsetSec;
-    if (relSec < 0) continue;  // descartar onsets antes del primer beat
-    const beats = relSec / beatSec;
-    const tick = Math.round(beats * CHART_RESOLUTION);
-    onsetTicks.push(tick);
+    if (relSec < 0) continue;
+    onsetTicks.push(relSecToTick(relSec, tickTimeline, CHART_RESOLUTION));
   }
   if (onsetTicks.length === 0) {
     throw new Error('No se detectaron onsets — ajusta sensibilidad o usa override BPM');
@@ -1284,9 +1353,9 @@ async function processOne(q, opts) {
   // Eliminar duplicados después de quantizar
   const uniqueTicks = [...new Set(quantized)].sort((a, b) => a - b);
 
-  // 5.b. Pitch band por onset — se construye DESPUÉS de quantizar para que las
-  // claves del Map coincidan con los ticks de uniqueTicks (post-quantización).
-  // Si varios frames caen en el mismo tick quantizado, se conserva el primero.
+  // 5.b. Pitch band + frame por onset — {band, frame} para que generateNotes
+  // pueda consultar la energía mid-band al decidir sustains (isMidEnergySustained).
+  // Claves = ticks quantizados (coinciden con uniqueTicks). Primer frame gana.
   const bandEnvs = computeBandEnvelopes(monoData, sr);
   const pitchBandForTick = new Map();
   for (const f of peakFrames) {
@@ -1294,10 +1363,10 @@ async function processOne(q, opts) {
     if (sec >= effectiveDuration) continue;
     const relSec = sec - offsetSec;
     if (relSec < 0) continue;
-    const rawTick = Math.round((relSec / beatSec) * CHART_RESOLUTION);
+    const rawTick = relSecToTick(relSec, tickTimeline, CHART_RESOLUTION);
     const qTick = Math.round(rawTick / subdivTicks) * subdivTicks;
     if (!pitchBandForTick.has(qTick)) {
-      pitchBandForTick.set(qTick, getPitchBandAtFrame(bandEnvs, f));
+      pitchBandForTick.set(qTick, { band: getPitchBandAtFrame(bandEnvs, f), frame: f });
     }
   }
 
@@ -1311,7 +1380,7 @@ async function processOne(q, opts) {
   const charts = DIFFICULTIES.map(d => ({
     name: d.name,
     section: d.section,
-    notes: generateNotesForDifficulty(uniqueTicks, d, opts.chordProb, opts.sustainProb, bpm, offsetSec, presetMul, pitchBandForTick),
+    notes: generateNotesForDifficulty(uniqueTicks, d, opts.chordProb, opts.sustainProb, bpm, offsetSec, presetMul, pitchBandForTick, bandEnvs, framesPerSec),
     meter: d.meter
   }));
   for (const c of charts) {
@@ -1336,6 +1405,7 @@ async function processOne(q, opts) {
     artist: q.artist || 'Unknown',
     charter: opts.charter,
     bpm,
+    tickTimeline,  // para BPM variable en SyncTrack
     duration: effectiveDuration,
     audioFilename,
     genre: opts.genre,

@@ -220,6 +220,56 @@
     return best.phase / framesPerSec;
   }
 
+  // Normaliza la ODF localmente por secciones de 1s con ventana de ±2s.
+  // Permite detectar onsets en tramos dinámicamente quietos (intro, break) que
+  // quedarían aplastados por el umbral global. BPM y offset usan la ODF global.
+  function normalizeODFLocally(odf, framesPerSec) {
+    const granFrames = Math.max(1, Math.floor(framesPerSec));
+    const winRadius = 2;
+    const numSamples = Math.ceil(odf.length / granFrames);
+    const coarse = new Float32Array(numSamples);
+    for (let s = 0; s < numSamples; s++) {
+      const lo = s * granFrames, hi = Math.min(odf.length, (s + 1) * granFrames);
+      let mx = 0;
+      for (let i = lo; i < hi; i++) if (odf[i] > mx) mx = odf[i];
+      coarse[s] = mx;
+    }
+    const out = new Float32Array(odf.length);
+    for (let i = 0; i < odf.length; i++) {
+      const s = Math.floor(i / granFrames);
+      let localMax = 0;
+      for (let d = -winRadius; d <= winRadius; d++) {
+        const si = Math.max(0, Math.min(numSamples - 1, s + d));
+        if (coarse[si] > localMax) localMax = coarse[si];
+      }
+      out[i] = localMax > 0 ? odf[i] / localMax : odf[i];
+    }
+    return out;
+  }
+
+  // Detección de BPM variable — ventanas de 8s con step de 4s.
+  // Cada ventana usa la misma autocorrelación de detectBPM.
+  // Segmentos consecutivos cuyo BPM difiere < 6% se fusionan.
+  // Devuelve [{ timeSec, bpm }]. Con tempo constante, array de 1 elemento.
+  function detectBPMSegments(odf, framesPerSec) {
+    const winFrames  = Math.floor(framesPerSec * 8);
+    const stepFrames = Math.floor(framesPerSec * 4);
+    const raw = [];
+    for (let start = 0; start < odf.length; start += stepFrames) {
+      const end = Math.min(odf.length, start + winFrames);
+      if (end - start < Math.floor(framesPerSec * 2)) break;
+      raw.push({ timeSec: start / framesPerSec, bpm: detectBPM(odf.slice(start, end), framesPerSec) });
+    }
+    if (!raw.length) return [{ timeSec: 0, bpm: detectBPM(odf, framesPerSec) }];
+    const merged = [raw[0]];
+    for (let i = 1; i < raw.length; i++) {
+      const ratio = raw[i].bpm / merged[merged.length - 1].bpm;
+      if (ratio >= 0.94 && ratio <= 1.06) continue;
+      merged.push(raw[i]);
+    }
+    return merged;
+  }
+
   // Recorta un AudioBuffer a maxDurationSec y lo encoda como WAV PCM 16-bit.
   // Se aplica un fade-out lineal de fadeOutSec al final para evitar clicks
   // de truncación. Si maxDurationSec es null/0/>=duration, encoda completo.
@@ -277,9 +327,11 @@
     computeODF,
     pickPeaks,
     detectBPM,
+    detectBPMSegments,
     detectOffset,
     audioBufferToWav,
     computeBandEnvelopes,
-    getPitchBandAtFrame
+    getPitchBandAtFrame,
+    normalizeODFLocally
   };
 })();

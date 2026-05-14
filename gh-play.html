@@ -2678,6 +2678,11 @@ function quitGame() {
 //     Para single (1 fret): frets < M pueden estar pulsados (anchor)
 
 function fretsMatchNote(noteFrets, fretsHeld) {
+  // Open note (fret 7): ningún fret [0-4] debe estar pulsado
+  if (noteFrets.length === 1 && noteFrets[0] === 7) {
+    for (let i = 0; i < 5; i++) if (fretsHeld[i]) return false;
+    return true;
+  }
   const M = noteFrets[noteFrets.length - 1];
   if (noteFrets.length === 1) {
     // Single note: anchor — debe estar pulsado el target Y nada más alto
@@ -3113,6 +3118,7 @@ function render(t) {
       const yBottom = (sustainActive || sustainReleased) ? hitY : yCenter;
       if (yEnd < yBottom) {
         for (const f of n.frets) {
+          if (f < 0 || f >= 5) continue;  // open notes (fret 7) no tienen tail
           const cx = highwayX + (f + 0.5) * laneW;
           if (sustainActive) {
             const pulse = 0.75 + 0.25 * Math.sin(t * 14);
@@ -3140,30 +3146,44 @@ function render(t) {
     //   - Sustain broken: no pintar (la nota ya se perdió).
     if (!n.judged || sustainActive) {
       const yHead = sustainActive ? hitY : yCenter;
-      for (const f of n.frets) {
-        const cx = highwayX + (f + 0.5) * laneW;
-        const r = laneW * 0.42;
+      const isOpenNote = n.frets.length === 1 && n.frets[0] === 7;
+      if (isOpenNote) {
+        // Open note: barra horizontal que abarca todo el highway
+        const barH = laneW * 0.55;
         ctx2d.save();
-        if (sustainActive) {
-          ctx2d.shadowBlur = 22;
-          ctx2d.shadowColor = FRET_COLORS[f];
-        }
-        ctx2d.beginPath();
-        ctx2d.arc(cx, yHead, r, 0, Math.PI * 2);
-        ctx2d.fillStyle = FRET_COLORS[f];
-        ctx2d.fill();
-        // HOPO: borde blanco; Tap: relleno blanco; normal: borde negro
-        if (n.isHopo) {
-          ctx2d.strokeStyle = '#fff'; ctx2d.lineWidth = 4; ctx2d.stroke();
-        } else if (n.isTap) {
-          ctx2d.fillStyle = '#fff';
-          ctx2d.beginPath();
-          ctx2d.arc(cx, yHead, r * 0.55, 0, Math.PI * 2);
-          ctx2d.fill();
-        } else {
-          ctx2d.strokeStyle = '#000'; ctx2d.lineWidth = 3; ctx2d.stroke();
-        }
+        if (sustainActive) { ctx2d.shadowBlur = 18; ctx2d.shadowColor = '#fff'; }
+        ctx2d.fillStyle = 'rgba(0,0,0,0.85)';
+        ctx2d.fillRect(highwayX, yHead - barH / 2, laneW * 5, barH);
+        ctx2d.strokeStyle = '#ffffff';
+        ctx2d.lineWidth = 4;
+        ctx2d.strokeRect(highwayX, yHead - barH / 2, laneW * 5, barH);
         ctx2d.restore();
+      } else {
+        for (const f of n.frets) {
+          const cx = highwayX + (f + 0.5) * laneW;
+          const r = laneW * 0.42;
+          ctx2d.save();
+          if (sustainActive) {
+            ctx2d.shadowBlur = 22;
+            ctx2d.shadowColor = FRET_COLORS[f];
+          }
+          ctx2d.beginPath();
+          ctx2d.arc(cx, yHead, r, 0, Math.PI * 2);
+          ctx2d.fillStyle = FRET_COLORS[f];
+          ctx2d.fill();
+          // HOPO: borde blanco; Tap: relleno blanco; normal: borde negro
+          if (n.isHopo) {
+            ctx2d.strokeStyle = '#fff'; ctx2d.lineWidth = 4; ctx2d.stroke();
+          } else if (n.isTap) {
+            ctx2d.fillStyle = '#fff';
+            ctx2d.beginPath();
+            ctx2d.arc(cx, yHead, r * 0.55, 0, Math.PI * 2);
+            ctx2d.fill();
+          } else {
+            ctx2d.strokeStyle = '#000'; ctx2d.lineWidth = 3; ctx2d.stroke();
+          }
+          ctx2d.restore();
+        }
       }
     }
   }
