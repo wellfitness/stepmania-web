@@ -1459,6 +1459,11 @@ async function analyzeOne(q) {
     renderQueue();
     return;
   }
+  // Cacheamos lo que necesitemos del AudioBuffer ANTES de liberarlo más
+  // abajo. El AudioBuffer estéreo float32 son ~85-200 MB nativos que Chrome
+  // no libera mientras quede una referencia JS — por eso lo nuleamos tras
+  // audioBufferToWav.
+  const originalDuration = buffer.duration;
   await yieldUI();
 
   const sr = buffer.sampleRate;
@@ -1523,9 +1528,9 @@ async function analyzeOne(q) {
   // de #durationGrid (data-duration en segundos, "0" = completa).
   const activeDurEl = document.querySelector('#durationGrid .preset.selected');
   const maxDurationSec = activeDurEl ? (parseFloat(activeDurEl.dataset.duration) || 0) : 0;
-  const effectiveDuration = (maxDurationSec > 0 && buffer.duration > maxDurationSec)
-    ? maxDurationSec : buffer.duration;
-  if (effectiveDuration < buffer.duration) {
+  const effectiveDuration = (maxDurationSec > 0 && originalDuration > maxDurationSec)
+    ? maxDurationSec : originalDuration;
+  if (effectiveDuration < originalDuration) {
     onsetTimesSec = onsetTimesSec.filter(t => t < effectiveDuration);
   }
 
@@ -1576,23 +1581,32 @@ async function analyzeOne(q) {
   }
 
   // Si hay cap de duración activo, recorta el audio + re-encoda a WAV con
-  // fade-out de 1.5s. El blob queda en q.result.croppedAudio para el ZIP.
+  // fade-out de 1.5s. Los bytes resultantes van a q._audioBytes; q.result
+  // guarda solo audioExt + audioName para que callers (audioNameFor,
+  // saveOneToLibrary, downloadAllZip) sepan cómo etiquetar el audio
+  // empaquetado sin tener que retener el Blob aparte.
   let croppedAudio = null;
-  let croppedAudioName = null;
-  if (effectiveDuration < buffer.duration && window.AudioPipeline?.audioBufferToWav) {
+  let audioName = q.file.name;
+  let audioExt = (q.file.name.match(/\.[^.]+$/) || ['.mp3'])[0];
+  if (effectiveDuration < originalDuration && window.AudioPipeline?.audioBufferToWav) {
     croppedAudio = window.AudioPipeline.audioBufferToWav(buffer, effectiveDuration, 1.5);
-    croppedAudioName = q.file.name.replace(/\.[^.]+$/, '') + '.wav';
+    audioName = q.file.name.replace(/\.[^.]+$/, '') + '.wav';
+    audioExt = '.wav';
   }
+  // Liberamos el AudioBuffer ANTES del arrayBuffer() para que Chrome libere
+  // los ~85-200 MB del thread nativo de audio mientras esperamos el await.
+  buffer = null;
   q._audioBytes = new Uint8Array(await (croppedAudio || q.file).arrayBuffer());
+  croppedAudio = null;  // los bytes ya viven en q._audioBytes — liberar Blob
 
   q.result = {
     bpm, bpmSegments, offsetSec,
     duration: effectiveDuration,
-    originalDuration: buffer.duration,
+    originalDuration,
     onsetTimesSec, beatsList,
     charts, sampleStart,
     sampleRate: sr,
-    croppedAudio, croppedAudioName,
+    audioExt, audioName,
   };
   q.status = 'done';
   log(`  ✓ ${q.file.name}: BPM ${bpm.toFixed(1)}, ${charts.reduce((s,c)=>s+c.count,0)} pasos totales`, 'ok');
@@ -1849,7 +1863,7 @@ function getExt(name) { const m = name.match(/\.[^.]+$/); return m ? m[0] : '.mp
 // WAV cropeado; si no, se conserva la extensión original. Coherente con
 // downloadAllZip que adjunta el mismo blob.
 function audioNameFor(q) {
-  const ext = q.result?.croppedAudio ? '.wav' : getExt(q.file.name);
+  const ext = q.result?.audioExt || getExt(q.file.name);
   return safeFilename(q.title) + ext;
 }
 
@@ -1974,14 +1988,15 @@ async function saveOneToLibrary(id) {
   const status = document.getElementById('librarySaveStatus');
   try {
     const ssc = buildSscForSong(q);
-    const sourceBlob = q.result.croppedAudio || q.file;
-    const audioName  = q.result.croppedAudioName || q.file.name;
-    // El audio se persiste como Blob nuevo (audio/* MIME) para desacoplar
-    // de la referencia al File original — que se invalida si el usuario
-    // recarga la pestaña. Lo mismo hace library.js al importar.
-    const audioBlob  = sourceBlob instanceof Blob && sourceBlob.type
-      ? sourceBlob
-      : new Blob([await sourceBlob.arrayBuffer()], { type: sourceBlob.type || 'audio/mpeg' });
+    const audioName = q.result.audioName || q.file.name;
+    // Usamos q._audioBytes (ya contiene bytes correctos: cropeados si hubo
+    // cap, originales si no). MIME inferido del audioExt para que Safari
+    // valide bien el audio al cargarlo desde IndexedDB.
+    const isCropped = q.result.audioExt === '.wav';
+    const audioBlob = new Blob(
+      [q._audioBytes],
+      { type: isCropped ? 'audio/wav' : (q.file.type || 'audio/mpeg') }
+    );
     // Política unificada 8-lane: todos los charts generados son dance-double.
     // Ver CLAUDE.md "Política unificada de carriles". El motor en runtime
     // decide 4/6/8 vía mods (default 4) y hace el remap.

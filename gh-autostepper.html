@@ -1287,10 +1287,14 @@ function cancelProcessing() {
 }
 
 async function processOne(q, opts) {
-  // 1. Decode audio
-  const buffer = await decodeFile(q.file);
+  // 1. Decode audio. `buffer` se nulea más abajo tras audioBufferToWav para
+  // que Chrome libere los ~85-200 MB del AudioBuffer nativo (estéreo float32)
+  // ANTES de generar charts. Capturamos originalDuration aparte para no
+  // necesitar mantener buffer vivo después.
+  let buffer = await decodeFile(q.file);
   const sr = buffer.sampleRate;
-  log(`  decode OK · ${buffer.duration.toFixed(1)}s · ${sr} Hz · ${buffer.numberOfChannels} ch`);
+  const originalDuration = buffer.duration;
+  log(`  decode OK · ${originalDuration.toFixed(1)}s · ${sr} Hz · ${buffer.numberOfChannels} ch`);
 
   // 2. Pipeline análisis multi-banda para GH.
   // Bass ODF (0-200 Hz): capta bombo. Mid ODF (200-2500 Hz): capta guitarra,
@@ -1341,10 +1345,10 @@ async function processOne(q, opts) {
   // el audio. effectiveDuration manda en TODO el resto del pipeline para que
   // song.ini, density y ZIP queden coherentes con el WAV cropeado.
   const maxDurationSec = activeMaxDurationSec;
-  const effectiveDuration = (maxDurationSec > 0 && buffer.duration > maxDurationSec)
-    ? maxDurationSec : buffer.duration;
-  if (effectiveDuration < buffer.duration) {
-    log(`  Duración recortada: ${effectiveDuration.toFixed(1)}s / ${buffer.duration.toFixed(1)}s`);
+  const effectiveDuration = (maxDurationSec > 0 && originalDuration > maxDurationSec)
+    ? maxDurationSec : originalDuration;
+  if (effectiveDuration < originalDuration) {
+    log(`  Duración recortada: ${effectiveDuration.toFixed(1)}s / ${originalDuration.toFixed(1)}s`);
   }
 
   // 4. Convertir onsets frames → ticks usando el tick timeline (BPM variable).
@@ -1402,12 +1406,17 @@ async function processOne(q, opts) {
   }
 
   // 5.c. Si hay cap activo, recorta el audio + re-encoda a WAV con fade-out
-  // de 1.5s. El blob queda en q.result.croppedAudio y la extensión final del
-  // ZIP/biblioteca pasa a ser .wav.
+  // de 1.5s. Los bytes resultantes acaban en q._audioBytes; q.result.audioExt
+  // pasa a 'wav' como indicador de que el audio empaquetado va re-encodado.
   let croppedAudio = null;
-  if (effectiveDuration < buffer.duration && window.AudioPipeline?.audioBufferToWav) {
+  if (effectiveDuration < originalDuration && window.AudioPipeline?.audioBufferToWav) {
     croppedAudio = window.AudioPipeline.audioBufferToWav(buffer, effectiveDuration, 1.5);
   }
+  // Ya no necesitamos el AudioBuffer original. Liberar la referencia JS
+  // permite que Chrome libere ~85-200 MB del thread nativo de audio antes
+  // de seguir con makeZip/generación. Sin esto, buffer vivía hasta el final
+  // de processOne y bloqueaba el GC mayor del navegador entre canciones.
+  buffer = null;
 
   // 6. Build .chart text + song.ini. La extensión del audio empaquetado
   // depende de si hubo recorte: WAV cropeado o el original sin tocar.
@@ -1435,11 +1444,14 @@ async function processOne(q, opts) {
   const slug = slugify((q.artist ? q.artist + ' - ' : '') + q.title) || 'song';
   const sourceAudioBlob = croppedAudio || q.file;
   q._audioBytes = new Uint8Array(await sourceAudioBlob.arrayBuffer());
+  // Libera el Blob WAV cropeado ahora que sus bytes ya viven en q._audioBytes.
+  // Antes se persistía en q.result.croppedAudio Y en q._audioBytes — la misma
+  // información dos veces (~16 MB por canción de 90s estéreo).
+  croppedAudio = null;
   q.result = {
     bpm, offsetSec, charts,
     duration: effectiveDuration,
-    originalDuration: buffer.duration,
-    croppedAudio,
+    originalDuration,
     audioExt,
     slug,
     tickTimeline,        // necesario para reconstruir [SyncTrack] en buildZipForSong
@@ -1546,10 +1558,13 @@ async function saveOneToLibrary(id) {
       audioFilename, genre, diffGuitar: 4
     };
     const chartText = buildChartFile(meta, q.result.charts);
-    const sourceAudioBlob = q.result.croppedAudio || q.file;
+    // Usamos q._audioBytes (ya tiene los bytes correctos — cropeados si hubo
+    // cap, originales si no). audioExt='wav' indica que el original fue
+    // re-encodado por audioBufferToWav, así que el MIME debe ser audio/wav.
+    const wasCropped = q.result.audioExt === 'wav';
     const audioBlob = new Blob(
-      [await sourceAudioBlob.arrayBuffer()],
-      { type: q.result.croppedAudio ? 'audio/wav' : (q.file.type || 'audio/mpeg') }
+      [q._audioBytes],
+      { type: wasCropped ? 'audio/wav' : (q.file.type || 'audio/mpeg') }
     );
     const totalNotes = q.result.charts.reduce((s, c) => s + c.notes.length, 0);
     const dbId = await window.GHLibrary.add({
