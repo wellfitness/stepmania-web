@@ -1752,16 +1752,21 @@ function renderGhLibraryFromCache() {
     // Campeón: mejor score absoluto entre TODAS las dificultades de la canción.
     // No filtramos por dificultad — el #1 puede haber salido en Expert y sigue
     // siendo el top de la canción. La dificultad aparece junto al nombre.
+    // Líder en columna compacta a la derecha del título: 👑 jugador
+    // + grade-pill (sin diff ni score — chip mínimo informativo). Antes
+    // ocupaba una línea entera debajo del título; ahora está alineado en
+    // columna con el botón Tocar, paridad con SM songs-screen.
     const songRuns = runsBySong.get(e.id) || [];
-    let championHtml = '';
+    let championHtml;
     if (songRuns.length > 0) {
       const champ = rankRuns(songRuns)[0];
-      championHtml = `<div class="lib-row-champion" title="${songRuns.length} partida${songRuns.length === 1 ? '' : 's'} guardada${songRuns.length === 1 ? '' : 's'}">
+      const tip = `${songRuns.length} partida${songRuns.length === 1 ? '' : 's'} guardada${songRuns.length === 1 ? '' : 's'}`;
+      championHtml = `<div class="lib-row-champion-col compact" title="${escHtml(tip)}">
         👑 <strong>${escHtml(champ.playerName || 'Anónimo')}</strong>
-        <span class="champ-diff">${escHtml(ghDiffLabel(champ.chartKey))}</span>
-        <span class="champ-grade g-${(champ.grade || '').toLowerCase()}">${escHtml(champ.grade || '')}</span>
-        <span class="champ-score">${(champ.score || 0).toLocaleString()}</span>
+        <span class="grade-pill grade-${escHtml(champ.grade || '')}">${escHtml(champ.grade || '')}</span>
       </div>`;
+    } else {
+      championHtml = `<div class="lib-row-champion-col compact empty">—</div>`;
     }
     html += `<div class="lib-row${isMarked ? ' in-playlist' : ''}"
       onmouseenter="scheduleGHAudioPreview(${e.id}); updateGhRadarPanel(${e.id})"
@@ -1772,8 +1777,8 @@ function renderGhLibraryFromCache() {
       <div style="flex:1;min-width:0">
         <div style="color:#fff;font-weight:600">${escHtml(e.title || 'Sin título')}${audioFlagBadge(e.audioFlags)}</div>
         <div style="color:var(--gris-400);font-size:0.85em">${escHtml(e.artist || 'Unknown')} · ${e.bpm ? e.bpm.toFixed(1) + ' BPM' : ''} · ${dur} · ${e.totalNotes || 0} notas</div>
-        ${championHtml}
       </div>
+      ${championHtml}
       <div style="display:flex;gap:6px">
         <button class="action-btn" style="padding:8px 16px;font-size:0.95em" onclick="playFromLibrary(${e.id})">▶ Tocar</button>
       </div>

@@ -234,7 +234,13 @@
 <!-- SONGS (selector to play) -->
 <div class="screen hidden" id="songs-screen">
   <div class="container">
-    <h1>Crear partida</h1>
+    <!-- Título alineado a la izquierda con icono — paridad con gh-play.html
+         "🎸 Tocar" para que la apertura de ambos motores se sienta hermana.
+         El wrapper flex permite añadir badges/chips a la derecha en el futuro
+         sin romper el alineamiento del título. -->
+    <div style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap">
+      <h1 style="margin:0">🦶 Bailar</h1>
+    </div>
     <p class="subtitle" id="songsSubtitle">Cargando...</p>
 
     <!-- Estado de la alfombra (banner de calibración). Réplica del banner de

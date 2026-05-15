@@ -161,19 +161,32 @@ function renderSongList() {
   // Guardar IDs visibles para el "select all" (opera sobre filtrados, no
   // sobre la librería entera).
   _visibleSongIds = songs.map(s => s.id);
-  // 6 columnas: checkbox · título/artista · BPM · duración · best · ✏
+  // 6 columnas: checkbox · título/artista · BPM · duración · líder · ✏
+  // La columna "Líder" muestra 👑 jugador · grade del top-1 (no solo la
+  // letra). Más informativo de un vistazo cuando juegas en familia: ves
+  // quién mantiene el récord de cada canción sin abrir el panel de rankings.
+  // Ancho 190px para que "👑 Anónimo  AAA" entre cómodo en una línea.
   // El click en la fila arranca la canción directamente con la configuración
   // global. El botón ✏ lleva a diff-screen para edición avanzada (Tags,
   // BPM/offset edit) sin lanzar la canción.
-  const COLS = '32px 1fr 90px 80px 80px 36px';
+  const COLS = '32px 1fr 90px 80px 190px 36px';
   let html = `<div class="queue"><div class="queue-row header" style="grid-template-columns:${COLS}">
       <div onclick="event.stopPropagation()" title="Marcar/desmarcar todas las visibles">
         <input type="checkbox" class="playlist-checkbox" id="selectAllVisible" onchange="toggleAllVisible()" aria-label="Seleccionar todas las visibles">
       </div>
-      <div>Canción</div><div>BPM</div><div>Duración</div><div>Best</div><div></div>
+      <div>Canción</div><div>BPM</div><div>Duración</div><div>Líder</div><div></div>
     </div>`;
   for (const s of songs) {
-    const grade = s._bestGrade ? `<span class="grade-pill grade-${s._bestGrade.grade}">${s._bestGrade.grade}</span>` : '<span style="color:#444">—</span>';
+    let leaderHtml;
+    if (s._bestGrade) {
+      const champ = s._bestGrade;
+      leaderHtml = `<div class="lib-row-champion-col compact" title="Líder">
+        👑 <strong>${escapeHtml(champ.playerName || 'Anónimo')}</strong>
+        <span class="grade-pill grade-${champ.grade}">${escapeHtml(champ.grade)}</span>
+      </div>`;
+    } else {
+      leaderHtml = '<span style="color:#444">—</span>';
+    }
     const isMarked = selectedSongIds.has(s.id);
     html += `<div class="queue-row${isMarked ? ' in-playlist' : ''}" style="cursor:pointer;grid-template-columns:${COLS}"
       onmouseenter="scheduleSongPreview(${s.id}); updateRadarPanel(${s.id})"
@@ -188,7 +201,7 @@ function renderSongList() {
         <div style="color:var(--gris-400);font-size:0.82em">${escapeHtml(s.artist||'—')} · ${s.charts.length} dif.</div></div>
       <div onclick="selectSong(${s.id})">${s.bpm.toFixed(0)}</div>
       <div onclick="selectSong(${s.id})">${formatTime(s.duration)}</div>
-      <div onclick="selectSong(${s.id})">${grade}</div>
+      <div onclick="selectSong(${s.id})">${leaderHtml}</div>
       <div onclick="event.stopPropagation()">
         <button class="icon-btn" title="Tags · BPM/offset · charts disponibles" onclick="openSongConfig(${s.id})" style="font-size:0.9em">✏</button>
       </div>
