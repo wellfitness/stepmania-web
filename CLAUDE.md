@@ -22,7 +22,7 @@ Suite de juego rítmico en navegador para alfombra de baile (RedOctane USB Pad V
 ### Módulos JS (`stepmania-web/js/`)
 
 - **`core.js`** — Helpers, AudioContext, `pollGamepad()`, IndexedDB wrappers, `settings`, `navToken`. Cargado por TODOS los HTMLs.
-- **`audio-pipeline.js`** — Pipeline de detección (bassEmphasize → ODF → BPM → offset). Compartido por SM y GH autosteppers.
+- **`audio-pipeline.js`** — Pipeline de detección (bassEmphasize bass+mid en una pasada → ODF → BPM → offset). Compartido por SM y GH autosteppers.
 - **`audio-metadata.js`** — Parser binario ID3v2.3/v2.4/v1 (MP3) + Vorbis Comments (FLAC). Sin deps.
 - **`sm-flow.js`** — Motor de flow biomecánico (alternancia L/R, anti-crossover, drills automáticos). Reemplaza al `Math.random()` del SM autostepper.
 - **`mat-layout.js`** — Detección automática de diagonales (`'up' | 'down'`) según `mat-mapping`.
@@ -131,7 +131,7 @@ Puntos de entrada sin shell (debug, link directo):
 
 Para los Python: `python test_pad.py` desde PowerShell (Python 3.x estándar, sin paquetes).
 
-Para tests: `pnpm install` → `pnpm test` (~430ms, 131 tests). Ver sección Tests.
+Para tests: `pnpm install` → `pnpm test` (~450ms, 167 tests). Ver sección Tests.
 
 ---
 
@@ -158,14 +158,16 @@ Para tests: `pnpm install` → `pnpm test` (~430ms, 131 tests). Ver sección Tes
 
 ## Tests
 
-Suite con **Vitest**. Filosofía: testeamos lo matemáticamente verificable sin navegador; lo demás (render, Web Audio, Gamepad, IndexedDB) se valida jugando. **Total: 131 tests, ~440ms.**
+Suite con **Vitest**. Filosofía: testeamos lo matemáticamente verificable sin navegador; lo demás (render, Web Audio, Gamepad, IndexedDB) se valida jugando. **Total: 167 tests, ~450ms.**
 
 - `tests/parser.test.mjs` — 23 tests del parser `.ssc/.sm`.
 - `tests/difficulty-tiers.test.mjs` — 23 tests del filtrado por dificultad.
 - `tests/audio-metadata.test.mjs` — 27 tests del parser ID3/FLAC.
 - `tests/mat-layout.test.mjs` — 11 tests de detección de diagonales.
 - `tests/sm-flow.test.mjs` — 24 tests del flow biomecánico.
-- Scores 23 (en suite parser/tiers).
+- `tests/scores.test.mjs` — 23 tests del sistema de scores (helpers puros).
+- `tests/radar.test.mjs` — 28 tests del Groove Radar.
+- `tests/audio-pipeline.test.mjs` — 8 tests de respuesta en frecuencia de `bassEmphasize` (bass+mid en una pasada).
 
 **Doble export CJS** en archivos source para que Vitest pueda `import`: `if (typeof module !== 'undefined' && module.exports) module.exports = api;` al final del módulo (ver `parser.js:275-289`, `difficulty-tiers.js:259-274`).
 

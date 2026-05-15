@@ -149,7 +149,7 @@ Generador automático de charts **StepMania (.ssc/.sm)** desde MP3/WAV. Equivale
 
 **Política unificada 8-lane**: todos los charts se generan como `dance-double` (8 carriles: cardinales + 4 diagonales) — master único por canción. La elección de modo (4/6/8) es decisión de runtime en Sincro Play, no de autoría. En StepMania nativo, los charts aparecen bajo el modo *Doubles* (requiere dos alfombras o remapeo).
 
-**Pipeline de detección compartida** — vive en `stepmania-web/js/audio-pipeline.js`, expuesta como `window.AudioPipeline.{decodeFile, toMono, bassEmphasize, computeEnergyEnvelope, computeODF, pickPeaks, detectBPM, detectOffset, ensureAudioContext, audioBufferToWav}`. La usan tanto `autostepper.html` (output `.ssc/.sm`) como `gh-autostepper.html` (output `.chart`).
+**Pipeline de detección compartida** — vive en `stepmania-web/js/audio-pipeline.js`, expuesta como `window.AudioPipeline.{decodeFile, toMono, bassEmphasize, computeEnergyEnvelope, computeODF, pickPeaks, detectBPM, detectOffset, ensureAudioContext, audioBufferToWav}`. La usan tanto `autostepper.html` (output `.ssc/.sm`) como `gh-autostepper.html` (output `.chart`). El `bassEmphasize` cubre bass + mid en una sola pasada con blend 0.4/0.6 — el band-pass del mid vive en estado escalar para no doblar la RAM (ver sección "Algoritmo" más abajo y el historial de decisiones).
 
 **Cap de duración (Completa / 90s / 120s / 180s)** — selector en el paso "Estilo" de los **tres** autosteppers. Cuando se elige un cap menor que la duración:
 - **SM**: filtra los onsets a `t < effectiveDuration`; recalcula `totalUnits`, `sampleStart`, `estimateMeter`, `calculateRadarValues` con `effectiveDuration`.
@@ -161,7 +161,7 @@ Generador automático de charts **StepMania (.ssc/.sm)** desde MP3/WAV. Equivale
 
 **Algoritmo** (optimizado para música bailable: techno, dance, pop, rock, latina):
 1. `decodeAudioData` → mono Float32Array.
-2. **`bassEmphasize`** — IIR low-pass 2-polo cascado a ~200 Hz. Aísla kick + bajo. El kick domina el envelope, la BPM detection queda estable en 90-180 BPM. La ODF resultante alimenta `pickPeaks`, `detectBPMSegments` y `detectOffset` (todos comparten la misma fase, sin drift).
+2. **`bassEmphasize`** — Pre-filtro combinado bass + mid en una única pasada sobre el buffer. El bass (<200 Hz, kick + bajo) usa la cascada IIR 2-polo de toda la vida escrita en `out` con peso `BLEND_BASS=0.4`. El mid (200–2500 Hz, snare, voz, guitarra rítmica, percusión latina) se construye inline como diferencia de dos cascadas IIR 2-polo (LP @ 2500 Hz - LP @ 200 Hz) cuyas variables `y` viven en 4 escalares — sin materializar buffer paralelo. La contribución se suma al `out` con peso `BLEND_MID=0.6`. RAM pico = `samples + out` (idéntico al bass-only original); CPU ~3x bass-only pero lineal O(N), irrelevante frente a decodeAudioData y pickPeaks. La ODF resultante alimenta `pickPeaks`, `detectBPMSegments` y `detectOffset` (todos comparten la misma fase, sin drift). BPM detection sigue estable en 90-180 BPM porque el kick continúa siendo el componente más energético del envelope.
 3. **`computeEnergyEnvelope`** — RMS con ventanas de 23 ms y hop de 5 ms.
 4. **`computeODF`** — log-derivada rectificada y renormalizada a [0,1].
 5. **`normalizeODFLocally`** — segundo pase con umbral adaptativo en ventana local (~3s). Captura onsets en tramos quiet (intro, break).
@@ -445,7 +445,7 @@ El mismo patrón con la misma regex vive en:
 Ver descripción detallada en sección de `autostepper.html`. Resumen:
 
 1. `decodeAudioData` → mono Float32Array.
-2. `bassEmphasize` → IIR low-pass 2-polo cascado a ~200 Hz.
+2. `bassEmphasize` → pre-filtro combinado bass (<200 Hz) + mid (200–2500 Hz) en una pasada, blend 0.4/0.6, band-pass del mid en estado escalar (sin buffer paralelo).
 3. `computeEnergyEnvelope` → RMS ventanas 23 ms, hop 5 ms.
 4. `computeODF` → log-derivada rectificada [0,1].
 5. `normalizeODFLocally` → umbral adaptativo ventana ~3s.
@@ -566,11 +566,15 @@ La calibración de `difficulty-tiers.js` para GH se basa en:
 
 ## Historial de decisiones y reverts
 
-### Multi-banda 40/60 revertida (2026-05-15)
+### Multi-banda 40/60 revertida (2026-05-15) y resurrected con estado escalar (2026-05-15 PM)
 
-El 2026-05-14 (commits `13905cb` GH, `e243d93` SM) se introdujo un pipeline multi-banda que sumaba `midEmphasize` (bandpass 200-2500 Hz) al `bassEmphasize` y blendeaba 40/60 a nivel de ODF para captar voz, caja, guitarra y percusión latina. Mejoraba la detección musical en rock/pop/latina pero el coste en RAM era prohibitivo: cada `midEmphasize` retenía 3 buffers Float32 del tamaño de mono (~42 MB cada uno a 4 min/44.1 kHz), y en GH además se computaban 5 band envelopes para frets pitch-aware. Pico real medido: **~300 MB por canción**.
+**Implementación original revertida**: el 2026-05-14 (commits `13905cb` GH, `e243d93` SM) se introdujo un pipeline multi-banda que sumaba `midEmphasize` (bandpass 200-2500 Hz) al `bassEmphasize` y blendeaba 40/60 a nivel de ODF para captar voz, caja, guitarra y percusión latina. Mejoraba la detección musical en rock/pop/latina pero el coste en RAM era prohibitivo: cada `midEmphasize` retenía 3 buffers Float32 del tamaño de mono (~42 MB cada uno a 4 min/44.1 kHz), y en GH además se computaban 5 band envelopes para frets pitch-aware. Pico real medido: **~300 MB por canción**.
 
-Las mitigaciones (cierre de `AudioContext` entre canciones en v60, tope de 20 canciones en v63, ZIP lazy en v58) no fueron suficientes para tandas reales (14+ canciones del Megamix 90s) y el navegador colgaba. Se revirtió a bass-only para devolver el pico a ~120 MB por canción. Si en el futuro se reintroduce, perfilar memoria con DevTools y validar que el peak retenido cabe en el budget móvil/Safari (~50 MB de cuota IndexedDB, ~1-2 GB de heap antes de OOM).
+Las mitigaciones (cierre de `AudioContext` entre canciones en v60, tope de 20 canciones en v63, ZIP lazy en v58) no fueron suficientes para tandas reales (14+ canciones del Megamix 90s) y el navegador colgaba. Se revirtió en commit `db03ef7` a bass-only para devolver el pico a ~120 MB por canción.
+
+**Re-introducción con estado escalar (v74)**: el mismo día por la tarde se reintrodujo el blend bass+mid 40/60 pero **dentro de la misma función `bassEmphasize`** y en una **única pasada sobre el buffer**. El componente bass se calcula con la cascada IIR 2-polo de siempre y se escribe en `out` escalado por `BLEND_BASS=0.4`. El componente mid se construye inline como diferencia de dos cascadas IIR 2-polo (LP @ 2500 Hz - LP @ 200 Hz) cuyas variables de estado (`yH1, yH2, yL1, yL2`) son 4 escalares — **sin materializar el band-pass como buffer paralelo**. Resultado: pico de RAM idéntico al bass-only (~120 MB), CPU ~3x el bass-only pero lineal O(N), comportamiento musical equivalente al multi-banda revertido en rock/pop/latina/trance. Constantes en `audio-pipeline.js`: `BASS_FC=200`, `MID_LP_FC=2500`, `BLEND_BASS=0.4`, `BLEND_MID=0.6`. Tests sintéticos en `tests/audio-pipeline.test.mjs` verifican la respuesta en frecuencia (bass pasa, mid pasa, alto se atenúa).
+
+**Pitch-aware fret y open notes en GH siguen revertidos** — el `computeBandEnvelopes` (5 bandas) sigue siendo demasiado caro y el beneficio sobre el walk determinista no compensaba.
 
 ### Recalibración difficulty-tiers (2026-05-12, dos pasadas)
 

@@ -7,18 +7,22 @@
 //    decode → toMono → bassEmphasize → computeEnergyEnvelope → computeODF
 //          → pickPeaks (onsets) ⊕ detectBPM ⊕ detectOffset
 //
-//  Optimizado para música bailable (techno, dance, pop, rock). El bass-emphasis
-//  pre-filtra a ~200 Hz para que el envelope esté dominado por kick + bajo;
-//  desestima voces, hi-hats, guitarras distorsionadas. Eso da BPM detection
-//  estable en el rango 90-180 BPM con corrección de octava al mismo rango.
+//  Optimizado para música bailable (techno, dance, pop, rock, latina). El
+//  `bassEmphasize` mezcla en una sola pasada el rango bass (<200 Hz, kick +
+//  bajo) y el rango mid (200–2500 Hz, snare, voz, guitarra rítmica, percusión
+//  latina) con blend 0.4/0.6 — sin doblar la RAM porque el band-pass del mid
+//  vive en estado escalar (4 floats) en lugar de materializarse como buffer
+//  paralelo. Captura el groove completo respetando un pico de memoria similar
+//  al bass-only original. BPM detection estable en 90-180 BPM con corrección
+//  de octava al mismo rango.
 //
 //  Uso:
 //    <script src="stepmania-web/js/audio-pipeline.js"></script>
 //    const ctx = AudioPipeline.ensureAudioContext();
 //    const buffer = await AudioPipeline.decodeFile(file);
 //    const mono = AudioPipeline.toMono(buffer);
-//    const bass = AudioPipeline.bassEmphasize(mono, buffer.sampleRate);
-//    const { env, framesPerSec } = AudioPipeline.computeEnergyEnvelope(bass, buffer.sampleRate);
+//    const emphasized = AudioPipeline.bassEmphasize(mono, buffer.sampleRate);
+//    const { env, framesPerSec } = AudioPipeline.computeEnergyEnvelope(emphasized, buffer.sampleRate);
 //    const odf = AudioPipeline.computeODF(env);
 //    const peakFrames = AudioPipeline.pickPeaks(odf, framesPerSec, sensitivity);
 //    const bpm = AudioPipeline.detectBPM(odf, framesPerSec);
@@ -27,6 +31,19 @@
 
 (function() {
   let _audioCtx = null;
+
+  // === Constantes del filtro de énfasis bass+mid ===
+  // BASS_FC: corte del low-pass para aislar kick + bajo.
+  // MID_LP_FC: techo del band-pass del mid (snare, voz, guitarra, percusión).
+  // El band-pass del mid se construye como (LP_MID_LP - LP_BASS) → no necesita
+  // constante adicional para el borde inferior, comparte BASS_FC.
+  // BLEND_BASS / BLEND_MID: pesos del mix. 0.4/0.6 replica el blend del
+  // pipeline multi-banda revertido (commits 13905cb GH + e243d93 SM, revert
+  // db03ef7), pero con coste de memoria igual al bass-only original.
+  const BASS_FC = 200;
+  const MID_LP_FC = 2500;
+  const BLEND_BASS = 0.4;
+  const BLEND_MID = 0.6;
 
   // El AudioContext se crea on-demand en la primera llamada y se cachea.
   // Compartido entre análisis (decodeFile) y reproducción (autostepper preview)
@@ -85,11 +102,60 @@
     return out;
   }
 
-  // Bass-emphasis pre-filter — low-pass a ~200 Hz.
-  // Aísla el kick + bajo, descarta voces, hi-hats, guitarras distorsionadas.
-  // El kick domina el envelope → BPM detection más estable en DDR/SM.
+  // Énfasis bass + mid en una única pasada. El bass (<BASS_FC) se calcula con
+  // la misma cascada 2-polo de iirLowPass y se escala por BLEND_BASS. El mid
+  // (BASS_FC–MID_LP_FC) se construye inline como diferencia de dos low-pass
+  // 2-polo en estado escalar (4 floats yH1/yH2/yL1/yL2) — esto evita
+  // materializar un segundo buffer Float32 del tamaño de la canción, que era
+  // la causa de los ~300 MB/canción del pipeline multi-banda revertido en
+  // commit db03ef7. RAM pico final = samples + out (idéntico al bass-only
+  // original); el coste extra es ~3x CPU en los IIR (lineal, irrelevante
+  // frente a decodeAudioData y pickPeaks).
+  //
+  // Cubrir el rango mid devuelve la sensibilidad a snare en 2/4, voz, guitarra
+  // rítmica y percusión latina (clave, congas) que el bass-only ignoraba por
+  // completo. En rock/pop/latina/trance los charts en tiers Hard/Challenge
+  // ganan los onsets del backbeat; tiers bajos quedan acotados por los topes
+  // de NPS y minGap de difficulty-tiers, así que no suben densidad ahí.
   function bassEmphasize(samples, sr) {
-    return iirLowPass(samples, sr, 200);
+    const N = samples.length;
+    const out = new Float32Array(N);
+
+    const aB = Math.exp(-2 * Math.PI * BASS_FC / sr);
+    const aH = Math.exp(-2 * Math.PI * MID_LP_FC / sr);
+    const omB = 1 - aB;
+    const omH = 1 - aH;
+
+    // Componente BASS: cascada 2-polo low-pass @ BASS_FC, escrita en `out`.
+    // Pasada 1 forward (1er polo) — escribe el resultado en `out`.
+    let yB = 0;
+    for (let i = 0; i < N; i++) {
+      yB = aB * yB + omB * samples[i];
+      out[i] = yB;
+    }
+    // Pasada 2 forward (2º polo en cascada), aplicando blend bass al final.
+    yB = 0;
+    for (let i = 0; i < N; i++) {
+      yB = aB * yB + omB * out[i];
+      out[i] = yB * BLEND_BASS;
+    }
+
+    // Componente MID: band-pass (LP_MID_LP - LP_BASS) en estado escalar.
+    // Cada cascada usa 2 escalares (poles 1 y 2). El borde inferior del
+    // band-pass coincide con BASS_FC (se reusa aB/omB) para evitar añadir
+    // otro corte. La contribución se suma al `out` con peso BLEND_MID.
+    let yH1 = 0, yH2 = 0;  // cascada LP @ MID_LP_FC
+    let yL1 = 0, yL2 = 0;  // cascada LP @ BASS_FC
+    for (let i = 0; i < N; i++) {
+      const x = samples[i];
+      yH1 = aH * yH1 + omH * x;
+      yH2 = aH * yH2 + omH * yH1;
+      yL1 = aB * yL1 + omB * x;
+      yL2 = aB * yL2 + omB * yL1;
+      out[i] += (yH2 - yL2) * BLEND_MID;
+    }
+
+    return out;
   }
 
   // RMS energy envelope con ventanas de 23ms y hop de 5ms.
@@ -302,7 +368,10 @@
     return new Blob([buf], { type: 'audio/wav' });
   }
 
-  window.AudioPipeline = {
+  // Doble export: classic-script (window) + CommonJS (Node/Vitest).
+  // En navegador `module` es undefined, así que el guard CJS no se ejecuta.
+  // En Node, `window` puede no existir — guardamos también ese caso.
+  const api = {
     ensureAudioContext,
     resetAudioContext,
     decodeFile,
@@ -317,4 +386,6 @@
     audioBufferToWav,
     normalizeODFLocally
   };
+  if (typeof window !== 'undefined') window.AudioPipeline = api;
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

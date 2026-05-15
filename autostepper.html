@@ -124,6 +124,16 @@
   .drop-zone .dz-sub {
     color: var(--gris-400); font-size: 0.88em;
   }
+  .drop-zone .dz-limit {
+    margin-top: 8px;
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: rgba(0,190,200,0.10);
+    border: 1px solid rgba(0,190,200,0.30);
+    color: var(--gris-300);
+    font-size: 0.78em; letter-spacing: 0.02em;
+  }
   .drop-zone p { color: var(--gris-400); }
   input[type="file"] { display: none; }
 
@@ -627,6 +637,7 @@
       <div class="big-icon" aria-hidden="true">🎵</div>
       <div class="dz-title">Suelta tus canciones aquí</div>
       <div class="dz-sub">o pulsa para elegir archivos · MP3 · WAV · OGG · M4A · FLAC</div>
+      <div class="dz-limit" aria-label="Tope de canciones por tanda">Hasta 20 canciones por tanda</div>
       <input type="file" id="fileInput" accept="audio/*" multiple>
     </label>
     <div id="queueContainer"></div>
