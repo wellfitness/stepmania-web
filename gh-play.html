@@ -2830,6 +2830,22 @@ function renderSongInfo() {
   // la canción no tiene la dificultad pedida, pickClosestGHDiff resuelve.
 }
 function escHtml(s) { return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Helper local — gh-play.html es self-contained (NO carga `core.js`), así que
+// el `audioFlagBadge` global de SM (`stepmania-web/js/core.js:19`) no está
+// disponible aquí. Sin esta copia local, las dos `lib-row` HTML que llaman al
+// helper (renderGhLibraryFromCache + renderManageListFromCache) tiraban
+// ReferenceError mid-template-literal, abortaban el for de canciones y la
+// biblioteca aparecía "vacía" aunque las canciones SÍ estuvieran en IndexedDB.
+// Bug introducido en commit 47452d8 (feat audio-flag badge); detectado tras
+// que la usuaria reportara "se borraron las canciones tras el deploy v80".
+function audioFlagBadge(audioFlags) {
+  if (!audioFlags || !audioFlags.hasLevelJump) return '';
+  const sign = audioFlags.deltaDb > 0 ? '+' : '';
+  const mm = Math.floor((audioFlags.tSec || 0) / 60);
+  const ss = Math.floor((audioFlags.tSec || 0) % 60).toString().padStart(2, '0');
+  const tip = `Salto de volumen ${sign}${audioFlags.deltaDb.toFixed(1)} dB a ${mm}:${ss}`;
+  return ` <span class="audio-flag-badge" title="${escHtml(tip)}" style="cursor:help;font-size:0.9em" aria-label="${escHtml(tip)}">⚠️</span>`;
+}
 
 // ---- Drop zone handlers ----
 ['zip', 'chart', 'audio'].forEach(t => {
