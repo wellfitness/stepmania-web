@@ -77,7 +77,6 @@ function renderLibraryFromCache() {
   const countEl = document.getElementById('libraryCount');
   if (!c) return;
   const info = _libraryStorageInfo;
-  const runsBySong = _libraryRunsBySong;
   const allSongs = _libraryCache;
 
   const storageBar = info
@@ -124,21 +123,10 @@ function renderLibraryFromCache() {
     const dur = s.duration ? formatTime(s.duration) : '?';
     const isMarked = selectedLibraryIds.has(s.id);
     const chartCount = (s.charts || []).length;
-    // Campeón = mejor score absoluto entre todos los charts de la canción.
-    // No filtramos por dificultad: el #1 puede haber salido en Challenge y
-    // sigue siendo el top de la canción. La dificultad aparece junto al nombre
-    // para que se entienda el contexto.
-    const songRuns = runsBySong.get(s.id) || [];
-    let championHtml = '';
-    if (songRuns.length > 0) {
-      const champ = rankRuns(songRuns)[0];
-      championHtml = `<div class="lib-row-champion" title="${songRuns.length} partida${songRuns.length === 1 ? '' : 's'} guardada${songRuns.length === 1 ? '' : 's'}">
-        👑 <strong>${escapeHtml(champ.playerName || 'Anónimo')}</strong>
-        <span class="champ-diff">${escapeHtml(diffLabel(champ.chartKey))}</span>
-        <span class="champ-grade g-${(champ.grade || '').toLowerCase()}">${escapeHtml(champ.grade || '')}</span>
-        <span class="champ-score">${(champ.score || 0).toLocaleString()}</span>
-      </div>`;
-    }
+    // Biblioteca SM = pantalla "Mis canciones" pura gestión (paridad con la
+    // de GH en `gh-play.html → refreshManageList`). Para tocar se usa la
+    // pantalla "Tocar" (songs-screen). Por eso aquí NO va el botón ▶ Tocar
+    // ni el chip de campeón — solo info + botón de eliminar.
     html += `<div class="lib-row${isMarked ? ' in-playlist' : ''}"
       onmouseenter="scheduleSongPreview(${s.id})"
       onmouseleave="cancelSongPreview()">
@@ -148,11 +136,9 @@ function renderLibraryFromCache() {
       <div style="flex:1;min-width:0">
         <div style="color:#fff;font-weight:600">${escapeHtml(s.title || 'Sin título')}${audioFlagBadge(s.audioFlags)}</div>
         <div style="color:var(--gris-400);font-size:0.85em">${escapeHtml(s.artist || 'Unknown')} · ${s.bpm ? s.bpm.toFixed(1) + ' BPM' : '? BPM'} · ${dur} · ${chartCount} chart${chartCount === 1 ? '' : 's'}</div>
-        ${championHtml}
       </div>
-      <div class="lib-row-actions">
-        <button class="action-btn" style="padding:8px 16px;font-size:0.95em" onclick="playSong(${s.id})">▶ Tocar</button>
-        <button class="icon-btn danger" style="padding:8px 12px" onclick="deleteSong(${s.id})" title="Eliminar esta canción">🗑</button>
+      <div style="display:flex;gap:6px">
+        <button class="action-btn secondary" style="padding:8px 14px;font-size:0.95em;background:linear-gradient(90deg,var(--color-error),#9f1239)" onclick="deleteSong(${s.id})" title="Eliminar esta canción">🗑 Eliminar</button>
       </div>
     </div>`;
   }
