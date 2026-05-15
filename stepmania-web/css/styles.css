@@ -292,6 +292,7 @@ body.playing #play-screen { top: 0 !important; }
    coherencia visual entre ambos selectores. Antes 1500px (cuando no había
    panel lateral y la config-card horizontal exigía más espacio). */
 #songs-screen .container { max-width: 1200px; }
+#library-screen .container { max-width: 1200px; }
 
 h1 {
   font-family: var(--font-display);
