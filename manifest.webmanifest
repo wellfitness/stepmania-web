@@ -44,7 +44,7 @@
     },
     {
       "name": "Crear chart (DDR)",
-      "short_name": "AutoStepper",
+      "short_name": "Generador",
       "description": "Generar coreografías desde MP3",
       "url": "app.html#/autostepper",
       "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]

@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>AutoStepper — Crea coreografías para Sincro desde tus canciones</title>
+<title>Generador — Crea coreografías para Sincro desde tus canciones</title>
 <meta name="theme-color" content="#00bec8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="manifest" href="manifest.webmanifest">
@@ -614,7 +614,7 @@
 
 <nav id="sat-topbar">
   <a href="play.html" class="logo">⚡ Sincro</a>
-  <span class="crumb">· 🎵 AutoStepper</span>
+  <span class="crumb">· 🎵 Generador de coreografías</span>
   <span class="spacer"></span>
   <div class="topbar-nav">
     <a href="play.html?screen=songs" class="topbar-link">🦶 Bailar</a>
@@ -625,7 +625,7 @@
   <a href="play.html" class="home-btn" title="Menú principal">⌂</a>
 </nav>
 
-<h1>AutoStepper Web</h1>
+<h1>Generador de coreografías</h1>
 <p class="subtitle">Convierte tus canciones (MP3 o WAV) en coreografías jugables: cinco dificultades, notas mantenidas, saltos y notas a dos manos incluidos. Todo el proceso ocurre en tu navegador, no se sube nada a ningún servidor.</p>
 
 <div class="container">
@@ -762,7 +762,7 @@
       <strong>Guarda en biblioteca</strong> para tocar las coreografías directamente desde Sincro
       (recomendado). O <strong>descarga el ZIP</strong> si vas a usar StepMania 5 nativo —
       cada canción incluye <code>.ssc</code> + <code>.sm</code> + audio. Descomprime dentro de
-      <code>C:\Games\StepMania 5\Songs\AutoStepper\</code>.
+      <code>C:\Games\StepMania 5\Songs\Sincro\</code>.
     </p>
     <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
       <button class="action-btn primary-cta" id="saveLibraryBtn" onclick="saveAllToLibrary()">💾 Guardar TODO en biblioteca Sincro</button>
@@ -859,6 +859,78 @@ fileInput.addEventListener('change', e => {
 // PCs modestos tandas mayores pueden disparar swap. Tope 20 deja margen.
 const MAX_QUEUE_SIZE = 20;
 
+// ============================================================
+//          DETECCIÓN DE DUPLICADOS (vs biblioteca + intra-cola)
+// ============================================================
+// Política: AVISAR, nunca eliminar. El usuario puede legítimamente querer
+// reanalizar la misma canción con otros parámetros (estilo, BPM forzado,
+// nuevo umbral de NPS) — así que solo marcamos visualmente. La normalización
+// (NFD + strip diacríticos + lowercase + trim) replica `compareByTitleArtist`
+// de core.js sin cargar el módulo (este HTML es standalone).
+function _normForDup(s) {
+  return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+function _dupKey(title, artist) {
+  return _normForDup(title) + '' + _normForDup(artist);
+}
+// Map<dupKey, entry de IndexedDB>. Se refresca antes de cada addFiles y tras
+// cada saveOneToLibrary para que reflectar siempre lo que hay en la DB.
+let _libraryDupIndex = new Map();
+async function _refreshLibraryDupIndex() {
+  try {
+    const all = await _smDbAll();
+    _libraryDupIndex = new Map();
+    for (const s of all) {
+      _libraryDupIndex.set(_dupKey(s.title, s.artist), s);
+    }
+  } catch (e) {
+    // Si la DB falla, dejamos el index vacío — peor caso: no detectamos
+    // duplicados, pero el autostepper sigue funcionando.
+    _libraryDupIndex = new Map();
+  }
+}
+function _recomputeDuplicates() {
+  // Recalcula `duplicate` para TODA la cola. Coste irrelevante (queue ≤ 20).
+  // Iteramos en orden — la primera ocurrencia de una clave NO es duplicado;
+  // las siguientes se marcan como duplicate.kind='queue' apuntando a la
+  // primera. Si la clave coincide con una entrada de biblioteca, prevalece
+  // kind='library' (información más útil para el usuario).
+  const seen = new Map();
+  for (const q of queue) {
+    const k = _dupKey(q.title, q.artist);
+    const libMatch = _libraryDupIndex.get(k);
+    if (libMatch) {
+      q.duplicate = { kind: 'library', title: libMatch.title, artist: libMatch.artist, charts: (libMatch.charts || []).map(c => c.name) };
+    } else if (seen.has(k)) {
+      const other = seen.get(k);
+      q.duplicate = { kind: 'queue', title: other.title, artist: other.artist };
+    } else {
+      q.duplicate = null;
+      seen.set(k, q);
+    }
+  }
+}
+function queueHasDuplicates() {
+  return queue.some(q => q.duplicate);
+}
+function removeDuplicatesFromQueue() {
+  if (analyzing) { log('No se puede modificar la cola durante un análisis.', 'warn'); return; }
+  const before = queue.length;
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (queue[i].duplicate) {
+      if (selectedId === queue[i].id) selectedId = null;
+      queue.splice(i, 1);
+    }
+  }
+  const removed = before - queue.length;
+  if (removed > 0) log(`${removed} canción${removed === 1 ? '' : 'es'} duplicada${removed === 1 ? '' : 's'} quitada${removed === 1 ? '' : 's'} de la cola.`, 'success');
+  renderQueue();
+  if (queue.length === 0) {
+    document.getElementById('optionsCard').style.display = 'none';
+    document.getElementById('exportCard').classList.add('hidden');
+  }
+}
+
 async function addFiles(files) {
   // Filtro por extensión, no por file.type: en Windows el file picker entrega
   // FLAC/M4A/OGG con type="" y se descartarían silenciosamente.
@@ -879,21 +951,30 @@ async function addFiles(files) {
   }
   // Procesamos los tags en paralelo (cada lectura solo toca ~1MB del File).
   // El ID se asigna sync ANTES del await para mantener correlatividad.
-  const items = await Promise.all(toAdd.map(async (file) => {
-    const id = ++queueIdCounter;
-    const meta = await AudioMetadata.extractMetadata(file);
-    return {
-      id,
-      file,
-      title: meta.title || file.name.replace(/\.[^.]+$/, ''),
-      artist: meta.artist,
-      status: 'pending',
-      bpmOverride: '',
-      result: null,
-      error: null
-    };
-  }));
+  // Refrescamos el index de la biblioteca en paralelo a la extracción de tags.
+  const [items] = await Promise.all([
+    Promise.all(toAdd.map(async (file) => {
+      const id = ++queueIdCounter;
+      const meta = await AudioMetadata.extractMetadata(file);
+      return {
+        id,
+        file,
+        title: meta.title || file.name.replace(/\.[^.]+$/, ''),
+        artist: meta.artist,
+        status: 'pending',
+        bpmOverride: '',
+        result: null,
+        error: null,
+        duplicate: null
+      };
+    })),
+    _refreshLibraryDupIndex()
+  ]);
   queue.push(...items);
+  // Marcar duplicados (vs biblioteca + vs items previos en la cola) sobre la
+  // cola completa — así los items que YA estaban en la cola también reciben
+  // badge cuando un drop posterior introduce un match.
+  _recomputeDuplicates();
   renderQueue();
   document.getElementById('optionsCard').style.display = queue.length ? '' : 'none';
 }
@@ -932,7 +1013,23 @@ function renderQueue() {
       </div>`;
     return;
   }
-  let html = `<div class="queue">
+  // Banner-resumen si hay duplicados detectados. Solo aviso — el usuario
+  // puede querer reanalizar la misma canción con otros parámetros.
+  const dups = queue.filter(q => q.duplicate);
+  const dupsLib = dups.filter(q => q.duplicate.kind === 'library').length;
+  const dupsQueue = dups.filter(q => q.duplicate.kind === 'queue').length;
+  let html = '';
+  if (dups.length > 0) {
+    const parts = [];
+    if (dupsLib > 0) parts.push(`<strong>${dupsLib}</strong> ya en tu biblioteca`);
+    if (dupsQueue > 0) parts.push(`<strong>${dupsQueue}</strong> repetida${dupsQueue === 1 ? '' : 's'} dentro de la cola`);
+    html += `<div style="margin-bottom:10px;padding:10px 14px;background:rgba(245,158,11,0.12);border-left:3px solid #f59e0b;border-radius:4px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:0.92em;color:var(--gris-200)">
+      <span aria-hidden="true">♻️</span>
+      <span>${parts.join(' · ')}. Puedes mantenerlas para reanalizar con otros parámetros o quitarlas.</span>
+      <button class="icon-btn" onclick="removeDuplicatesFromQueue()" ${analyzing?'disabled':''} style="margin-left:auto;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.5);padding:5px 12px">Quitar duplicados</button>
+    </div>`;
+  }
+  html += `<div class="queue">
     <div class="queue-row header">
       <div>Archivo / Título</div>
       <div>Estado</div>
@@ -946,9 +1043,16 @@ function renderQueue() {
     const dur = q.result ? formatTime(q.result.duration) : '--';
     const steps = q.result ? q.result.charts.reduce((s, c) => s + c.count, 0) : '--';
     const bpmDisplay = q.result ? q.result.bpm.toFixed(1) : '--';
+    let dupBadge = '';
+    if (q.duplicate) {
+      const tip = q.duplicate.kind === 'library'
+        ? `Ya en tu biblioteca${q.duplicate.charts && q.duplicate.charts.length ? ' — dificultades: ' + q.duplicate.charts.map(diffLabel).join(', ') : ''}`
+        : `Repetida dentro de la cola (coincide con "${q.duplicate.title}")`;
+      dupBadge = ` <span title="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}" style="display:inline-block;background:rgba(245,158,11,0.2);color:#fbbf24;padding:1px 6px;border-radius:4px;font-size:0.72em;font-weight:600;cursor:help;vertical-align:middle">♻ ${q.duplicate.kind === 'library' ? 'ya en biblioteca' : 'duplicada en cola'}</span>`;
+    }
     html += `<div class="queue-row${sel}">
       <div class="name">
-        <div style="font-weight:600">${escapeHtml(q.title || q.file.name)}</div>
+        <div style="font-weight:600">${escapeHtml(q.title || q.file.name)}${dupBadge}</div>
         <div style="color:#888;font-size:0.78em">${escapeHtml(q.artist) || '<em style="opacity:0.5">sin artista</em>'} · ${(q.file.size/1024/1024).toFixed(2)} MB</div>
       </div>
       <div class="status"><span class="badge ${q.status}">${statusLabel(q.status)}</span></div>
@@ -1401,7 +1505,7 @@ function buildHeaderCommon(meta, audioFilename, bpm, offsetSec, sampleStart, bpm
   h += `#SUBTITLE:;\n`;
   h += `#ARTIST:${meta.artist};\n`;
   h += `#TITLETRANSLIT:;\n#SUBTITLETRANSLIT:;\n#ARTISTTRANSLIT:;\n`;
-  h += `#GENRE:;\n#ORIGIN:;\n#CREDIT:AutoStepper Web;\n`;
+  h += `#GENRE:;\n#ORIGIN:;\n#CREDIT:Sincro;\n`;
   h += `#MUSIC:${audioFilename};\n`;
   h += `#BANNER:;\n#BACKGROUND:;\n#CDTITLE:;\n`;
   h += `#SAMPLESTART:${sampleStart.toFixed(3)};\n`;
@@ -1416,7 +1520,7 @@ function buildHeaderCommon(meta, audioFilename, bpm, offsetSec, sampleStart, bpm
 
 // Legacy .sm file (compatible with all versions of StepMania)
 function buildSmFile(meta, audioFilename, bpm, offsetSec, sampleStart, charts, bpmStr) {
-  let sm = `// Generated by AutoStepper Web\n`;
+  let sm = `// Generated by Sincro\n`;
   sm += buildHeaderCommon(meta, audioFilename, bpm, offsetSec, sampleStart, bpmStr) + '\n';
 
   for (const c of charts) {
@@ -1425,7 +1529,7 @@ function buildSmFile(meta, audioFilename, bpm, offsetSec, sampleStart, charts, b
     sm += `//---------------dance-double - ${c.name}----------------\n`;
     sm += `#NOTES:\n`;
     sm += `     dance-double:\n`;
-    sm += `     AutoStepper:\n`;
+    sm += `     Sincro:\n`;
     sm += `     ${c.name}:\n`;
     sm += `     ${c.rating}:\n`;
     sm += `     ${radar5}:\n`;
@@ -1438,7 +1542,7 @@ function buildSmFile(meta, audioFilename, bpm, offsetSec, sampleStart, charts, b
 // Native SM5 .ssc file (preferred by StepMania 5)
 // Uses NOTEDATA structure, full RADARVALUES (12), per-chart metadata
 function buildSscFile(meta, audioFilename, bpm, offsetSec, sampleStart, charts, bpmStr) {
-  let s = `// Generated by AutoStepper Web — SSC for StepMania 5\n`;
+  let s = `// Generated by Sincro — SSC for StepMania 5\n`;
   s += `#VERSION:0.83;\n`;
   s += buildHeaderCommon(meta, audioFilename, bpm, offsetSec, sampleStart, bpmStr);
   s += `#DELAYS:;\n`;
@@ -1459,12 +1563,12 @@ function buildSscFile(meta, audioFilename, bpm, offsetSec, sampleStart, charts, 
     s += `#NOTEDATA:;\n`;
     s += `#CHARTNAME:${c.name};\n`;
     s += `#STEPSTYPE:dance-double;\n`;
-    s += `#DESCRIPTION:AutoStepper Web — ${c.name};\n`;
+    s += `#DESCRIPTION:Sincro — ${c.name};\n`;
     s += `#CHARTSTYLE:Pad;\n`;
     s += `#DIFFICULTY:${c.name};\n`;
     s += `#METER:${c.rating};\n`;
     s += `#RADARVALUES:${c.radar};\n`;
-    s += `#CREDIT:AutoStepper Web;\n`;
+    s += `#CREDIT:Sincro;\n`;
     s += `#NOTES:\n`;
     s += c.notes;
     s += `\n;\n\n`;
@@ -2062,6 +2166,19 @@ async function _smDbAdd(entry) {
     req.onerror  = () => rej(req.error);
   });
 }
+// Lectura completa para el detector de duplicados. Mismo enfoque que
+// `dbAll` de core.js — getAll() trae también los audioBlobs pero el array
+// se descarta tras construir el index (Map por título+artista), así que
+// la memoria se libera inmediatamente. Se llama una vez por addFiles.
+async function _smDbAll() {
+  const db = await _smOpenDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction('songs', 'readonly');
+    const req = tx.objectStore('songs').getAll();
+    req.onsuccess = () => res(req.result || []);
+    req.onerror  = () => rej(req.error);
+  });
+}
 
 async function saveOneToLibrary(id) {
   const q = queue.find(x => x.id === id);
@@ -2106,6 +2223,13 @@ async function saveOneToLibrary(id) {
     });
     q.savedToLibrary = true;
     q.dbId = dbId;
+    // Actualizar el index de duplicados — si el usuario sigue arrastrando
+    // canciones después de guardar esta, la nueva ya constará como "ya en
+    // biblioteca" para el detector. Sin esto, solo se vería al recargar.
+    _libraryDupIndex.set(_dupKey(q.title, q.artist), { id: dbId, title: q.title, artist: q.artist, charts });
+    // Reclasificar: otros items en cola con la misma title+artist pasan de
+    // "duplicada en cola" a "ya en biblioteca" (más informativo).
+    _recomputeDuplicates();
     renderQueue();
     status.innerHTML = `<span style="color:#00ff64">✓ "${escapeHtml(q.title || q.file.name)}" guardada en biblioteca.</span>`;
   } catch (err) {
@@ -2169,7 +2293,7 @@ function downloadAllZip() {
     }
     const zipBytes = makeZip(files);
     const blob = new Blob([zipBytes], { type: 'application/zip' });
-    const fn = `AutoStepper_${done.length}_songs.zip`;
+    const fn = `Sincro_${done.length}_canciones.zip`;
     downloadBlob(blob, fn);
     status.innerHTML = `<span style="color:#00ff64">✓ ZIP descargado: ${fn} (${(blob.size/1024/1024).toFixed(1)} MB)</span>`;
   } catch (err) {

@@ -551,7 +551,7 @@
 
 <nav id="sat-topbar">
   <a href="play.html" class="logo">⚡ Sincro</a>
-  <span class="crumb">· 🎼 GH AutoStepper</span>
+  <span class="crumb">· 🎼 Generador de partituras</span>
   <span class="spacer"></span>
   <div class="topbar-nav">
     <a href="play.html?screen=songs" class="topbar-link">🦶 Bailar</a>
@@ -663,7 +663,7 @@
 
     <div class="form-row" style="margin-top:14px">
       <label>Autor:</label>
-      <input type="text" id="charter" value="Sincro AutoStepper">
+      <input type="text" id="charter" value="Sincro">
     </div>
     <div class="form-row">
       <label>Género:</label>
@@ -703,7 +703,7 @@
 </div>
 
 <div class="footer-link">
-  Suite Sincro · <a href="autostepper.html">AutoStepper alfombra (.ssc/.sm)</a> ·
+  Suite Sincro · <a href="autostepper.html">Generador de coreografías (.ssc/.sm)</a> ·
   <a href="test-pad.html">Probar hardware</a>
 </div>
 
@@ -833,6 +833,67 @@ fileInput.addEventListener('change', e => {
 // cargar más. Coherente con el patrón "una sesión de trabajo = una tanda".
 const MAX_QUEUE_SIZE = 20;
 
+// ============================================================
+//          DETECCIÓN DE DUPLICADOS (vs biblioteca + intra-cola)
+// ============================================================
+// Política: AVISAR, nunca eliminar. El usuario puede legítimamente querer
+// reanalizar la misma canción con otros parámetros (preset, BPM forzado,
+// resolución, prob. acordes). Solo marcamos visualmente con badge + banner
+// resumen y dejamos un botón "Quitar duplicados" para los que sí prefieren
+// limpiar. Normalización igual que el SM autostepper: NFD + strip diacríticos
+// + lowercase + trim. Replica `compareByTitleArtist` de core.js sin cargarlo.
+function _normForDup(s) {
+  return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+function _dupKey(title, artist) {
+  return _normForDup(title) + '' + _normForDup(artist);
+}
+let _libraryDupIndex = new Map();
+async function _refreshLibraryDupIndex() {
+  try {
+    const all = await window.GHLibrary.all();
+    _libraryDupIndex = new Map();
+    for (const s of all) {
+      _libraryDupIndex.set(_dupKey(s.title, s.artist), s);
+    }
+  } catch (e) {
+    _libraryDupIndex = new Map();
+  }
+}
+function _recomputeDuplicates() {
+  // Recalcula `duplicate` para TODA la cola. Mismo enfoque que el SM
+  // autostepper — la primera ocurrencia no es duplicado, las siguientes sí.
+  // Si la clave coincide con una entrada de biblioteca prevalece kind='library'
+  // (mensaje más informativo para el usuario).
+  const seen = new Map();
+  for (const q of queue) {
+    const k = _dupKey(q.title, q.artist);
+    const libMatch = _libraryDupIndex.get(k);
+    if (libMatch) {
+      // GH entry tiene `diffs` (claves EasySingle/MediumSingle/...).
+      q.duplicate = { kind: 'library', title: libMatch.title, artist: libMatch.artist, diffs: libMatch.diffs || [] };
+    } else if (seen.has(k)) {
+      const other = seen.get(k);
+      q.duplicate = { kind: 'queue', title: other.title, artist: other.artist };
+    } else {
+      q.duplicate = null;
+      seen.set(k, q);
+    }
+  }
+}
+function removeDuplicatesFromQueue() {
+  if (analyzing) { log('No se puede modificar la cola durante un análisis.', 'warn'); return; }
+  const before = queue.length;
+  for (let i = queue.length - 1; i >= 0; i--) {
+    if (queue[i].duplicate) queue.splice(i, 1);
+  }
+  const removed = before - queue.length;
+  if (removed > 0) log(`${removed} canción${removed === 1 ? '' : 'es'} duplicada${removed === 1 ? '' : 's'} quitada${removed === 1 ? '' : 's'} de la cola.`, 'success');
+  renderQueue();
+  updateDisclosure();
+}
+window.removeDuplicatesFromQueue = removeDuplicatesFromQueue;
+
 async function addFiles(files) {
   const valid = Array.from(files).filter(f => /\.(mp3|wav|ogg|m4a|flac)$/i.test(f.name));
   if (!valid.length) return;
@@ -852,21 +913,29 @@ async function addFiles(files) {
   // Lectura de tags en paralelo (cada File solo se toca en sus primeros ~1MB).
   // Importante: ++queueIdCounter va ANTES del await para mantener IDs
   // correlativos aunque las promesas resuelvan en orden distinto.
-  const items = await Promise.all(toAdd.map(async (f) => {
-    const id = ++queueIdCounter;
-    const meta = await AudioMetadata.extractMetadata(f);
-    return {
-      id,
-      file: f,
-      title: meta.title || f.name.replace(/\.[^.]+$/, ''),
-      artist: meta.artist,
-      bpmOverride: '',
-      status: 'pending',
-      result: null,
-      error: null
-    };
-  }));
+  // En paralelo refrescamos el index de la biblioteca para detectar duplicados.
+  const [items] = await Promise.all([
+    Promise.all(toAdd.map(async (f) => {
+      const id = ++queueIdCounter;
+      const meta = await AudioMetadata.extractMetadata(f);
+      return {
+        id,
+        file: f,
+        title: meta.title || f.name.replace(/\.[^.]+$/, ''),
+        artist: meta.artist,
+        bpmOverride: '',
+        status: 'pending',
+        result: null,
+        error: null,
+        duplicate: null
+      };
+    })),
+    _refreshLibraryDupIndex()
+  ]);
   queue.push(...items);
+  // Marcar duplicados sobre la cola completa — items previos también reciben
+  // badge cuando un drop posterior introduce un match.
+  _recomputeDuplicates();
   renderQueue();
   updateDisclosure();
 }
@@ -894,15 +963,38 @@ function renderQueue() {
       </div>`;
     return;
   }
-  let html = `<div class="queue"><div class="queue-row header">
+  // Banner-resumen si hay duplicados detectados. Solo aviso — el usuario
+  // puede querer reanalizar la misma canción con otros parámetros.
+  const dups = queue.filter(q => q.duplicate);
+  const dupsLib = dups.filter(q => q.duplicate.kind === 'library').length;
+  const dupsQueue = dups.filter(q => q.duplicate.kind === 'queue').length;
+  let html = '';
+  if (dups.length > 0) {
+    const parts = [];
+    if (dupsLib > 0) parts.push(`<strong>${dupsLib}</strong> ya en tu biblioteca`);
+    if (dupsQueue > 0) parts.push(`<strong>${dupsQueue}</strong> repetida${dupsQueue === 1 ? '' : 's'} dentro de la cola`);
+    html += `<div style="margin-bottom:10px;padding:10px 14px;background:rgba(245,158,11,0.12);border-left:3px solid #f59e0b;border-radius:4px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:0.92em;color:#ddd">
+      <span aria-hidden="true">♻️</span>
+      <span>${parts.join(' · ')}. Puedes mantenerlas para reanalizar con otros parámetros o quitarlas.</span>
+      <button class="icon-btn" onclick="removeDuplicatesFromQueue()" ${analyzing?'disabled':''} style="margin-left:auto;background:rgba(245,158,11,0.18);border:1px solid rgba(245,158,11,0.5);padding:5px 12px">Quitar duplicados</button>
+    </div>`;
+  }
+  html += `<div class="queue"><div class="queue-row header">
     <div>Canción</div><div>BPM</div><div>Notas</div><div>Estado</div><div>Override BPM</div><div>Acciones</div>
   </div>`;
   for (const q of queue) {
     const bpmText = q.result ? q.result.bpm.toFixed(1) : '--';
     const totalNotes = q.result ? q.result.charts.reduce((s, c) => s + c.notes.length, 0) : '--';
+    let dupBadge = '';
+    if (q.duplicate) {
+      const tip = q.duplicate.kind === 'library'
+        ? `Ya en tu biblioteca${q.duplicate.diffs && q.duplicate.diffs.length ? ' — dificultades: ' + q.duplicate.diffs.map(ghDiffLabel).join(', ') : ''}`
+        : `Repetida dentro de la cola (coincide con "${q.duplicate.title}")`;
+      dupBadge = ` <span title="${escHtml(tip)}" aria-label="${escHtml(tip)}" style="display:inline-block;background:rgba(245,158,11,0.2);color:#fbbf24;padding:1px 6px;border-radius:4px;font-size:0.72em;font-weight:600;cursor:help;vertical-align:middle">♻ ${q.duplicate.kind === 'library' ? 'ya en biblioteca' : 'duplicada en cola'}</span>`;
+    }
     const titleArtist = q.artist
-      ? `<strong>${escHtml(q.title)}</strong><div style="font-size:0.85em;color:#aaa">${escHtml(q.artist)}</div>`
-      : `<strong>${escHtml(q.title)}</strong>`;
+      ? `<strong>${escHtml(q.title)}</strong>${dupBadge}<div style="font-size:0.85em;color:#aaa">${escHtml(q.artist)}</div>`
+      : `<strong>${escHtml(q.title)}</strong>${dupBadge}`;
     html += `<div class="queue-row" data-id="${q.id}">
       <div class="name">${titleArtist}</div>
       <div style="color:${q.result ? '#00ff64' : '#aaa'}">${bpmText}</div>
@@ -1578,6 +1670,16 @@ async function saveOneToLibrary(id) {
     });
     q.savedToLibrary = true;
     q.dbId = dbId;
+    // Actualizar el index de duplicados: si el usuario sigue arrastrando
+    // canciones tras guardar esta, ya constará como "ya en biblioteca".
+    _libraryDupIndex.set(_dupKey(meta.name, meta.artist), {
+      id: dbId, title: meta.name, artist: meta.artist,
+      diffs: q.result.charts.map(c => c.section || c.name + 'Single')
+    });
+    // Reclasificar items en cola: otros con misma title+artist pasan de
+    // "duplicada en cola" a "ya en biblioteca".
+    _recomputeDuplicates();
+    renderQueue();
     status.innerHTML = `<span style="color:var(--color-success)">✓ "${escHtml(meta.name)}" guardado en biblioteca (id ${dbId})</span>`;
     renderDownloads();
   } catch (err) {

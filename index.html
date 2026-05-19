@@ -47,7 +47,7 @@
   "applicationCategory": "GameApplication",
   "operatingSystem": "Any (browser-based)",
   "url": "https://play.movimientofuncional.app/",
-  "description": "Sincro, la suite rítmica de Movimiento Funcional. Convierte tus canciones favoritas en una coreografía o partitura: báilala en tu alfombra de baile o tócala con tu guitarra. Incluye juego, generador automático de coreografías (AutoStepper) y herramienta para comprobar el equipo. Funciona en el navegador, sin instalación. Compatible con StepMania (.ssc / .sm) y Clone Hero (.chart).",
+  "description": "Sincro, la suite rítmica de Movimiento Funcional. Convierte tus canciones favoritas en una coreografía o partitura: báilala en tu alfombra de baile o tócala con tu guitarra. Incluye juego, generador automático de coreografías y herramienta para comprobar el equipo. Funciona en el navegador, sin instalación. Compatible con StepMania (.ssc / .sm) y Clone Hero (.chart).",
   "browserRequirements": "Requires JavaScript. HTML5 Web Audio + Canvas + Gamepad API.",
   "inLanguage": "es",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
@@ -1496,7 +1496,7 @@ section { padding: 80px 24px; position: relative; }
 
         <article class="tool-card" aria-labelledby="t-auto">
           <p class="tool-icon" aria-hidden="true">🎵</p>
-          <h3 id="t-auto">AutoStepper</h3>
+          <h3 id="t-auto">Generador</h3>
           <p class="tool-lede">de MP3 a coreografía en 10 segundos</p>
           <p>
             Convierte cualquier canción tuya (MP3, WAV u OGG) en una coreografía jugable,
@@ -1563,9 +1563,36 @@ section { padding: 80px 24px; position: relative; }
               dedos — así que la alfombra es imprescindible para sacarle partido real.
             </p>
             <p>
-              Para canciones tuyas: añade tu MP3/WAV en el AutoStepper y te genera la coreografía en
+              Para canciones tuyas: añade tu MP3/WAV en el Generador y te genera la coreografía en
               segundos. Para canciones ya hechas: descargas paquetes <code>.ssc/.sm</code> de StepMania
               y los importas con un click.
+            </p>
+          </div>
+        </details>
+
+        <details class="faq-item">
+          <summary>¿Qué pasa si mi alfombra es vieja o china barata?</summary>
+          <div class="faq-body">
+            <p>
+              Casi cualquier alfombra USB funciona. La herramienta <strong>Comprobar el equipo</strong> tiene
+              un asistente de calibración que te deja mapear los 10 roles físicos (cardinales, diagonales,
+              start/back) sin importar qué números de botón use tu modelo concreto. También detecta
+              sensores pegados, mide bouncing y comprueba qué saltos puedes hacer.
+            </p>
+            <p>
+              <strong>Los modos de juego disponibles dependen de los paneles que tenga tu alfombra.</strong>
+              Sincro detecta tu hardware al calibrar y adapta las flechas automáticamente:
+            </p>
+            <ul>
+              <li><span class="ok">✓ 4 paneles (cardinales):</span> modo por defecto, cubre el 95% del catálogo.</li>
+              <li><span class="ok">✓ 6 paneles (cardinales + 2 diagonales superiores ↖↗ o inferiores ↙↘):</span>
+                  añades modo Solo. Si tienes solo las inferiores, las flechas aparecen ↙↘ en el juego.</li>
+              <li><span class="ok">✓ 8 paneles (cardinales + 4 diagonales):</span> añades modos Solo y Full.</li>
+            </ul>
+            <p>
+              Antes de comprar, fíjate en cuántos paneles trae el modelo y si las diagonales son
+              superiores o inferiores. Detalles de modelos recomendados en
+              <a href="tutorial.html#equipamiento">la sección de equipamiento del tutorial</a>.
             </p>
           </div>
         </details>
@@ -1663,7 +1690,7 @@ section { padding: 80px 24px; position: relative; }
               <li>
                 <strong><a href="https://github.com/phr00t/AutoStepper" target="_blank" rel="noopener noreferrer">AutoStepper</a></strong>
                 de phr00t — generador automático de charts en Java (licencia GPL-3). Es la referencia
-                conceptual del autostepper de Sincro: detección de onsets, BPM por autocorrelación,
+                conceptual del Generador de Sincro: detección de onsets, BPM por autocorrelación,
                 quantización a 192nds. Nuestra versión reimplementa el pipeline en JavaScript y añade
                 bass-emphasis, ODF multi-banda y asignación pitch-aware de trastes.
               </li>
@@ -1676,33 +1703,6 @@ section { padding: 80px 24px; position: relative; }
             <p>
               Si te gusta lo que hacen, <strong>apóyalos directamente</strong> con una estrella en GitHub
               o contribuyendo a su código. Sincro existe gracias a ellos.
-            </p>
-          </div>
-        </details>
-
-        <details class="faq-item">
-          <summary>¿Qué pasa si mi alfombra es vieja o china barata?</summary>
-          <div class="faq-body">
-            <p>
-              Casi cualquier alfombra USB funciona. La herramienta <strong>Comprobar el equipo</strong> tiene
-              un asistente de calibración que te deja mapear los 10 roles físicos (cardinales, diagonales,
-              start/back) sin importar qué números de botón use tu modelo concreto. También detecta
-              sensores pegados, mide bouncing y comprueba qué saltos puedes hacer.
-            </p>
-            <p>
-              <strong>Los modos de juego disponibles dependen de los paneles que tenga tu alfombra.</strong>
-              Sincro detecta tu hardware al calibrar y adapta las flechas automáticamente:
-            </p>
-            <ul>
-              <li><span class="ok">✓ 4 paneles (cardinales):</span> modo por defecto, cubre el 95% del catálogo.</li>
-              <li><span class="ok">✓ 6 paneles (cardinales + 2 diagonales superiores ↖↗ o inferiores ↙↘):</span>
-                  añades modo Solo. Si tienes solo las inferiores, las flechas aparecen ↙↘ en el juego.</li>
-              <li><span class="ok">✓ 8 paneles (cardinales + 4 diagonales):</span> añades modos Solo y Full.</li>
-            </ul>
-            <p>
-              Antes de comprar, fíjate en cuántos paneles trae el modelo y si las diagonales son
-              superiores o inferiores. Detalles de modelos recomendados en
-              <a href="tutorial.html#equipamiento">la sección de equipamiento del tutorial</a>.
             </p>
           </div>
         </details>
